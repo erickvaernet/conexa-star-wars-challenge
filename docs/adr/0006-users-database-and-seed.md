@@ -1,0 +1,52 @@
+# ADR-0006: Usuarios: base de datos y carga inicial
+
+| Campo      | Valor                                                        |
+|------------|--------------------------------------------------------------|
+| Estado     | Aceptado                                                     |
+| Fecha      | 14/11/2026                                                   |
+| Requisitos | REQ-11, REQ-19                                               |
+| Origen     | [RFC-001](../rfc/RFC-001-architecture.md), decisión D-08     |
+
+## Contexto
+
+El equipo técnico de Conexa pidió que los usuarios estén en una base de datos, con una carga inicial (*seed*) al levantar el proyecto en local. Los datos de Star Wars no se guardan: la base contiene solo usuarios, en una tabla.
+
+Quien corrige necesita usuarios de prueba listos, y sus credenciales están publicadas en el README.
+
+## Decisión
+
+| Tema               | Decisión                                                                                   |
+|--------------------|--------------------------------------------------------------------------------------------|
+| Motor              | **PostgreSQL**                                                                             |
+| Acceso a datos     | **Spring Data JPA**                                                                        |
+| Cambios de esquema | **Flyway**, con archivos SQL versionados. La generación automática de tablas queda apagada |
+| Carga inicial      | **Flyway, en una carpeta aparte** de la del esquema, que se activa por configuración       |
+
+La carga inicial es un archivo SQL con los `INSERT` de los usuarios de prueba y su contraseña ya cifrada con BCrypt.
+
+```
+src/main/resources/db/
+├── migration/   tablas e índices: corre siempre
+└── seed/        usuarios de prueba: corre solo si está activada
+```
+
+## Alternativas consideradas
+
+| Alternativa                             | A favor                                                  | En contra                                                              |
+|-----------------------------------------|----------------------------------------------------------|------------------------------------------------------------------------|
+| **PostgreSQL**                          | Base real, como pidió el equipo técnico; la más usada con Spring | Necesita un contenedor                                         |
+| H2 en memoria                           | No hay nada que levantar                                 | No es una base real; los datos se pierden al reiniciar                  |
+| **Spring Data JPA**                     | Es lo que se espera en un backend Java                   | Para una sola tabla es más de lo necesario                              |
+| Spring Data JDBC                        | Más simple y directo                                     | Menos conocido                                                         |
+| **Carga inicial con Flyway, carpeta aparte** | Un archivo SQL que se lee de un vistazo; sin código extra; los datos de prueba no quedan atados al esquema | Cambiar la contraseña de prueba exige otro archivo |
+| Carga inicial con Flyway, junto al esquema | La más simple                                         | Los datos de prueba correrían en cualquier ambiente                     |
+| Componente que crea los usuarios al arrancar | Contraseñas desde variables de entorno              | Código para escribir y probar; no se ve de un vistazo qué carga         |
+
+## Consecuencias
+
+- Al levantar el proyecto ya hay usuarios para iniciar sesión, sin pasos manuales.
+- La contraseña de prueba cifrada queda en el repositorio. No es un riesgo: es una credencial de prueba que el README publica para quien corrige.
+- En un sistema real, la carpeta `seed` se desactiva y no se crean usuarios de prueba.
+- Usar JPA para una sola tabla es un costo aceptado a cambio de usar la herramienta habitual.
+- El borrador del RFC proponía el componente al arrancar. Se descartó porque su única ventaja, no dejar contraseñas en el repositorio, no aplica a una credencial que se publica.
+- Los tests corren contra PostgreSQL real, con las mismas migraciones (ver [ADR-0009](0009-testing-strategy.md)).
