@@ -17,6 +17,7 @@ API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/docume
 
 ## Documentación
 
+- Convenciones de commits y ramas: [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)
 - Instrucciones de configuración y uso: _próximamente_
 - Decisiones de arquitectura (ADRs): _próximamente_ en `docs/adr/`
 - Flujo de trabajo con herramientas de IA: _próximamente_
