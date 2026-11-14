@@ -9,10 +9,10 @@ Cada documento se apoya en el anterior. El proceso completo está explicado en e
 | # | Documento                  | Qué responde                                                             | Dónde                                    | Estado                |
 |---|----------------------------|--------------------------------------------------------------------------|------------------------------------------|-----------------------|
 | 1 | **PRD**                    | Qué se construye y por qué: requisitos, prioridades y ciclos             | [`requirements/PRD.md`](requirements/PRD.md) | Aprobado (14/11/2026) |
-| 2 | **RFC**                    | Cómo se construye, a nivel macro, con las alternativas evaluadas         | `rfc/`                                   | Pendiente             |
-| 3 | **ADRs**                   | Una decisión técnica por archivo, con su contexto y sus consecuencias    | [`adr/`](adr/)                           | Pendiente             |
+| 2 | **RFC** | Cómo se construye, a nivel macro, con las alternativas evaluadas | [`rfc/RFC-001-architecture.md`](rfc/RFC-001-architecture.md) | Aceptado (14/11/2026) |
+| 3 | **ADRs** | Una decisión técnica por archivo, con su contexto y sus consecuencias | [`adr/README.md`](adr/README.md) | 11 aceptados (14/11/2026) |
 | 4 | **Especificación técnica**         | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación | `spec/`                               | Pendiente             |
-| 5 | **Arquitectura** | Cómo se organiza el código: carpetas, capas y dependencias permitidas | `ARCHITECTURE.md` | Pendiente, después del RFC |
+| 5 | **Arquitectura** | Cómo se organiza el código: carpetas, capas y dependencias permitidas | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Vigente |
 | 6 | **Registro de uso de IA** | Qué se delegó en herramientas de IA, cómo se revisó y qué se corrigió a mano | `process/AI-USAGE.md` | Pendiente |
 
 Dos documentos acompañan a todos los demás:
@@ -32,6 +32,7 @@ docs/
 ├── rfc/
 │   └── RFC-001-<tema>.md  propuesta técnica con alternativas
 ├── adr/
+│   ├── README.md          índice de las decisiones
 │   ├── 0000-template.md   plantilla para decisiones nuevas
 │   └── NNNN-<tema>.md     una decisión por archivo
 ├── spec/
@@ -41,7 +42,7 @@ docs/
     └── AI-USAGE.md        registro de uso de herramientas de IA
 ```
 
-Las carpetas `rfc/` y `spec/`, y los archivos `ARCHITECTURE.md` y `process/AI-USAGE.md`, se crean cuando se escribe su contenido.
+La carpeta `spec/` y el archivo `process/AI-USAGE.md` se crean cuando se escribe su contenido.
 
 ## Identificadores
 

@@ -129,11 +129,12 @@ El registro de lo que efectivamente se delegó, cómo se revisó y qué se corri
 | Tipo de regla                                                        | Dónde está                                         | Cuándo cambia                                   |
 |----------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------|
 | Qué se construye y con qué prioridad                                 | [`requirements/PRD.md`](../requirements/PRD.md)    | Al empezar cada ciclo                           |
-| Por qué se eligió cada tecnología o diseño                           | `adr/`, un archivo por decisión                    | Nunca: una decisión nueva reemplaza a la anterior |
-| Cómo se organiza el código: carpetas, capas y dependencias permitidas | `ARCHITECTURE.md`, que se escribe después del RFC  | Cuando un ADR nuevo cambia la arquitectura      |
+| Por qué se eligió cada tecnología o diseño | [`adr/`](../adr/README.md), un archivo por decisión | Nunca: una decisión nueva reemplaza a la anterior |
+| Cómo se organiza el código: carpetas, capas y dependencias permitidas | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Cuando un ADR nuevo cambia la arquitectura |
 | Qué debe hacer exactamente la aplicación                             | `spec/SPEC.md`                                     | Crece con cada ciclo                            |
 | Cómo se trabaja: commits, ramas, tickets y pull requests             | [`CONVENTIONS.md`](../CONVENTIONS.md)              | Cuando cambia la forma de trabajo               |
 | El recorrido completo y su porqué                                    | Este documento                                     | Cuando cambia el flujo                          |
+| Qué debe leer y respetar una herramienta de IA | [`AGENTS.md`](../../AGENTS.md), que solo enlaza a los documentos anteriores | Cuando se agrega o se mueve un documento |
 
 Cada regla está en un solo lugar y los demás documentos la enlazan. Siempre que se pueda, una regla se verifica de forma automática (con el compilador, un test o una herramienta de análisis) en vez de depender de que alguien la recuerde.
 
