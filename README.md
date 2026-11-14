@@ -23,9 +23,9 @@ El desafío se trabaja en **ciclos cortos** y con la **documentación primero**.
 
 | Ciclo          | Fecha                       | Alcance                                                                                                          | Versión  | Estado    |
 |----------------|-----------------------------|------------------------------------------------------------------------------------------------------------------|----------|-----------|
-| **1. MVP**     | 14/11/2026                  | Todo lo que pide la consigna: los requisitos "Debe" del PRD                                                      | `v0.1.0` | En curso  |
+| **1. MVP**     | 14/11/2026                  | Todo lo que pide la consigna: los requisitos "Debe" del PRD, incluida la caché de las respuestas de SWAPI                                                      | `v0.1.0` | En curso  |
 | **2. Mejoras** | 15/11/2026                  | Los requisitos "Debería": despliegue público, errores claros, tolerancia a fallas de SWAPI, verificación automática, datos completos a pedido en los listados y rol de administrador con alta de usuarios | `v0.2.0` | Pendiente |
-| **3. Extras**  | 15/11/2026, si sobra tiempo | Los requisitos "Podría": cobertura de tests visible, colección de pedidos lista para usar, límite de intentos de login, consulta flexible con GraphQL, límite de pedidos por usuario, respuestas más rápidas, cierre de sesión y registro público de usuarios | `v0.3.0` | Pendiente |
+| **3. Extras**  | 15/11/2026, si sobra tiempo | Los requisitos "Podría": cobertura de tests visible, colección de pedidos lista para usar, límite de intentos de login, consulta flexible con GraphQL, límite de pedidos por usuario, cierre de sesión y registro público de usuarios | `v0.3.0` | Pendiente |
 
 - **El MVP cumple la consigna por sí solo.** Si un ciclo posterior no llega a cerrarse, se entrega la última versión estable.
 - **Cada ciclo cierra con la rama principal estable:** todos los tests pasan y la versión queda etiquetada.
@@ -38,7 +38,7 @@ Cada etapa empieza recién cuando la anterior está revisada y aprobada.
 | # | Etapa              | Qué responde                                                                                              | Dónde                                                   | Estado en el ciclo 1 |
 |---|--------------------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------|----------------------|
 | 1 | **PRD**            | **Qué** y **por qué**: problema, usuarios, requisitos, prioridades y métricas de éxito                     | [`docs/requirements/PRD.md`](docs/requirements/PRD.md) | Aprobado             |
-| 2 | **RFC y ADRs**     | **Cómo**, a nivel macro: arquitectura, tecnologías y seguridad, con las alternativas evaluadas. Cada decisión tomada se registra como un ADR | `docs/rfc/` y `docs/adr/` | Pendiente |
+| 2 | **RFC y ADRs**     | **Cómo**, a nivel macro: arquitectura, tecnologías y seguridad, con las alternativas evaluadas. Cada decisión tomada se registra como un ADR | [`docs/rfc/RFC-001-architecture.md`](docs/rfc/RFC-001-architecture.md) y [`docs/adr/`](docs/adr/README.md) | Aceptado: RFC y 11 ADRs |
 | 3 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación   | `docs/spec/` | Pendiente            |
 | 4 | **Implementación** | Tests primero y después el código, historia por historia                                                                   | —                                                       | Pendiente            |
 | 5 | **Cierre**         | Rama principal estable, versión etiquetada y documentación al día                                         | —                                                       | Pendiente            |
@@ -67,6 +67,11 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 14/11/2026 | Se acotó el tercer documento: pasa a llamarse especificación técnica y contiene solo el contrato de la API, las validaciones, los casos límite y los criterios de aceptación. Las decisiones y sus motivos quedan en los ADRs. |
 | 14/11/2026 | Se ajustó el manejo de tickets: cada ticket es una historia de usuario con sus tareas adentro, y los tests de aceptación se escriben y se revisan antes que el código. |
 | 14/11/2026 | Se documentó el flujo de trabajo completo: etapas, aprobaciones, verificación, uso de herramientas de IA y dónde vive cada regla. |
+| 14/11/2026 | Se publicó la documentación base en el [pull request #1](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/1). |
+| 14/11/2026 | Borrador del RFC-001: catorce decisiones técnicas del MVP, cada una con sus alternativas y una propuesta. Antes se comprobaron las versiones vigentes de las librerías y el entorno de desarrollo. |
+| 14/11/2026 | Al releer la documentación de SWAPI y medir sus tiempos se comprobó que demora cada vez más a quien le hace muchos pedidos y corta a los 100 cada 15 minutos. La caché de sus respuestas (REQ-32) pasó de extra del ciclo 3 a requisito del MVP. |
+| 14/11/2026 | RFC-001 aceptado. Las quince decisiones se revisaron una por una: dos cambiaron respecto del borrador (la paginación se decide según cómo responde SWAPI, y los usuarios de prueba se cargan con Flyway) y una es nueva (la caché). |
+| 14/11/2026 | Se escribieron los once ADRs, uno por decisión aceptada, la guía de arquitectura y las instrucciones para agentes de IA. |
 
 ## Documentación
 
@@ -74,7 +79,9 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 - Flujo de trabajo: [`docs/process/WORKFLOW.md`](docs/process/WORKFLOW.md)
 - Requisitos (PRD): [`docs/requirements/PRD.md`](docs/requirements/PRD.md)
 - Convenciones de commits, ramas, tickets y pull requests: [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)
-- Decisiones técnicas (RFC y ADRs): _próximamente_ en `docs/rfc/` y `docs/adr/`
+- Decisiones técnicas: [RFC-001](docs/rfc/RFC-001-architecture.md), con las alternativas evaluadas, y [11 ADRs](docs/adr/README.md), uno por decisión
+- Arquitectura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- Instrucciones para agentes de IA: [`AGENTS.md`](AGENTS.md)
 - Especificación técnica: _próximamente_ en `docs/spec/`
 - Instrucciones de configuración y uso: _próximamente_
 - Registro de uso de herramientas de IA: _próximamente_ en `docs/process/AI-USAGE.md`

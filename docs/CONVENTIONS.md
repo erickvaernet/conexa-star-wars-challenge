@@ -194,7 +194,7 @@ La estructura de `docs/`, el orden de lectura y los identificadores están en el
 |----------------|-------------------------------------|----------------------------------------|
 | PRD            | `docs/requirements/PRD.md`          | —                                      |
 | RFC            | `docs/rfc/RFC-NNN-<tema>.md`        | `docs/rfc/RFC-001-architecture.md`     |
-| ADR            | `docs/adr/NNNN-<tema>.md`           | `docs/adr/0003-pagination-strategy.md` |
+| ADR            | `docs/adr/NNNN-<tema>.md`           | `docs/adr/0004-pagination-and-filters.md` |
 | Especificación técnica | `docs/spec/SPEC.md`                 | —                                      |
 | Arquitectura   | `docs/ARCHITECTURE.md`              | —                                      |
 | Flujo de trabajo | `docs/process/WORKFLOW.md`        | —                                      |
@@ -204,12 +204,13 @@ La estructura de `docs/`, el orden de lectura y los identificadores están en el
 
 **Cómo se referencia**
 
-- **Entre documentos:** con el identificador y un enlace relativo: `[ADR-0003](../adr/0003-pagination-strategy.md)`.
+- **Entre documentos:** con el identificador y un enlace relativo: `[ADR-0004](../adr/0004-pagination-and-filters.md)`.
 - **Requisitos:** siempre por su identificador (`REQ-08`). Si un requisito cambia de número, se actualizan todas sus referencias en el mismo cambio.
 - **Desde tickets y pull requests:** con el identificador en el texto y, la primera vez, el enlace al documento.
 
 **Reglas de los ADRs**
 
+- El [índice](adr/README.md) lista todas las decisiones.
 - Se parte de la [plantilla](adr/0000-template.md).
 - Cada ADR registra **una** decisión e indica qué requisitos resuelve.
 - Un ADR aceptado no se modifica. Si la decisión cambia, se escribe un ADR nuevo y el anterior pasa a "Reemplazado por ADR-NNNN".

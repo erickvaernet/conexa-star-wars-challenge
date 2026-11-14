@@ -53,6 +53,7 @@ El evaluador es el usuario más importante: el código, los tests y la documenta
   - la búsqueda por nombre acepta una parte del nombre y no distingue mayúsculas de minúsculas;
   - si se pide un ID que no existe, SWAPI responde que no lo encontró; una búsqueda por nombre sin coincidencias devuelve una lista vacía.
 - **SWAPI es un servicio externo y gratuito:** puede estar lento o caído en cualquier momento, incluso durante la evaluación.
+- **SWAPI limita el uso** (medido el 14/11/2026): dentro de una ventana de 15 minutos, cada pedido tarda 0,1 s más que el anterior a partir del quinto, y corta a los 100 pedidos.
 - **El volumen de datos es chico:** decenas de elementos por entidad (por ejemplo, 82 People y 36 Starships).
 - **El evaluador puede probar de dos formas:** levantando el proyecto en su máquina o entrando a una URL pública.
 
@@ -79,9 +80,9 @@ El trabajo se organiza en **ciclos cortos**. Cada ciclo termina con una versión
 
 | Ciclo          | Fecha                        | Alcance                                                                                          | Cierra con                                   |
 |----------------|------------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------|
-| **1. MVP**     | 14/11/2026                   | PRD, RFC y especificación técnica completos. Todos los requisitos **Debe** (REQ-01 a REQ-19)             | Versión `v0.1.0`, que ya cumple la consigna  |
+| **1. MVP**     | 14/11/2026                   | PRD, RFC y especificación técnica completos. Todos los requisitos **Debe** (REQ-01 a REQ-19 y REQ-32)             | Versión `v0.1.0`, que ya cumple la consigna  |
 | **2. Mejoras** | 15/11/2026                   | Requisitos **Debería** (REQ-20 a REQ-26), empezando por el despliegue público                    | Versión `v0.2.0`                             |
-| **3. Extras**  | 15/11/2026, si sobra tiempo  | Requisitos **Podría** (REQ-27 a REQ-34)                                                          | Versión `v0.3.0`                             |
+| **3. Extras**  | 15/11/2026, si sobra tiempo  | Requisitos **Podría** (REQ-27 a REQ-34, salvo REQ-32)                                                          | Versión `v0.3.0`                             |
 | **Entrega**    | 16/11/2026 como fecha límite | Envío del link al repositorio público                                                            | —                                            |
 
 Reglas de los ciclos:
@@ -124,6 +125,7 @@ En los ciclos 2 y 3, los requisitos se hacen en el orden de la tabla: primero lo
 | REQ-17 | **Decisiones técnicas registradas** (ADRs)         | Como evaluador, quiero leer por qué se tomó cada decisión, para evaluar el criterio además del código.                      | Debe        | 1 | Por crear | Pedido por el equipo técnico.                                                                      |
 | REQ-18 | **Flujo de trabajo con IA** documentado | Como evaluador, quiero saber qué se delegó en herramientas de IA, cómo se revisó y qué se corrigió a mano. | Debe | 1 | Por crear | Pedido por el equipo técnico junto con los ADRs, y comprometido en la consulta del 13/11/2026: se detalla en el README. |
 | REQ-19 | **Levantar todo con un solo comando** | Como evaluador, quiero levantar la aplicación y su base de datos sin instalar ni configurar nada a mano. | Debe | 1 | Por crear | El equipo técnico describió la base de datos, el proyecto dockerizado y el *seed* como "el combo perfecto". |
+| REQ-32 | **Respuestas rápidas** aunque SWAPI sea lenta | Como consumidor, quiero que los pedidos repetidos respondan rápido y no dependan de cuántos pedidos ya recibió SWAPI. | Debe | 1 | Por crear | SWAPI demora cada vez más a quien le hace muchos pedidos y corta a los 100 cada 15 minutos. Subió de "Podría" a "Debe" el 14/11/2026: ver el historial de cambios. |
 | REQ-20 | **Despliegue público** en un servicio gratuito | Como evaluador, quiero probar la aplicación sin clonar el repositorio. | Debería | 2 | Por crear | URL pública, sin costo y con los usuarios de prueba cargados. Vale cualquier servicio gratuito: la consigna nombra Heroku y Vercel como ejemplos, pero Heroku ya no tiene plan gratuito y Vercel no ejecuta Java. El README explica la elección. Decidido en la pregunta 4. |
 | REQ-21 | **Errores claros y con el mismo formato** | Como consumidor, quiero entender qué salió mal (dato inválido, sesión vencida, elemento inexistente) y poder manejarlo. | Debería | 2 | Por crear |  |
 | REQ-22 | **Tolerancia a fallas de SWAPI** | Como consumidor, quiero una respuesta clara y a tiempo si SWAPI está lenta o caída, en vez de que la aplicación se cuelgue. | Debería | 2 | Por crear | El login debe seguir funcionando aunque SWAPI no responda. |
@@ -136,7 +138,6 @@ En los ciclos 2 y 3, los requisitos se hacen en el orden de la tabla: primero lo
 | REQ-29 | **Límite de intentos de login** | Como dueño de la aplicación, quiero frenar a quien prueba muchas contraseñas seguidas, para que no pueda adivinarlas. | Podría | 3 | Por crear | Refuerza el login seguro (REQ-09). |
 | REQ-30 | **Consulta flexible con GraphQL** | Como consumidor, quiero pedir en una sola consulta exactamente los datos que necesito de cada elemento, para no recibir de más ni hacer varios pedidos. | Podría | 3 | Por crear | Se suma a la API existente, no la reemplaza: mismas cuatro entidades, solo lectura y con el mismo login. Es otra forma de resolver lo que cubre REQ-24. Solo se empieza si puede terminarse con sus tests y su documentación. |
 | REQ-31 | **Límite de pedidos por usuario** | Como dueño de la aplicación, quiero limitar cuántos pedidos puede hacer cada usuario por minuto y por hora, para evitar abusos y no sobrecargar a SWAPI. | Podría | 3 | Por crear | Si se supera el límite, la respuesta avisa que hay que esperar. Complementa al límite de intentos de login (REQ-29). |
-| REQ-32 | **Respuestas rápidas** aunque SWAPI sea lenta | Como consumidor, quiero que los pedidos repetidos respondan rápido. | Podría | 3 | Por crear | Los datos de SWAPI casi no cambian. |
 | REQ-33 | **Cerrar sesión** | Como consumidor, quiero cerrar mi sesión cuando termino, sin esperar a que venza sola. | Podría | 3 | Por crear | Después de cerrarla, esa sesión ya no sirve para acceder a los listados. |
 | REQ-34 | **Registro público de usuarios** | Como visitante, quiero crearme una cuenta sin depender de un administrador. | Podría | 3 | Por crear | Las cuentas creadas así son siempre de usuario común. Decidido en la pregunta 3. |
 
@@ -172,9 +173,16 @@ No quedan preguntas pendientes. Las que respondió el autor son decisiones propi
 | 7 | ¿Se espera interfaz gráfica o solo la API? | Solo la API con Swagger alcanza. (REQ-12) | Equipo técnico de Conexa | 13/11/2026 |
 | 8 | ¿Usuarios fijos en el código o en una base de datos? | Base de datos, con una carga inicial al levantar el proyecto en local. (REQ-11, REQ-19) | Equipo técnico de Conexa | 13/11/2026 |
 
+## Historial de cambios
+
+| Fecha      | Cambio                                                              | Motivo                                                                 |
+|------------|---------------------------------------------------------------------|------------------------------------------------------------------------|
+| 14/11/2026 | REQ-32, "Respuestas rápidas", pasa de "Podría" (ciclo 3) a "Debe" (ciclo 1) | Al preparar el RFC se midió que SWAPI demora cada vez más a quien le hace muchos pedidos. Sin guardar sus respuestas, quien pruebe la aplicación un rato la vería cada vez más lenta. Decisión D-15 del [RFC-001](../rfc/RFC-001-architecture.md) |
+
 ## Enlaces de referencia
 
 - Consigna del desafío: [Back-end JAVA Challenge (Notion)](https://conexatech.notion.site/Back-end-JAVA-Challenge-f86b34a27aaa49f38890d65d8ed9f50c)
 - Documentación de SWAPI: <https://www.swapi.tech/documentation>
+- Decisiones técnicas: [`RFC-001`](../rfc/RFC-001-architecture.md)
 - Convenciones del repositorio: [`docs/CONVENTIONS.md`](../CONVENTIONS.md)
 - Método MoSCoW de priorización: <https://en.wikipedia.org/wiki/MoSCoW_method>
