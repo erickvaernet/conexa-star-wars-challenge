@@ -39,7 +39,7 @@ Cada etapa empieza recién cuando la anterior está revisada y aprobada.
 |---|--------------------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------|----------------------|
 | 1 | **PRD**            | **Qué** y **por qué**: problema, usuarios, requisitos, prioridades y métricas de éxito                     | [`docs/requirements/PRD.md`](docs/requirements/PRD.md) | Aprobado             |
 | 2 | **RFC y ADRs**     | **Cómo**, a nivel macro: arquitectura, tecnologías y seguridad, con las alternativas evaluadas. Cada decisión tomada se registra como un ADR | [`docs/rfc/RFC-001-architecture.md`](docs/rfc/RFC-001-architecture.md) y [`docs/adr/`](docs/adr/README.md) | Aceptado: RFC y 11 ADRs |
-| 3 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación   | `docs/spec/` | Pendiente            |
+| 3 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación   | [`docs/spec/SPEC.md`](docs/spec/SPEC.md) | En revisión |
 | 4 | **Implementación** | Tests primero y después el código, historia por historia                                                                   | —                                                       | Pendiente            |
 | 5 | **Cierre**         | Rama principal estable, versión etiquetada y documentación al día                                         | —                                                       | Pendiente            |
 
@@ -72,6 +72,8 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 14/11/2026 | Al releer la documentación de SWAPI y medir sus tiempos se comprobó que demora cada vez más a quien le hace muchos pedidos y corta a los 100 cada 15 minutos. La caché de sus respuestas (REQ-32) pasó de extra del ciclo 3 a requisito del MVP. |
 | 14/11/2026 | RFC-001 aceptado. Las quince decisiones se revisaron una por una: dos cambiaron respecto del borrador (la paginación se decide según cómo responde SWAPI, y los usuarios de prueba se cargan con Flyway) y una es nueva (la caché). |
 | 14/11/2026 | Se escribieron los once ADRs, uno por decisión aceptada, la guía de arquitectura y las instrucciones para agentes de IA. |
+| 14/11/2026 | El RFC, los ADRs y la guía de arquitectura se publicaron en el [pull request #2](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/2). |
+| 14/11/2026 | Borrador de la especificación técnica: contrato de la API, validaciones, casos límite y 46 criterios de aceptación. Los datos de cada entidad se tomaron de respuestas reales de SWAPI. |
 
 ## Documentación
 
@@ -82,7 +84,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 - Decisiones técnicas: [RFC-001](docs/rfc/RFC-001-architecture.md), con las alternativas evaluadas, y [11 ADRs](docs/adr/README.md), uno por decisión
 - Arquitectura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - Instrucciones para agentes de IA: [`AGENTS.md`](AGENTS.md)
-- Especificación técnica: _próximamente_ en `docs/spec/`
+- Especificación técnica: [`docs/spec/SPEC.md`](docs/spec/SPEC.md) (en revisión)
 - Instrucciones de configuración y uso: _próximamente_
 - Registro de uso de herramientas de IA: _próximamente_ en `docs/process/AI-USAGE.md`
 

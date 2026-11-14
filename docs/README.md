@@ -11,7 +11,7 @@ Cada documento se apoya en el anterior. El proceso completo está explicado en e
 | 1 | **PRD**                    | Qué se construye y por qué: requisitos, prioridades y ciclos             | [`requirements/PRD.md`](requirements/PRD.md) | Aprobado (14/11/2026) |
 | 2 | **RFC** | Cómo se construye, a nivel macro, con las alternativas evaluadas | [`rfc/RFC-001-architecture.md`](rfc/RFC-001-architecture.md) | Aceptado (14/11/2026) |
 | 3 | **ADRs** | Una decisión técnica por archivo, con su contexto y sus consecuencias | [`adr/README.md`](adr/README.md) | 11 aceptados (14/11/2026) |
-| 4 | **Especificación técnica**         | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación | `spec/`                               | Pendiente             |
+| 4 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación | [`spec/SPEC.md`](spec/SPEC.md) | En revisión |
 | 5 | **Arquitectura** | Cómo se organiza el código: carpetas, capas y dependencias permitidas | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Vigente |
 | 6 | **Registro de uso de IA** | Qué se delegó en herramientas de IA, cómo se revisó y qué se corrigió a mano | `process/AI-USAGE.md` | Pendiente |
 
@@ -42,7 +42,7 @@ docs/
     └── AI-USAGE.md        registro de uso de herramientas de IA
 ```
 
-La carpeta `spec/` y el archivo `process/AI-USAGE.md` se crean cuando se escribe su contenido.
+El archivo `process/AI-USAGE.md` se crea cuando se escribe su contenido.
 
 ## Identificadores
 
@@ -53,6 +53,7 @@ Todo lo que se referencia desde otro lugar tiene un identificador estable.
 | Requisito      | `REQ-NN`      | `REQ-08`   | Tabla de requisitos del PRD              |
 | RFC            | `RFC-NNN`     | `RFC-001`  | Nombre del archivo en `rfc/`             |
 | Decisión       | `ADR-NNNN`    | `ADR-0003` | Nombre del archivo en `adr/`             |
+| Criterio de aceptación | `CA-NN.M` | `CA-08.2` | Sección 6 de la especificación técnica; `NN` es el número del requisito |
 | Ticket         | `#N`          | `#12`      | GitHub Issues del repositorio            |
 | Versión        | `vX.Y.Z`      | `v0.1.0`   | Etiqueta de git al cerrar cada ciclo     |
 
@@ -63,14 +64,14 @@ Cualquier línea de código se puede seguir hacia atrás hasta el requisito que 
 ```
 Requisito (REQ-08)
    └── Decisión (ADR-0003)
-          └── Regla de la especificación técnica
+          └── Criterio de aceptación (CA-08.2)
                  └── Ticket (#12)
                         └── Rama y pull request
                                └── Test
 ```
 
 - Un **ADR** indica qué requisitos resuelve.
-- Cada regla de la **especificación técnica** indica de qué requisito y de qué ADR sale.
+- Cada **criterio de aceptación** lleva en su identificador el número del requisito que verifica.
 - Cada **ticket** es una historia de usuario: nombra su requisito en el título y enlaza a sus criterios de aceptación.
 - Cada **pull request** cierra su ticket.
 - Cada **test de aceptación** sale de un criterio de la especificación técnica.

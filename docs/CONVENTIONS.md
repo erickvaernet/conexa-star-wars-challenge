@@ -227,7 +227,7 @@ Es un documento corto, con cuatro partes y nada más:
 | Criterios de aceptación | Por cada requisito, las condiciones verificables que debe cumplir para darse por hecho |
 
 - No repite las decisiones ni sus motivos: esos están en los ADRs y se enlazan.
-- Cada regla indica de qué requisito sale.
+- Cada criterio de aceptación se identifica como `CA-NN.M`, donde `NN` es el número del requisito que verifica.
 - Los tickets enlazan a sus criterios de aceptación; no los copian.
 
 **Documentos vivos**
