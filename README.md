@@ -2,7 +2,7 @@
 
 API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/documentation) para listar **People, Films, Starships y Vehicles** de forma paginada, con filtrado por ID y/o nombre y autenticación segura.
 
-> **Estado:** la funcionalidad del ciclo 1 (MVP) está completa en `main`, con 793 tests. La versión `v0.1.0` todavía no está etiquetada.
+> **Estado:** el ciclo 1 (MVP) está cerrado. La versión es la `v0.1.0`, con 793 tests.
 
 ## Alcance
 
@@ -507,7 +507,7 @@ El desafío se trabaja en **ciclos cortos** y con la **documentación primero**.
 
 | Ciclo          | Fecha                       | Alcance                                                                                                          | Versión  | Estado    |
 |----------------|-----------------------------|------------------------------------------------------------------------------------------------------------------|----------|-----------|
-| **1. MVP**     | 14/11/2026                  | Todo lo que pide la consigna: los requisitos "Debe" del PRD, incluida la caché de las respuestas de SWAPI                                                      | `v0.1.0` | En curso: funcionalidad completa, versión sin etiquetar |
+| **1. MVP**     | 14/11/2026                  | Todo lo que pide la consigna: los requisitos "Debe" del PRD, incluida la caché de las respuestas de SWAPI                                                      | `v0.1.0` | Cerrado |
 | **2. Mejoras** | 15/11/2026                  | Los requisitos "Debería": despliegue público, errores claros, tolerancia a fallas de SWAPI, verificación automática, datos completos a pedido en los listados y rol de administrador con alta de usuarios | `v0.2.0` | Pendiente |
 | **3. Extras**  | 15/11/2026, si sobra tiempo | Los requisitos "Podría": cobertura de tests visible, colección de pedidos lista para usar, límite de intentos de login, consulta flexible con GraphQL, límite de pedidos por usuario, cierre de sesión, registro público de usuarios y caché resistente al abuso | `v0.3.0` | Pendiente |
 
@@ -525,7 +525,7 @@ Cada etapa empieza recién cuando la anterior está revisada y aprobada.
 | 2 | **RFC y ADRs**     | **Cómo**, a nivel macro: arquitectura, tecnologías y seguridad, con las alternativas evaluadas. Cada decisión tomada se registra como un ADR | [`docs/rfc/RFC-001-architecture.md`](docs/rfc/RFC-001-architecture.md) y [`docs/adr/`](docs/adr/README.md) | Aceptado: RFC y 13 ADRs |
 | 3 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación   | [`docs/spec/SPEC.md`](docs/spec/SPEC.md) | Aprobada |
 | 4 | **Implementación** | Tests primero y después el código, historia por historia                                                                   | —                                                       | Hecha: doce tickets y las correcciones de la revisión final, 793 tests |
-| 5 | **Cierre**         | Rama principal estable, versión etiquetada y documentación al día                                         | —                                                       | Pendiente            |
+| 5 | **Cierre**         | Rama principal estable, versión etiquetada y documentación al día                                         | —                                                       | Hecho: versión `v0.1.0` |
 
 En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguientes no se rehacen: se revisan las prioridades del PRD, se registra un ADR por cada decisión nueva y se extiende la especificación técnica con lo que entra.
 
@@ -578,6 +578,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Documentación interactiva ([#15](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/15)): Swagger UI ya tiene el botón "Authorize" para cargar el token, y con eso se prueba todo desde el navegador. La documentación ya listaba los nueve pedidos; faltaban la información general, el esquema de seguridad y casi toda la del login, que no decía qué devuelve ni con qué errores responde. El token se exige por defecto en todos los pedidos y el login se exceptúa, con el mismo criterio que las reglas de acceso: una entidad nueva queda con candado sin declarar nada. El login pasó a ser el primer grupo de la página y su cuerpo trae de ejemplo al usuario de prueba. Los tests de aceptación se escribieron antes que el código; dos ya pasaban y se dejaron igual, porque protegen lo que no tiene que cambiar. |
 | 15/11/2026 | Cierre de la documentación ([#16](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/16)): el README se reordenó para quien llega por primera vez, con los pasos para levantar, probar y correr los tests al principio, y se escribió el [registro de uso de herramientas de IA](docs/process/AI-USAGE.md). Al escribirlo quedó asentado que, desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA y no una persona, como pide el flujo de trabajo: el flujo y las convenciones llevan una nota que lo dice. |
 | 15/11/2026 | Revisión final del MVP y sus correcciones ([pull request #30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30)). Con los doce tickets fusionados, una sesión aparte de una herramienta de IA revisó el conjunto sobre un clon limpio, con la consigna de encontrar y demostrar fallas y sin conocer las revisiones anteriores. No encontró nada crítico. Encontró cuatro fallas importantes: un parámetro mal codificado (`name=100%`) respondía `500`; el login respondía `500` a un usuario con un carácter nulo y no limitaba el largo de sus campos; una dirección o un método que el servidor rechaza respondían `401` aun con un token válido; y nueve roturas hechas a propósito en el código no hacían fallar ninguno de los 715 tests. Se corrigieron con los tests antes que el código, junto con cuatro hallazgos menores: ahora las tres primeras responden `400` o `405`, y ocho de las nueve roturas hacen fallar un test. La que queda es el tiempo máximo de conexión con SWAPI, que sigue sin test propio. Las decisiones quedaron en notas de los ADR 0003, 0005, 0007, 0008 y 0013. |
+| 15/11/2026 | Cierre del ciclo 1: versión `v0.1.0`. Los doce tickets del hito están cerrados, la revisión final está hecha y sus correcciones están fusionadas, y los 793 tests pasan. El `pom.xml` pasó de `0.1.0-SNAPSHOT` a `0.1.0`, que es la versión que muestra la documentación de la API. |
 
 ## Documentación
 
