@@ -143,4 +143,72 @@ class StarshipsAcceptanceTest {
         swapi.verify(1, anyRequestedFor(anyUrl()));
     }
 
+    @Test
+    @DisplayName("CA-24.5: the first page of 2 starships with expanded=true has two elements with exactly the fields of the table of Starships")
+    void expandedPageOfStarshipsHasTheCompleteDataOfEachElement() {
+        client.get().uri(STARSHIPS + "?expanded=true&size=2")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                // Strict: the same page and the same totals as without the parameter, and each
+                // element is the detail of the starship, with its sixteen fields and no other.
+                // Every value is text, as SWAPI sends it: "1,600" keeps its comma, "30-165" its
+                // range and "n/a" stays "n/a". The internal data of SWAPI is in the recording
+                // and must not be in the answer.
+                .expectBody().json("""
+                        {
+                          "content": [
+                            {
+                              "id": "2",
+                              "name": "CR90 corvette",
+                              "model": "CR90 corvette",
+                              "starshipClass": "corvette",
+                              "manufacturer": "Corellian Engineering Corporation",
+                              "costInCredits": "3500000",
+                              "length": "150",
+                              "crew": "30-165",
+                              "passengers": "600",
+                              "maxAtmospheringSpeed": "950",
+                              "hyperdriveRating": "2.0",
+                              "mglt": "60",
+                              "cargoCapacity": "3000000",
+                              "consumables": "1 year",
+                              "filmIds": ["1", "3", "6"],
+                              "pilotIds": []
+                            },
+                            {
+                              "id": "3",
+                              "name": "Star Destroyer",
+                              "model": "Imperial I-class Star Destroyer",
+                              "starshipClass": "Star Destroyer",
+                              "manufacturer": "Kuat Drive Yards",
+                              "costInCredits": "150000000",
+                              "length": "1,600",
+                              "crew": "47,060",
+                              "passengers": "n/a",
+                              "maxAtmospheringSpeed": "975",
+                              "hyperdriveRating": "2.0",
+                              "mglt": "60",
+                              "cargoCapacity": "36000000",
+                              "consumables": "2 years",
+                              "filmIds": ["1", "2", "3"],
+                              "pilotIds": []
+                            }
+                          ],
+                          "page": 1,
+                          "size": 2,
+                          "totalElements": 36,
+                          "totalPages": 18
+                        }
+                        """, JsonCompareMode.STRICT);
+
+        // The complete data came in one request, the one of the page, with the parameter that
+        // SWAPI has for this. No starship was asked for on its own.
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_STARSHIPS))
+                .withQueryParam("page", equalTo("1"))
+                .withQueryParam("limit", equalTo("2"))
+                .withQueryParam("expanded", equalTo("true")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
 }

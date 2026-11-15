@@ -176,4 +176,69 @@ class VehiclesAcceptanceTest {
         swapi.verify(1, anyRequestedFor(anyUrl()));
     }
 
+    @Test
+    @DisplayName("CA-24.5: the first page of 2 vehicles with expanded=true has two elements with exactly the fields of the table of Vehicles")
+    void expandedPageOfVehiclesHasTheCompleteDataOfEachElement() {
+        client.get().uri(VEHICLES + "?expanded=true&size=2")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                // Strict: the same page and the same totals as without the parameter, and each
+                // element is the detail of the vehicle, with its fourteen fields and no other.
+                // Every value is text, as SWAPI sends it. In this recording SWAPI gives the two
+                // lengths with a space at the end, "36.8 " and "3.4 ": they are answered without
+                // it, like in the detail. The internal data of SWAPI is in the recording and
+                // must not be in the answer.
+                .expectBody().json("""
+                        {
+                          "content": [
+                            {
+                              "id": "4",
+                              "name": "Sand Crawler",
+                              "model": "Digger Crawler",
+                              "vehicleClass": "wheeled",
+                              "manufacturer": "Corellia Mining Corporation",
+                              "costInCredits": "150000",
+                              "length": "36.8",
+                              "crew": "46",
+                              "passengers": "30",
+                              "maxAtmospheringSpeed": "30",
+                              "cargoCapacity": "50000",
+                              "consumables": "2 months",
+                              "filmIds": ["1", "5"],
+                              "pilotIds": []
+                            },
+                            {
+                              "id": "7",
+                              "name": "X-34 landspeeder",
+                              "model": "X-34 landspeeder",
+                              "vehicleClass": "repulsorcraft",
+                              "manufacturer": "SoroSuub Corporation",
+                              "costInCredits": "10550",
+                              "length": "3.4",
+                              "crew": "1",
+                              "passengers": "1",
+                              "maxAtmospheringSpeed": "250",
+                              "cargoCapacity": "5",
+                              "consumables": "unknown",
+                              "filmIds": ["1"],
+                              "pilotIds": []
+                            }
+                          ],
+                          "page": 1,
+                          "size": 2,
+                          "totalElements": 39,
+                          "totalPages": 20
+                        }
+                        """, JsonCompareMode.STRICT);
+
+        // The complete data came in one request, the one of the page, with the parameter that
+        // SWAPI has for this. No vehicle was asked for on its own.
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_VEHICLES))
+                .withQueryParam("page", equalTo("1"))
+                .withQueryParam("limit", equalTo("2"))
+                .withQueryParam("expanded", equalTo("true")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
 }

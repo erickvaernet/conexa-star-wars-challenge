@@ -34,7 +34,7 @@ class SwapiListResponseTest {
                 new Item("82", "Sly Moore"),
                 new Item("83", "Tion Medon")), null);
 
-        assertThat(response.toListing(NAME)).isEqualTo(new Listing.OnePage(
+        assertThat(response.toListing(NAME)).isEqualTo(new Listing.OnePage<>(
                 List.of(new ItemSummary("82", "Sly Moore"), new ItemSummary("83", "Tion Medon")), 82));
     }
 
@@ -43,7 +43,7 @@ class SwapiListResponseTest {
     void identifierStaysAsText() {
         SwapiListResponse response = new SwapiListResponse(1, List.of(new Item("1", "Luke Skywalker")), null);
 
-        Listing.OnePage page = (Listing.OnePage) response.toListing(NAME);
+        Listing.OnePage<ItemSummary> page = (Listing.OnePage<ItemSummary>) response.toListing(NAME);
 
         assertThat(page.items().getFirst().id()).isEqualTo("1");
     }
@@ -53,7 +53,7 @@ class SwapiListResponseTest {
     void textsLoseTheSpacesAroundThem() {
         SwapiListResponse response = new SwapiListResponse(1, List.of(new Item(" 7 ", "  Beru Whitesun lars \t")), null);
 
-        Listing.OnePage page = (Listing.OnePage) response.toListing(NAME);
+        Listing.OnePage<ItemSummary> page = (Listing.OnePage<ItemSummary>) response.toListing(NAME);
 
         assertThat(page.items()).containsExactly(new ItemSummary("7", "Beru Whitesun lars"));
     }
@@ -61,7 +61,7 @@ class SwapiListResponseTest {
     @Test
     @DisplayName("A page without elements is a valid answer")
     void pageWithoutElementsIsValid() {
-        assertThat(new SwapiListResponse(0, List.of(), null).toListing(NAME)).isEqualTo(new Listing.OnePage(List.of(), 0));
+        assertThat(new SwapiListResponse(0, List.of(), null).toListing(NAME)).isEqualTo(new Listing.OnePage<>(List.of(), 0));
     }
 
     @Test
@@ -110,7 +110,7 @@ class SwapiListResponseTest {
                 new FullItem("11", Map.of("name", "Anakin Skywalker")),
                 new FullItem("43", Map.of("name", "Shmi Skywalker"))));
 
-        assertThat(response.toListing(NAME)).isEqualTo(new Listing.Complete(List.of(
+        assertThat(response.toListing(NAME)).isEqualTo(new Listing.Complete<>(List.of(
                 new ItemSummary("1", "Luke Skywalker"),
                 new ItemSummary("11", "Anakin Skywalker"),
                 new ItemSummary("43", "Shmi Skywalker"))));
@@ -123,7 +123,7 @@ class SwapiListResponseTest {
                 new FullItem("1", Map.of("title", "A New Hope", "name", "not this one", "episode_id", 4))));
 
         assertThat(response.toListing("title"))
-                .isEqualTo(new Listing.Complete(List.of(new ItemSummary("1", "A New Hope"))));
+                .isEqualTo(new Listing.Complete<>(List.of(new ItemSummary("1", "A New Hope"))));
     }
 
     @Test
@@ -133,14 +133,14 @@ class SwapiListResponseTest {
                 new FullItem(" 7 ", Map.of("name", "  Beru Whitesun lars \t"))));
 
         assertThat(response.toListing(NAME))
-                .isEqualTo(new Listing.Complete(List.of(new ItemSummary("7", "Beru Whitesun lars"))));
+                .isEqualTo(new Listing.Complete<>(List.of(new ItemSummary("7", "Beru Whitesun lars"))));
     }
 
     @Test
     @DisplayName("A whole list without elements is a valid answer: it is what a search without matches gets")
     void wholeListWithoutElementsIsValid() {
         assertThat(new SwapiListResponse(null, null, List.of()).toListing(NAME))
-                .isEqualTo(new Listing.Complete(List.of()));
+                .isEqualTo(new Listing.Complete<>(List.of()));
     }
 
     @Test
@@ -150,7 +150,7 @@ class SwapiListResponseTest {
                 82, List.of(new Item("1", "Luke Skywalker")), List.of(new FullItem("2", Map.of("name", "C-3PO"))));
 
         assertThat(response.toListing(NAME))
-                .isEqualTo(new Listing.OnePage(List.of(new ItemSummary("1", "Luke Skywalker")), 82));
+                .isEqualTo(new Listing.OnePage<>(List.of(new ItemSummary("1", "Luke Skywalker")), 82));
     }
 
     @Test

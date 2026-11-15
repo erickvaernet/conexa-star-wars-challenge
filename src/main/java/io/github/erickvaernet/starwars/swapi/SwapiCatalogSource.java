@@ -4,6 +4,7 @@ import io.github.erickvaernet.starwars.catalog.CatalogEntity;
 import io.github.erickvaernet.starwars.catalog.CatalogItem;
 import io.github.erickvaernet.starwars.catalog.CatalogSource;
 import io.github.erickvaernet.starwars.catalog.ItemId;
+import io.github.erickvaernet.starwars.catalog.ItemSummary;
 import io.github.erickvaernet.starwars.catalog.Listing;
 import io.github.erickvaernet.starwars.catalog.NameFilter;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.ResolvableType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
@@ -34,17 +36,24 @@ import org.springframework.web.client.RestClientResponseException;
 class SwapiCatalogSource implements CatalogSource {
 
     /**
-     * How the answer for one element of each entity is read, by the name of the entity in SWAPI.
+     * How the data of one element of each entity is read, by the name of the entity in SWAPI.
      *
-     * <p>The outside of the answer is the same for every entity; the data inside is not. An
-     * entity that is added to the catalog adds its line here.
+     * <p>The outside of an answer is the same for every entity; the data of each element is not.
+     * The same table serves the element that is asked for alone and each element of a list that
+     * brings the complete data. An entity that is added to the catalog adds its line here.
      */
-    private static final Map<String, ParameterizedTypeReference<? extends SwapiItemResponse<?>>> ITEM_FORMATS =
-            Map.of(
-                    "people", new ParameterizedTypeReference<SwapiItemResponse<SwapiPerson>>() { },
-                    "films", new ParameterizedTypeReference<SwapiItemResponse<SwapiFilm>>() { },
-                    "starships", new ParameterizedTypeReference<SwapiItemResponse<SwapiStarship>>() { },
-                    "vehicles", new ParameterizedTypeReference<SwapiItemResponse<SwapiVehicle>>() { });
+    private static final Map<String, Class<? extends SwapiItemData>> ITEM_FORMATS = Map.of(
+            "people", SwapiPerson.class,
+            "films", SwapiFilm.class,
+            "starships", SwapiStarship.class,
+            "vehicles", SwapiVehicle.class);
+
+    /** How the answer to a list of summaries is read. It is the same for every entity. */
+    private static final ParameterizedTypeReference<SwapiListResponse> SUMMARIES =
+            new ParameterizedTypeReference<>() { };
+
+    /** What is added to the request of a list or of a search to get the complete data of each element. */
+    private static final String EXPANDED = "&expanded=true";
 
     /** The characters that mean something in a pattern: {@code \ ^ $ . | ? * + ( ) [ ] { }}. */
     private static final Pattern PATTERN_CHARACTERS = Pattern.compile("[\\\\^$.|?*+()\\[\\]{}]");
@@ -74,10 +83,23 @@ class SwapiCatalogSource implements CatalogSource {
      * lists and ignores them in others, and that can change without notice.
      */
     @Override
-    public Listing list(CatalogEntity entity, PageQuery query) {
-        String request = "GET /" + entity.sourceName() + "?page=" + query.page() + "&limit=" + query.size();
-        return listing(entity, request, swapi.get()
-                .uri("/{entity}?page={page}&limit={limit}", entity.sourceName(), query.page(), query.size()));
+    public Listing<ItemSummary> list(CatalogEntity entity, PageQuery query) {
+        return summaries(entity, pageOf(entity, query, ""));
+    }
+
+    /**
+     * Asks SWAPI for one page of a list with the complete data of each element.
+     *
+     * <p>It is the request of a list with {@code expanded=true}, which is what SWAPI has for
+     * this: one request for the whole page, instead of one per element. It is sent whatever the
+     * entity. A list that SWAPI already answers whole and with all the data ignores it.
+     *
+     * @throws IllegalStateException if no format was declared for the entity, which is a mistake
+     *     in the code and not something a request can cause
+     */
+    @Override
+    public Listing<CatalogItem> listExpanded(CatalogEntity entity, PageQuery query) {
+        return completeItems(entity, pageOf(entity, query, EXPANDED));
     }
 
     /**
@@ -88,29 +110,106 @@ class SwapiCatalogSource implements CatalogSource {
      * in a search and answers every match at once.
      */
     @Override
-    public Listing search(CatalogEntity entity, NameFilter name, PageQuery query) {
-        // Without the text: it comes from the client and may have anything in it, line breaks
-        // included, and this description ends up in the log.
-        String request = "GET /" + entity.sourceName() + "?" + entity.searchField() + "=..."
-                + "&page=" + query.page() + "&limit=" + query.size();
-        return listing(entity, request, swapi.get()
-                .uri("/{entity}?{field}={text}&page={page}&limit={limit}",
+    public Listing<ItemSummary> search(CatalogEntity entity, NameFilter name, PageQuery query) {
+        return summaries(entity, matchesOf(entity, name, query, ""));
+    }
+
+    /**
+     * Asks SWAPI for the elements whose name contains a text, with the complete data of each one.
+     *
+     * <p>It is the request of a search with {@code expanded=true}. Today SWAPI ignores it there,
+     * because a search already brings all the data; it is sent all the same, so that the request
+     * does not depend on what SWAPI does today.
+     *
+     * @throws IllegalStateException if no format was declared for the entity, which is a mistake
+     *     in the code and not something a request can cause
+     */
+    @Override
+    public Listing<CatalogItem> searchExpanded(CatalogEntity entity, NameFilter name, PageQuery query) {
+        return completeItems(entity, matchesOf(entity, name, query, EXPANDED));
+    }
+
+    /**
+     * A request to SWAPI that is ready to be sent, with the text that names it in an error.
+     *
+     * @param description how the request is named in the log, without anything the client sent
+     * @param call        the request itself
+     */
+    private record Request(String description, RestClient.RequestHeadersSpec<?> call) {
+    }
+
+    /**
+     * The request for one page of a list.
+     *
+     * @param more what is added at the end of the request: nothing, or {@link #EXPANDED}
+     */
+    private Request pageOf(CatalogEntity entity, PageQuery query, String more) {
+        return new Request(
+                "GET /" + entity.sourceName() + "?page=" + query.page() + "&limit=" + query.size() + more,
+                swapi.get().uri("/{entity}?page={page}&limit={limit}" + more,
+                        entity.sourceName(), query.page(), query.size()));
+    }
+
+    /**
+     * The request for the elements whose name contains a text.
+     *
+     * @param more what is added at the end of the request: nothing, or {@link #EXPANDED}
+     */
+    private Request matchesOf(CatalogEntity entity, NameFilter name, PageQuery query, String more) {
+        return new Request(
+                // Without the text: it comes from the client and may have anything in it, line
+                // breaks included, and this description ends up in the log.
+                "GET /" + entity.sourceName() + "?" + entity.searchField() + "=..."
+                        + "&page=" + query.page() + "&limit=" + query.size() + more,
+                swapi.get().uri("/{entity}?{field}={text}&page={page}&limit={limit}" + more,
                         entity.sourceName(), entity.searchField(), literal(name.value()),
                         query.page(), query.size()));
     }
 
-    /** Sends a request for a list or for a search, and reads the answer in whichever form it came. */
-    private Listing listing(CatalogEntity entity, String request, RestClient.RequestHeadersSpec<?> call) {
+    /** Sends a request for a list or for a search, and reads the summary of each element. */
+    private Listing<ItemSummary> summaries(CatalogEntity entity, Request request) {
+        return read(request, SUMMARIES).toListing(entity.searchField());
+    }
+
+    /**
+     * Sends a request for a list or for a search, and reads each element with its complete data,
+     * with the translation of its entity.
+     */
+    private Listing<CatalogItem> completeItems(CatalogEntity entity, Request request) {
+        // Before the request is sent: without a format, its answer could not be read.
+        ParameterizedTypeReference<SwapiExpandedListResponse<?>> format =
+                formatOf(SwapiExpandedListResponse.class, entity);
+        return read(request, format).toListing();
+    }
+
+    /** Sends a request for a list or for a search, and reads its answer, in whichever form it came. */
+    private <R> R read(Request request, ParameterizedTypeReference<R> format) {
         long startedAt = System.nanoTime();
         try {
-            SwapiListResponse response = call.retrieve().body(SwapiListResponse.class);
+            R response = request.call().retrieve().body(format);
             if (response == null) {
-                throw new BadGatewayException("SWAPI answered " + request + " without a body", null);
+                throw new BadGatewayException("SWAPI answered " + request.description() + " without a body", null);
             }
-            return response.toListing(entity.searchField());
+            return response;
         } catch (RestClientException error) {
-            throw failure(request, error, startedAt);
+            throw failure(request.description(), error, startedAt);
         }
+    }
+
+    /**
+     * The answer of SWAPI to read for an entity: the outside that is the same for all of them,
+     * around the data that the table declares for that one.
+     *
+     * @param answer the outside of the answer: the one for an element, or the one for a list
+     *               with the complete data
+     * @throws IllegalStateException if no format was declared for the entity
+     */
+    private static <R> ParameterizedTypeReference<R> formatOf(Class<? super R> answer, CatalogEntity entity) {
+        Class<? extends SwapiItemData> data = ITEM_FORMATS.get(entity.sourceName());
+        if (data == null) {
+            throw new IllegalStateException("No format is declared for one element of " + entity.sourceName());
+        }
+        return ParameterizedTypeReference.forType(ResolvableType.forClassWithGenerics(answer, data).getType());
     }
 
     /**
@@ -135,10 +234,7 @@ class SwapiCatalogSource implements CatalogSource {
      */
     @Override
     public Optional<CatalogItem> find(CatalogEntity entity, ItemId id) {
-        ParameterizedTypeReference<? extends SwapiItemResponse<?>> format = ITEM_FORMATS.get(entity.sourceName());
-        if (format == null) {
-            throw new IllegalStateException("No format is declared for one element of " + entity.sourceName());
-        }
+        ParameterizedTypeReference<SwapiItemResponse<?>> format = formatOf(SwapiItemResponse.class, entity);
         String request = "GET /" + entity.sourceName() + "/" + id.value();
         long startedAt = System.nanoTime();
         try {

@@ -90,7 +90,7 @@ class StarshipsControllerTest {
     @Test
     @DisplayName("The page is answered as JSON with exactly the fields of the contract, and each starship with its id and its name")
     void pageIsAnsweredWithTheFieldsOfTheContract() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(STARSHIPS + "?page=1&size=2")
                 .exchange()
@@ -113,28 +113,28 @@ class StarshipsControllerTest {
     @Test
     @DisplayName("Without parameters, the core is asked for the first page of 10 starships, by the name and the search field of starships")
     void withoutParametersTheFirstPageOfTenStarshipsIsAskedFor() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(STARSHIPS).exchange().expectStatus().isOk();
 
-        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(1, 10), null, null));
+        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(1, 10), null, null, false));
     }
 
     @Test
     @DisplayName("The page, the size, the id and the name of the request are passed to the core, the name in lower case")
     void parametersArePassedToTheCore() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(STARSHIPS + "?page=8&size=5").exchange().expectStatus().isOk();
         client.get().uri(STARSHIPS + "?id=9").exchange().expectStatus().isOk();
         client.get().uri(STARSHIPS + "?name={name}", " WING ").exchange().expectStatus().isOk();
         client.get().uri(STARSHIPS + "?id=9&name=death").exchange().expectStatus().isOk();
 
-        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(8, 5), null, null));
-        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(1, 10), new ItemId("9"), null));
-        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("wing")));
+        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(8, 5), null, null, false));
+        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(1, 10), new ItemId("9"), null, false));
+        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("wing"), false));
         verify(catalog).list(STARSHIPS_ENTITY,
-                new ListQuery(new PageQuery(1, 10), new ItemId("9"), new NameFilter("death")));
+                new ListQuery(new PageQuery(1, 10), new ItemId("9"), new NameFilter("death"), false));
     }
 
     @ParameterizedTest(name = "?{0} is rejected for {1}")
@@ -142,7 +142,8 @@ class StarshipsControllerTest {
         "page=0, page",
         "size=101, size",
         "id=abc, id",
-        "name=, name"
+        "name=, name",
+        "expanded=TRUE, expanded"
     })
     @DisplayName("An invalid parameter of the list is answered with 400 naming it, and the core is not asked")
     void invalidParameterOfTheListIsRejected(String query, String parameter) {
@@ -162,7 +163,7 @@ class StarshipsControllerTest {
     }
 
     @Test
-    @DisplayName("The documentation shows the four parameters of the list, its answer and every error")
+    @DisplayName("The documentation shows the five parameters of the list, its answer and every error")
     void documentationShowsTheList() {
         String documentation = apiDocumentation();
         List<String> parameters = JsonPath.read(documentation, "$.paths['/api/v1/starships'].get.parameters[*].name");
@@ -171,7 +172,7 @@ class StarshipsControllerTest {
         String description = JsonPath.read(documentation, "$.paths['/api/v1/starships'].get.description");
         List<String> tags = JsonPath.read(documentation, "$.paths['/api/v1/starships'].get.tags");
 
-        assertThat(parameters).containsExactlyInAnyOrder("page", "size", "id", "name");
+        assertThat(parameters).containsExactlyInAnyOrder("page", "size", "id", "name", "expanded");
         assertThat(responses).containsOnlyKeys("200", "400", "401", "502", "504");
         assertThat(summary).isNotBlank();
         assertThat(description).isNotBlank();
@@ -182,6 +183,36 @@ class StarshipsControllerTest {
                     "$.paths['/api/v1/starships'].get.responses['" + error + "'].content");
             assertThat(content).containsOnlyKeys("application/problem+json");
         }
+    }
+
+    @Test
+    @DisplayName("The expanded of the request is passed to the core, next to the page, the size and the filters")
+    void expandedIsPassedToTheCore() {
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
+
+        client.get().uri(STARSHIPS + "?expanded=true").exchange().expectStatus().isOk();
+        client.get().uri(STARSHIPS + "?expanded=false&page=2&size=2").exchange().expectStatus().isOk();
+
+        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(1, 10), null, null, true));
+        verify(catalog).list(STARSHIPS_ENTITY, new ListQuery(new PageQuery(2, 2), null, null, false));
+    }
+
+    @Test
+    @DisplayName("The documentation shows an element of the list as one of two: the summary or the detail of a starship")
+    void documentationShowsAnElementOfTheListAsOneOfTwo() {
+        String documentation = apiDocumentation();
+        String page = JsonPath.read(documentation,
+                "$.paths['/api/v1/starships'].get.responses['200'].content['application/json'].schema['$ref']");
+        String element = JsonPath.read(documentation,
+                "$.components.schemas['" + page.replace("#/components/schemas/", "") + "'].properties.content.items['$ref']");
+        Map<String, Object> oneOfTwo = JsonPath.read(documentation,
+                "$.components.schemas['" + element.replace("#/components/schemas/", "") + "']");
+
+        assertThat(oneOfTwo.get("oneOf")).isEqualTo(List.of(
+                Map.of("$ref", "#/components/schemas/ItemSummary"),
+                Map.of("$ref", "#/components/schemas/StarshipDetail")));
+        // It says when each one arrives, which the two names alone do not.
+        assertThat((String) oneOfTwo.get("description")).contains("expanded");
     }
 
     @Test

@@ -1,0 +1,19 @@
+{
+  "priority": 2,
+  "request": {
+    "method": "GET",
+    "urlPath": "/api/vehicles",
+    "queryParameters": {
+      "page": { "equalTo": "1" },
+      "limit": { "equalTo": "2" },
+      "expanded": { "equalTo": "true" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "bodyFileName": "vehicles-page-1-limit-2-expanded.json"
+  }
+}

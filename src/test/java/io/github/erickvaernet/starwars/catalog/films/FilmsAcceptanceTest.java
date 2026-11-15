@@ -195,4 +195,63 @@ class FilmsAcceptanceTest {
         swapi.verify(1, anyRequestedFor(anyUrl()));
     }
 
+    @Test
+    @DisplayName("CA-24.4: the second page of 2 films with expanded=true has the 3rd and the 4th with the fields of the table of Films, out of 6 films in 3 pages")
+    void expandedListOfFilmsIsCutInPagesHere() {
+        client.get().uri(FILMS + "?expanded=true&page=2&size=2")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                // Strict: each element is the detail of the film, with its ten fields and no
+                // other.
+                // - It has "title" and no "name": the summary of a film calls its title "name",
+                //   and its detail does not.
+                // - The episode is a number, the only value that is not text.
+                // - The planets and the species of each film, and the internal data of SWAPI,
+                //   are in the recording and must not be in the answer.
+                .expectBody().json("""
+                        {
+                          "content": [
+                            {
+                              "id": "3",
+                              "title": "Return of the Jedi",
+                              "episodeId": 6,
+                              "openingCrawl": "Luke Skywalker has returned to\\r\\nhis home planet of Tatooine in\\r\\nan attempt to rescue his\\r\\nfriend Han Solo from the\\r\\nclutches of the vile gangster\\r\\nJabba the Hutt.\\r\\n\\r\\nLittle does Luke know that the\\r\\nGALACTIC EMPIRE has secretly\\r\\nbegun construction on a new\\r\\narmored space station even\\r\\nmore powerful than the first\\r\\ndreaded Death Star.\\r\\n\\r\\nWhen completed, this ultimate\\r\\nweapon will spell certain doom\\r\\nfor the small band of rebels\\r\\nstruggling to restore freedom\\r\\nto the galaxy...",
+                              "director": "Richard Marquand",
+                              "producer": "Howard G. Kazanjian, George Lucas, Rick McCallum",
+                              "releaseDate": "1983-05-25",
+                              "characterIds": ["1", "2", "3", "4", "5", "10", "13", "14", "16", "18", "20", "21", "22", "25", "27", "28", "29", "30", "31", "45"],
+                              "starshipIds": ["2", "3", "10", "11", "12", "15", "17", "22", "23", "27", "28", "29"],
+                              "vehicleIds": ["8", "16", "18", "19", "24", "25", "26", "30"]
+                            },
+                            {
+                              "id": "4",
+                              "title": "The Phantom Menace",
+                              "episodeId": 1,
+                              "openingCrawl": "Turmoil has engulfed the\\r\\nGalactic Republic. The taxation\\r\\nof trade routes to outlying star\\r\\nsystems is in dispute.\\r\\n\\r\\nHoping to resolve the matter\\r\\nwith a blockade of deadly\\r\\nbattleships, the greedy Trade\\r\\nFederation has stopped all\\r\\nshipping to the small planet\\r\\nof Naboo.\\r\\n\\r\\nWhile the Congress of the\\r\\nRepublic endlessly debates\\r\\nthis alarming chain of events,\\r\\nthe Supreme Chancellor has\\r\\nsecretly dispatched two Jedi\\r\\nKnights, the guardians of\\r\\npeace and justice in the\\r\\ngalaxy, to settle the conflict....",
+                              "director": "George Lucas",
+                              "producer": "Rick McCallum",
+                              "releaseDate": "1999-05-19",
+                              "characterIds": ["2", "3", "10", "11", "16", "20", "21", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59"],
+                              "starshipIds": ["31", "32", "39", "40", "41"],
+                              "vehicleIds": ["33", "34", "35", "36", "37", "38", "42"]
+                            }
+                          ],
+                          "page": 2,
+                          "size": 2,
+                          "totalElements": 6,
+                          "totalPages": 3
+                        }
+                        """, JsonCompareMode.STRICT);
+
+        // SWAPI was asked for that page and that size with expanded=true, like for any entity.
+        // It ignores the three in the list of films and answers the six of them, as it does
+        // without the parameter: the page was cut out here, and the totals were counted here.
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_FILMS))
+                .withQueryParam("page", equalTo("2"))
+                .withQueryParam("limit", equalTo("2"))
+                .withQueryParam("expanded", equalTo("true")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
 }
