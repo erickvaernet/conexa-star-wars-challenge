@@ -380,3 +380,14 @@ El autor revisó cada decisión por separado, con sus alternativas, el 14/11/202
 D-13 y D-14 no llevan ADR: son reglas de trabajo. D-13 está en [`ARCHITECTURE.md`](../ARCHITECTURE.md#documentación-del-código) y D-14 se cumple con el archivo [`AGENTS.md`](../../AGENTS.md).
 
 Los once ADRs están escritos y aceptados: ver el [índice](../adr/README.md).
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el RFC. No cambian las decisiones.
+
+- **15/11/2026.** Al terminar la implementación del MVP se repasó este documento contra lo que quedó construido. Estos puntos quedaron distintos de lo que dice:
+  - **Flyway.** La tabla de versiones de la sección 2 nombra la 13.12.2, la última estable de ese día. El proyecto no fija la versión de Flyway: usa la que gestiona Spring Boot 4.1.2, que es la 12.4.0.
+  - **JUnit.** D-11 nombra JUnit 5. Spring Boot 4.1 trae JUnit 6, y esa es la que se usa ([ADR-0009](../adr/0009-testing-strategy.md), nota del 14/11/2026).
+  - **Reglas de dependencia.** D-03 lista cuatro. La guía de arquitectura tiene una quinta desde que se escribió: cualquier carpeta puede usar `shared`, y `shared` no usa a ninguna otra ([ADR-0002](../adr/0002-code-organization.md), nota de esta fecha).
+  - **Alcance.** La tabla inicial dice REQ-01 a REQ-19. Con D-15, la caché (REQ-32) entró al MVP: el alcance es REQ-01 a REQ-19 y REQ-32, como dicen el PRD y la especificación técnica.
+  - **Cantidad de ADRs.** De este RFC salieron once. Después se sumaron el 0012 y el 0013, al revisar la especificación técnica.

@@ -61,9 +61,9 @@ Cualquier línea de código se puede seguir hacia atrás hasta el requisito que 
 
 ```
 Requisito (REQ-08)
-   └── Decisión (ADR-0003)
+   └── Decisión (ADR-0004)
           └── Criterio de aceptación (CA-08.2)
-                 └── Ticket (#12)
+                 └── Ticket (#11)
                         └── Rama y pull request
                                └── Test
 ```

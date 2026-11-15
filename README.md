@@ -2,7 +2,7 @@
 
 API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/documentation) para listar **People, Films, Starships y Vehicles** de forma paginada, con filtrado por ID y/o nombre y autenticación segura.
 
-> **Estado:** la funcionalidad del ciclo 1 (MVP) está completa en `main`, con 715 tests. La versión `v0.1.0` todavía no está etiquetada.
+> **Estado:** la funcionalidad del ciclo 1 (MVP) está completa en `main`, con 793 tests. La versión `v0.1.0` todavía no está etiquetada.
 
 ## Alcance
 
@@ -103,7 +103,7 @@ La respuesta trae el token, que vence a los 60 minutos:
 }
 ```
 
-Un usuario o una contraseña incorrectos responden `401`, y un pedido al que le falta alguno de los dos, `400`. Los errores usan el formato Problem Details.
+Un usuario o una contraseña incorrectos responden `401`, y un pedido al que le falta alguno de los dos, `400`. También responde `400` un usuario de más de 50 caracteres o con caracteres de control, y una contraseña de más de 72. Los errores usan el formato Problem Details.
 
 ### Usar el token
 
@@ -248,12 +248,15 @@ curl "http://localhost:8080/api/v1/people?id=1&name=luke" \
 - Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
 - Un ID con otro formato (`0`, `01`, `abc`) responde `400`, en el filtro y en el detalle, sin consultar a SWAPI: `Parameter 'id' must be a number of 1 to 10 digits, without leading zeros.`
 - Un `name` vacío, solo de espacios o de más de 100 caracteres responde `400`, sin consultar a SWAPI: `Parameter 'name' must have 1 to 100 characters, not counting leading and trailing spaces.`
+- Un parámetro mal codificado, como `name=100%` (un `%` suelto se escribe `%25`), responde `400`: `The request has a parameter that is not correctly encoded.`
+- Una dirección que el servidor no acepta, como una con `;` o con `//`, responde `400`, con token o sin él: `The request was rejected.`
 
 **Filtros**
 
 - Un ID que no existe responde distinto según cómo se pida: el filtro devuelve `200` con `content` vacío, como cualquier búsqueda sin resultados, y el detalle responde `404`.
 - `name=SKY`, `name=sky` y `name=%20sky%20` son la misma búsqueda: no se distinguen mayúsculas y los espacios del inicio y del final se ignoran.
 - Una búsqueda sin coincidencias responde `200` con `content` vacío y los totales en 0. Lo mismo si el elemento del `id` existe pero su nombre no contiene el texto.
+- Los acentos cuentan: `name=padm` y `name=padmé` encuentran a Padmé Amidala, y `name=padme` no.
 - El texto se busca tal cual: un punto es un punto y un paréntesis es un paréntesis. SWAPI los interpreta como parte de un patrón, así que la aplicación los escapa antes de consultarla. El porqué está en el [ADR-0004](docs/adr/0004-pagination-and-filters.md).
 
 **Datos del detalle**
@@ -477,8 +480,8 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 715 tests: 606 corren con `./mvnw test` y 109 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
-- Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y se escribieron antes que el código.
+- Son 793 tests: 648 corren con `./mvnw test` y 145 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - Para ver la cobertura, después de `./mvnw verify`, abrir `target/site/jacoco/index.html`.
@@ -492,6 +495,7 @@ El equipo técnico de Conexa permitió usar herramientas de IA y pidió document
 - **Qué se delegó:** la redacción de los documentos, el código y los tests.
 - **Qué decidió el autor:** los requisitos y sus prioridades, las decisiones técnicas del RFC y las del contrato de la API, una por una y con las alternativas a la vista. En varias corrigió la recomendación de la herramienta.
 - **Cómo se revisó:** hasta el ticket #5, el autor aprobó cada paso. Desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA, por encargo del autor, que no los revisó uno por uno.
+- **Revisión final:** con todo fusionado, otra sesión de la herramienta revisó el conjunto con la consigna de encontrar y demostrar fallas. Encontró cuatro importantes, que se corrigieron en el [pull request #30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30).
 
 El detalle, con las correcciones y los límites de esa revisión, está en [`docs/process/AI-USAGE.md`](docs/process/AI-USAGE.md).
 
@@ -520,7 +524,7 @@ Cada etapa empieza recién cuando la anterior está revisada y aprobada.
 | 1 | **PRD**            | **Qué** y **por qué**: problema, usuarios, requisitos, prioridades y métricas de éxito                     | [`docs/requirements/PRD.md`](docs/requirements/PRD.md) | Aprobado             |
 | 2 | **RFC y ADRs**     | **Cómo**, a nivel macro: arquitectura, tecnologías y seguridad, con las alternativas evaluadas. Cada decisión tomada se registra como un ADR | [`docs/rfc/RFC-001-architecture.md`](docs/rfc/RFC-001-architecture.md) y [`docs/adr/`](docs/adr/README.md) | Aceptado: RFC y 13 ADRs |
 | 3 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación   | [`docs/spec/SPEC.md`](docs/spec/SPEC.md) | Aprobada |
-| 4 | **Implementación** | Tests primero y después el código, historia por historia                                                                   | —                                                       | Hecha: doce tickets, 715 tests |
+| 4 | **Implementación** | Tests primero y después el código, historia por historia                                                                   | —                                                       | Hecha: doce tickets y las correcciones de la revisión final, 793 tests |
 | 5 | **Cierre**         | Rama principal estable, versión etiquetada y documentación al día                                         | —                                                       | Pendiente            |
 
 En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguientes no se rehacen: se revisan las prioridades del PRD, se registra un ADR por cada decisión nueva y se extiende la especificación técnica con lo que entra.
@@ -551,7 +555,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 14/11/2026 | Borrador del RFC-001: catorce decisiones técnicas del MVP, cada una con sus alternativas y una propuesta. Antes se comprobaron las versiones vigentes de las librerías y el entorno de desarrollo. |
 | 14/11/2026 | Al releer la documentación de SWAPI y medir sus tiempos se comprobó que demora cada vez más a quien le hace muchos pedidos y corta a los 100 cada 15 minutos. La caché de sus respuestas (REQ-32) pasó de extra del ciclo 3 a requisito del MVP. |
 | 14/11/2026 | RFC-001 aceptado. Las quince decisiones se revisaron una por una: dos cambiaron respecto del borrador (la paginación se decide según cómo responde SWAPI, y los usuarios de prueba se cargan con Flyway) y una es nueva (la caché). |
-| 14/11/2026 | Se escribieron los once ADRs, uno por decisión aceptada, la guía de arquitectura y las instrucciones para agentes de IA. |
+| 14/11/2026 | Se escribieron los once ADRs que salen del RFC, la guía de arquitectura y las instrucciones para agentes de IA. |
 | 14/11/2026 | El RFC, los ADRs y la guía de arquitectura se publicaron en el [pull request #2](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/2). |
 | 14/11/2026 | Borrador de la especificación técnica: contrato de la API, validaciones, casos límite y 46 criterios de aceptación. Los datos de cada entidad se tomaron de respuestas reales de SWAPI. |
 | 14/11/2026 | Se revisaron una por una las siete decisiones de contrato que el borrador de la especificación dejaba abiertas. Una cambió: los identificadores se devuelven como texto, igual que los entrega SWAPI, y no como número. Las otras seis se confirmaron, varias con precisiones: qué pasa si una relación de SWAPI llega mal formada, y que a los textos solo se les quitan los espacios del inicio y del final. |
@@ -573,6 +577,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Vehicles, la cuarta y última entidad ([#14](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/14)): listado paginado, filtros por ID y por nombre, y detalle, con los mismos pasos que Films y Starships y sin tocar el núcleo, la validación, los errores ni la caché. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que pagina los vehículos como los personajes y las naves: son 39, y tampoco llegan en el orden de los identificadores. SWAPI entrega el largo del vehículo grabado como `"36.8 "`, con un espacio al final, y la API lo devuelve sin el espacio; el test comprueba primero que la grabación lo sigue trayendo. Ese vehículo no tiene pilotos y repite el mismo valor en dos campos, así que la traducción se prueba además con un vehículo armado en el test. Con esto las cuatro entidades tienen listado, filtros y detalle. |
 | 15/11/2026 | Documentación interactiva ([#15](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/15)): Swagger UI ya tiene el botón "Authorize" para cargar el token, y con eso se prueba todo desde el navegador. La documentación ya listaba los nueve pedidos; faltaban la información general, el esquema de seguridad y casi toda la del login, que no decía qué devuelve ni con qué errores responde. El token se exige por defecto en todos los pedidos y el login se exceptúa, con el mismo criterio que las reglas de acceso: una entidad nueva queda con candado sin declarar nada. El login pasó a ser el primer grupo de la página y su cuerpo trae de ejemplo al usuario de prueba. Los tests de aceptación se escribieron antes que el código; dos ya pasaban y se dejaron igual, porque protegen lo que no tiene que cambiar. |
 | 15/11/2026 | Cierre de la documentación ([#16](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/16)): el README se reordenó para quien llega por primera vez, con los pasos para levantar, probar y correr los tests al principio, y se escribió el [registro de uso de herramientas de IA](docs/process/AI-USAGE.md). Al escribirlo quedó asentado que, desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA y no una persona, como pide el flujo de trabajo: el flujo y las convenciones llevan una nota que lo dice. |
+| 15/11/2026 | Revisión final del MVP y sus correcciones ([pull request #30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30)). Con los doce tickets fusionados, una sesión aparte de una herramienta de IA revisó el conjunto sobre un clon limpio, con la consigna de encontrar y demostrar fallas y sin conocer las revisiones anteriores. No encontró nada crítico. Encontró cuatro fallas importantes: un parámetro mal codificado (`name=100%`) respondía `500`; el login respondía `500` a un usuario con un carácter nulo y no limitaba el largo de sus campos; una dirección o un método que el servidor rechaza respondían `401` aun con un token válido; y nueve roturas hechas a propósito en el código no hacían fallar ninguno de los 715 tests. Se corrigieron con los tests antes que el código, junto con cuatro hallazgos menores: ahora las tres primeras responden `400` o `405`, y ocho de las nueve roturas hacen fallar un test. La que queda es el tiempo máximo de conexión con SWAPI, que sigue sin test propio. Las decisiones quedaron en notas de los ADR 0003, 0005, 0007, 0008 y 0013. |
 
 ## Documentación
 
@@ -580,7 +585,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 - Flujo de trabajo: [`docs/process/WORKFLOW.md`](docs/process/WORKFLOW.md)
 - Requisitos (PRD): [`docs/requirements/PRD.md`](docs/requirements/PRD.md)
 - Convenciones de commits, ramas, tickets y pull requests: [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)
-- Decisiones técnicas: [RFC-001](docs/rfc/RFC-001-architecture.md), con las alternativas evaluadas, y [13 ADRs](docs/adr/README.md), uno por decisión
+- Decisiones técnicas: [RFC-001](docs/rfc/RFC-001-architecture.md), con las alternativas evaluadas, y los [ADRs](docs/adr/README.md), con cada decisión aceptada y sus notas
 - Arquitectura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - Instrucciones para agentes de IA: [`AGENTS.md`](AGENTS.md)
 - Especificación técnica: [`docs/spec/SPEC.md`](docs/spec/SPEC.md)

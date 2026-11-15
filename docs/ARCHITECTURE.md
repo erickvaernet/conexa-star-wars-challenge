@@ -2,7 +2,7 @@
 
 Cómo se organiza el código y qué reglas sigue. Es la referencia para el día a día: dónde va cada cosa y qué puede depender de qué. El porqué de cada decisión está en los [ADRs](adr/README.md).
 
-> **Estado:** define la estructura objetivo del MVP. El código se escribe siguiendo este documento; si la estructura cambia, primero se registra un ADR y después se actualiza acá.
+> **Estado:** describe la estructura del MVP, que ya está construida. El código nuevo se escribe siguiendo este documento; si la estructura cambia, primero se registra un ADR y después se actualiza acá.
 
 ## En una frase
 
@@ -133,7 +133,7 @@ Films fue la primera entidad que se sumó con estos pasos (ticket #12), y no hiz
 | Paginación                 | Páginas desde 1; tamaño por defecto 10 y máximo 100                                     | [ADR-0004](adr/0004-pagination-and-filters.md) |
 | Seguridad                  | Todo cerrado por defecto; solo son públicos el login, la documentación y el control de estado | [ADR-0005](adr/0005-authentication.md)   |
 | Base de datos              | Solo usuarios. El esquema cambia únicamente con archivos de Flyway                      | [ADR-0006](adr/0006-users-database-and-seed.md) |
-| Errores                    | Siempre en formato Problem Details, sin detalles internos                               | [ADR-0007](adr/0007-error-format.md)           |
+| Errores                    | En formato Problem Details, sin detalles internos. La excepción es lo que el servidor web rechaza antes de armar el pedido (un carácter prohibido sin codificar, una cabecera demasiado grande), que responde su propio `400` | [ADR-0007](adr/0007-error-format.md)           |
 | Documentación de la API    | Se genera desde el código; cada pedido documenta parámetros, respuestas y errores       | [ADR-0008](adr/0008-api-documentation.md)      |
 | Configuración              | Lo sensible viene de variables de entorno; ningún secreto en el repositorio             | [ADR-0010](adr/0010-local-environment.md)      |
 | Tests                      | Nunca llaman a la SWAPI real                                                            | [ADR-0009](adr/0009-testing-strategy.md)       |
