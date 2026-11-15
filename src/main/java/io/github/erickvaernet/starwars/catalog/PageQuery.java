@@ -1,6 +1,7 @@
 package io.github.erickvaernet.starwars.catalog;
 
 import io.github.erickvaernet.starwars.shared.InvalidParameterException;
+import java.util.regex.Pattern;
 
 /**
  * Which page of a list is asked for, and how many elements it has. Both are already valid.
@@ -23,6 +24,9 @@ public record PageQuery(int page, int size) {
     private static final String PAGE_RULE = "must be an integer greater than or equal to 1";
 
     private static final String SIZE_RULE = "must be an integer between 1 and " + MAX_SIZE;
+
+    /** Only the digits 0 to 9. Zeros on the left are allowed: "01" is 1. */
+    private static final Pattern ONLY_DIGITS = Pattern.compile("[0-9]+");
 
     /** Rejects a page or a size out of range, so that an invalid query cannot exist. */
     public PageQuery {
@@ -54,9 +58,14 @@ public record PageQuery(int page, int size) {
         if (value == null) {
             return defaultValue;
         }
+        // Checked before reading the number: Java would also read a sign ("+1") and the digits
+        // of any alphabet, and neither is what the API documentation calls an integer.
+        if (!ONLY_DIGITS.matcher(value).matches()) {
+            throw new InvalidParameterException(parameter, rule);
+        }
         try {
             return Integer.parseInt(value);
-        } catch (NumberFormatException notAnInteger) {
+        } catch (NumberFormatException tooLarge) {
             throw new InvalidParameterException(parameter, rule);
         }
     }
