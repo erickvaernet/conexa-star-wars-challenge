@@ -14,7 +14,7 @@ El código se organiza por funcionalidad ([ADR-0002](adr/0002-code-organization.
 
 ```
 src/main/java/io/github/erickvaernet/starwars
-├── auth/          login, emisión del token y usuarios
+├── auth/          login, emisión del token, reglas de acceso y alta de usuarios
 ├── catalog/       núcleo común: páginas, filtros, detalle y la interfaz hacia la fuente de datos
 │   ├── people/    controlador y datos de detalle de People
 │   ├── films/
@@ -32,7 +32,7 @@ src/test/java/...  misma estructura de carpetas que el código que prueba
 
 | Carpeta     | Qué contiene                                                                                   | Qué no contiene                                    |
 |-------------|------------------------------------------------------------------------------------------------|----------------------------------------------------|
-| `auth`      | El pedido de login, la emisión del token, la tabla de usuarios y las reglas de acceso          | Nada sobre Star Wars                               |
+| `auth`      | El pedido de login, la emisión del token, la tabla de usuarios, las reglas de acceso (también la que reserva un pedido a un rol) y el alta de usuarios | Nada sobre Star Wars |
 | `catalog`   | El modelo de página, los filtros, la validación del identificador, la lógica de paginación y la interfaz de la fuente de datos | Nada con el formato de SWAPI |
 | `catalog/*` | Por entidad: su controlador, su documentación y sus datos de detalle, con los nombres de esta API | Lógica de paginación o de filtros, ni nombres de campos de SWAPI (salvo el campo de búsqueda que la entidad declara para la fuente) |
 | `swapi`     | Los pedidos HTTP a SWAPI, la traducción de sus respuestas (por entidad, la de su detalle) y la caché | Controladores o reglas de la API propia   |
@@ -87,7 +87,7 @@ sequenceDiagram
     P-->>C: respuesta
 ```
 
-1. La seguridad valida el token. Sin token válido, responde 401 y el pedido no sigue ([ADR-0005](adr/0005-authentication.md)).
+1. La seguridad valida el token. Sin token válido, responde 401 y el pedido no sigue ([ADR-0005](adr/0005-authentication.md)). Si el pedido está reservado a un rol y el del token no alcanza, responde 403 y tampoco sigue ([ADR-0017](adr/0017-role-based-access.md)).
 2. El controlador de la entidad valida los parámetros y llama al núcleo.
 3. El núcleo pide los datos por la interfaz, sin saber que detrás está SWAPI.
 4. El cliente de SWAPI responde desde la caché o hace el pedido HTTP ([ADR-0003](adr/0003-swapi-client.md), [ADR-0011](adr/0011-swapi-response-cache.md)).
@@ -131,8 +131,8 @@ Films fue la primera entidad que se sumó con estos pasos (ticket #12), y no hiz
 | Plataforma                 | Spring Boot 4.1 sobre Java 21, compilado con nivel de lenguaje 21                       | [ADR-0001](adr/0001-platform-and-build.md)     |
 | Rutas                      | Todas bajo `/api/v1`                                                                    | [ADR-0004](adr/0004-pagination-and-filters.md) |
 | Paginación                 | Páginas desde 1; tamaño por defecto 10 y máximo 100                                     | [ADR-0004](adr/0004-pagination-and-filters.md) |
-| Seguridad                  | Todo cerrado por defecto; solo son públicos el login, la documentación y el control de estado | [ADR-0005](adr/0005-authentication.md)   |
-| Base de datos              | Solo usuarios. El esquema cambia únicamente con archivos de Flyway                      | [ADR-0006](adr/0006-users-database-and-seed.md) |
+| Seguridad                  | Todo cerrado por defecto; solo son públicos el login, la documentación y el control de estado. El alta de usuarios exige además el rol `ADMIN`, que se lee del token. Se comprueba siempre en el mismo orden: la sesión (`401`), el rol (`403`) y recién entonces el contenido (`400`) | [ADR-0005](adr/0005-authentication.md) y [ADR-0017](adr/0017-role-based-access.md) |
+| Base de datos              | Solo usuarios. El esquema cambia únicamente con archivos de Flyway. Lo único que la aplicación escribe es el alta de un usuario | [ADR-0006](adr/0006-users-database-and-seed.md) y [ADR-0018](adr/0018-user-creation.md) |
 | Errores                    | En formato Problem Details, sin detalles internos. La excepción es lo que el servidor web rechaza antes de armar el pedido (un carácter prohibido sin codificar, una cabecera demasiado grande), que responde su propio `400`. Un `400` de validación dice además qué campo o parámetro falló, en la lista `errors` | [ADR-0007](adr/0007-error-format.md) y [ADR-0016](adr/0016-validation-error-detail.md) |
 | Documentación de la API    | Se genera desde el código; cada pedido documenta parámetros, respuestas y errores       | [ADR-0008](adr/0008-api-documentation.md)      |
 | Configuración              | Lo sensible viene de variables de entorno; ningún secreto en el repositorio             | [ADR-0010](adr/0010-local-environment.md)      |

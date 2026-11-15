@@ -130,7 +130,7 @@ Pedido:
 | Campo      | Obligatorio | Valores aceptados                                                                          |
 |------------|-------------|--------------------------------------------------------------------------------------------|
 | `username` | Sí          | De 3 a 50 caracteres. Solo letras minúsculas de la `a` a la `z`, dígitos, punto, guion y guion bajo |
-| `password` | Sí          | De 8 a 72 caracteres, y no más de 72 bytes en UTF-8. Los espacios cuentan             |
+| `password` | Sí          | De 8 a 72 caracteres, no solo espacios, y no más de 72 bytes en UTF-8. Los espacios cuentan y no se recortan |
 | `role`     | No          | `USER` o `ADMIN`, en mayúsculas. Por defecto, `USER`                                  |
 
 Los campos que no figuran en esta tabla se ignoran.
@@ -386,8 +386,10 @@ Si varios parámetros son inválidos a la vez, el error nombra el primero en est
 | Login  | `username` | Falta, está vacío o tiene solo espacios; supera los 50 caracteres; tiene un carácter de control | `""`, `"   "`                |
 | Login  | `password` | Falta, está vacío o tiene solo espacios; supera los 72 caracteres            | `""`                                       |
 | Alta   | `username` | Falta; tiene menos de 3 o más de 50 caracteres; tiene algo que no es una minúscula de la `a` a la `z`, un dígito, `.`, `_` o `-` | `"ab"`, `"Leia"`, `"leia organa"`, `"leía"` |
-| Alta   | `password` | Falta; tiene menos de 8 o más de 72 caracteres; ocupa más de 72 bytes en UTF-8 | `"1234567"`, 40 veces `"é"`              |
+| Alta   | `password` | Falta; tiene menos de 8 o más de 72 caracteres; tiene solo espacios; ocupa más de 72 bytes en UTF-8 | `"1234567"`, 8 espacios, 40 veces `"é"` |
 | Alta   | `role`     | Está y no es exactamente `USER` o `ADMIN`                                    | `"admin"`, `"ROOT"`, `""`                  |
+
+> **Nota del 15/11/2026.** La regla de `password` del alta se corrigió al implementarla (ticket #36). La extensión del ciclo 2 aceptaba una contraseña de solo espacios y, a la vez, decía que el usuario creado puede iniciar sesión; el login rechaza una contraseña así, de modo que ese usuario no habría podido entrar nunca. Ahora el alta la rechaza, y su texto de `message` lo dice. La corrección la autorizó la sesión supervisora que había escrito la extensión; el detalle y las alternativas están en el [ADR-0018](../adr/0018-user-creation.md), nota de esta fecha. Ningún criterio de aceptación cambió.
 
 ### Errores
 
@@ -417,7 +419,7 @@ Los textos de `detail` están en inglés. Los de validación son fijos y nunca r
   "detail": "Invalid request content.",
   "instance": "/api/v1/users",
   "errors": [
-    { "field": "password", "message": "must have 8 to 72 characters, and at most 72 bytes in UTF-8" },
+    { "field": "password", "message": "must have 8 to 72 characters, not only spaces, and at most 72 bytes in UTF-8" },
     { "field": "username", "message": "must have 3 to 50 characters: lowercase letters, digits, '.', '_' or '-'" }
   ]
 }
@@ -436,7 +438,7 @@ Textos de `message`:
 | Login    | `username` | `must not be blank, and must have at most 50 characters and no control characters`   |
 | Login    | `password` | `must not be blank, and must have at most 72 characters`                             |
 | Alta     | `username` | `must have 3 to 50 characters: lowercase letters, digits, '.', '_' or '-'`           |
-| Alta     | `password` | `must have 8 to 72 characters, and at most 72 bytes in UTF-8`                        |
+| Alta     | `password` | `must have 8 to 72 characters, not only spaces, and at most 72 bytes in UTF-8`       |
 | Alta     | `role`     | `must be USER or ADMIN`                                                             |
 | Listados | `page`     | `must be an integer greater than or equal to 1`                                     |
 | Listados | `size`     | `must be an integer between 1 and 100`                                              |
@@ -505,7 +507,8 @@ Textos de `detail` de los códigos que se suman en el ciclo 2:
 | Alta con un `username` que solo difiere de uno existente en mayúsculas | `400`: las mayúsculas no son válidas en `username`                 |
 | Alta con `role` en minúsculas (`"admin"`)                    | `400`; no se corrige                                                        |
 | Alta con una contraseña de 72 caracteres o menos que ocupa más de 72 bytes | `400`, no `500`                                                |
-| Alta con una contraseña de 8 espacios                        | `201`: la única regla es el largo, y los espacios cuentan                   |
+| Alta con una contraseña de 8 espacios                        | `400`: el login no acepta una contraseña de solo espacios, y ese usuario no podría entrar |
+| Alta con una contraseña con espacios adentro y en los extremos | `201`: los espacios cuentan para el largo y no se recortan; el usuario inicia sesión con ella tal cual |
 | Alta con campos que no existen (`id`, `createdAt`)           | Se ignoran                                                                  |
 | Dos altas del mismo `username` a la vez                      | Una responde `201` y la otra `409`; no quedan dos usuarios                  |
 | El administrador crea a otro administrador                   | `201`; el usuario nuevo puede crear usuarios                          |

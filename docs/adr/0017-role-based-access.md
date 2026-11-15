@@ -75,3 +75,16 @@ Usuario administrador de prueba:
 - No hace falta cambiar el esquema: la columna `role` existe desde la primera migración. Los valores posibles se controlan en el código; la base de datos no los restringe.
 - Un token emitido antes de este cambio sigue valiendo hasta vencer, con el rol que ya traía.
 - Si más adelante un rol pudiera cambiar o un usuario pudiera darse de baja, leer el rol del token dejaría una ventana de hasta una hora con el dato viejo. Habría que acortar el vencimiento o consultar la base; se registra en un ADR nuevo.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al implementarlo (ticket #36):
+  - **Cómo se lee el rol.** Spring Security convierte cada token en permisos. Por defecto los busca en los campos `scope` y `scp`, que estos tokens no tienen. Se le indicó que lea el campo `role` y que nombre lo que encuentra como él espera un rol. Son dos piezas que ya trae; no se escribió ninguna propia. La regla quedó en una línea, junto a las demás.
+  - **Alternativa descartada.** Una regla escrita a mano que lea el campo del token. Hace lo mismo con código de seguridad propio, que es lo que el [ADR-0005](0005-authentication.md) evita.
+  - **Solo el nombre exacto del rol abre el pedido.** Un token válido sin el campo `role`, o con `admin`, `ROOT` o cualquier otro valor, recibe `403`. Ningún token así sale del login: lo fijan los tests, por si el formato del token cambiara.
+  - **El `403` lo responde el mismo lugar que el resto de los errores.** Las reglas de acceso le pasan el error, igual que hacen con el `401`. Sin eso, Spring Security responde un `403` sin cuerpo y con una cabecera `WWW-Authenticate` que describe el error.
+  - **Vale para toda la aplicación, no solo para el alta.** Cualquier pedido que se reserve a un rol más adelante responde el mismo `403`, con el mismo texto. También si un `403` llegara por el reenvío de errores del servidor ([ADR-0007](0007-error-format.md), nota del 15/11/2026): ese camino usa el mismo texto.
+  - **El orden sale solo.** El token y la regla del rol se evalúan antes de que la aplicación lea el cuerpo del pedido. Por eso un usuario común recibe `403` también con un cuerpo que no es JSON o que no se envía como JSON, y no un `400` ni un `415`.
+  - **Un límite de la forma elegida.** Spring Security separa por espacios el valor del campo: un token con `role` igual a `USER ADMIN` tendría los dos roles. No puede pasar: el login escribe el rol de la base de datos, y ahí solo llegan `USER` o `ADMIN`, por la carga inicial o por el alta, que valida el valor exacto.

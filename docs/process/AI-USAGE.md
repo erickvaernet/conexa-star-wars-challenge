@@ -156,6 +156,7 @@ Lo que pasó hasta tener el ciclo 2 listo para empezar a programar. Lo que venga
 **Lo que pasó al implementarlo.**
 
 - **Ticket #35, el detalle de los errores de validación.** Los tests de aceptación los aprobó el autor directamente, antes del código, desde la sesión del ticket y sin comentarios. El pull request lo revisó la sesión supervisora.
+- **Ticket #36, el rol de administrador y el alta de usuarios.** Los tests de aceptación los revisó la sesión supervisora, antes del código. Al escribirlos, la sesión del ticket encontró una contradicción en la extensión de la especificación (una contraseña de solo espacios se aceptaba en el alta y el login la rechaza) y presentó tres opciones; la sesión supervisora eligió una y autorizó corregir la especificación ([ADR-0018](../adr/0018-user-creation.md), nota del 15/11/2026). El autor no intervino. El pull request queda para la revisión de la sesión supervisora.
 
 ## Límites
 
