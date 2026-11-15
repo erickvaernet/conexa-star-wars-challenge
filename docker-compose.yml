@@ -1,0 +1,41 @@
+# Starts the application and its database: docker compose up
+#
+# It works without any configuration. To change the development defaults,
+# copy .env.example to .env and edit the values.
+services:
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: starwars
+      POSTGRES_USER: ${DB_USER:-starwars}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-starwars}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/starwars
+      DB_USER: ${DB_USER:-starwars}
+      DB_PASSWORD: ${DB_PASSWORD:-starwars}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Docker uses the health check to know when the application is ready.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  db-data:
