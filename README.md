@@ -80,6 +80,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 14/11/2026 | Especificación técnica aprobada, con 51 criterios de aceptación. |
 | 14/11/2026 | La especificación técnica y los ADRs 0012 y 0013 se publicaron en el [pull request #3](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/3). |
 | 14/11/2026 | Al repasar la caché se evaluó guardar solo los listados y no los recursos específicos. Se mantuvo la decisión: los recursos son pocos (163), pesan poco y son lo que más se repite; lo que no tiene límite son las búsquedas. Proteger la caché de una avalancha de búsquedas inútiles quedó como requisito nuevo del ciclo 3 (REQ-35). |
+| 14/11/2026 | Se crearon los tickets del MVP: doce historias de usuario en el [hito `v0.1.0`](https://github.com/erickvaernet/conexa-star-wars-challenge/milestone/1), cada una con sus tareas, sus dependencias y sus criterios de aceptación. Tres decisiones del reparto: la protección del acceso (REQ-10) va separada del login, para revisar por separado la emisión del token y su validación; la caché (REQ-32) va separada del listado de People, para aislar la elección de la librería; y las pruebas de integración (REQ-16) no llevan ticket, porque son parte de la definición de terminado. |
 
 ## Documentación
 
@@ -91,6 +92,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 - Arquitectura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - Instrucciones para agentes de IA: [`AGENTS.md`](AGENTS.md)
 - Especificación técnica: [`docs/spec/SPEC.md`](docs/spec/SPEC.md)
+- Tickets del ciclo 1: [hito `v0.1.0`](https://github.com/erickvaernet/conexa-star-wars-challenge/milestone/1)
 - Instrucciones de configuración y uso: _próximamente_
 - Registro de uso de herramientas de IA: _próximamente_ en `docs/process/AI-USAGE.md`
 
