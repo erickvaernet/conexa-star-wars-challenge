@@ -69,7 +69,7 @@ class SwapiCatalogSource implements CatalogSource {
             if (response == null) {
                 throw new BadGatewayException("SWAPI answered " + request + " without a body", null);
             }
-            return response.toListing();
+            return response.toListing(entity.searchField());
         } catch (RestClientException error) {
             throw failure(request, error);
         }

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
  */
 class CatalogServiceTest {
 
-    private static final CatalogEntity ANY_ENTITY = new CatalogEntity("anything");
+    private static final CatalogEntity ANY_ENTITY = new CatalogEntity("anything", "name");
 
     private static final List<ItemSummary> SIX_ITEMS = List.of(
             new ItemSummary("1", "first"),
@@ -72,7 +72,7 @@ class CatalogServiceTest {
     void sourceIsAskedForWhatWasRequested() {
         FakeSource source = new FakeSource(new Listing.Complete(List.of()));
         CatalogService catalog = new CatalogService(source);
-        CatalogEntity people = new CatalogEntity("people");
+        CatalogEntity people = new CatalogEntity("people", "name");
 
         catalog.list(people, unfiltered(9, 10));
 
@@ -118,7 +118,7 @@ class CatalogServiceTest {
     void filterByIdAsksTheSourceForThatElement() {
         FakeSource source = new FakeSource(new Listing.Complete(SIX_ITEMS));
         CatalogService catalog = new CatalogService(source);
-        CatalogEntity people = new CatalogEntity("people");
+        CatalogEntity people = new CatalogEntity("people", "name");
 
         catalog.list(people, filteredBy(THIRD_ID, 1, 10));
 
@@ -130,7 +130,7 @@ class CatalogServiceTest {
     void detailIsTheElementOfTheSource() {
         FakeSource source = new FakeSource(new Listing.Complete(SIX_ITEMS));
         CatalogService catalog = new CatalogService(source);
-        CatalogEntity people = new CatalogEntity("people");
+        CatalogEntity people = new CatalogEntity("people", "name");
 
         FakeItem detail = catalog.detail(people, THIRD_ID, FakeItem.class);
 

@@ -30,9 +30,9 @@ import org.junit.jupiter.api.Test;
  */
 class CachedCatalogSourceTest {
 
-    private static final CatalogEntity PEOPLE = new CatalogEntity("people");
+    private static final CatalogEntity PEOPLE = new CatalogEntity("people", "name");
 
-    private static final CatalogEntity STARSHIPS = new CatalogEntity("starships");
+    private static final CatalogEntity STARSHIPS = new CatalogEntity("starships", "name");
 
     private static final Duration ONE_HOUR = Duration.ofHours(1);
 

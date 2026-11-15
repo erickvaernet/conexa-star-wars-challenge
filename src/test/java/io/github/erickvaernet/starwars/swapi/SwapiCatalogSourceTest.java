@@ -44,7 +44,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 @SpringJUnitConfig(SwapiStubConfiguration.class)
 class SwapiCatalogSourceTest {
 
-    private static final CatalogEntity PEOPLE = new CatalogEntity("people");
+    private static final CatalogEntity PEOPLE = new CatalogEntity("people", "name");
 
     private static final String SWAPI_PEOPLE = "/api/people";
 
@@ -103,6 +103,24 @@ class SwapiCatalogSourceTest {
         assertThat(page.totalElements()).isEqualTo(82);
     }
 
+    @Test
+    @DisplayName("A list that SWAPI answers whole, without cutting pages, is read as the complete list")
+    void listThatSwapiAnswersWholeIsReadAsComplete() {
+        // Not a recording: the list of people never has this shape. It is the one SWAPI uses
+        // when it ignores the page and the size.
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody("""
+                        {"message":"ok","result":[
+                          {"uid":"1","properties":{"name":"Luke Skywalker","height":"172"},"description":"A person"},
+                          {"uid":"2","properties":{"name":"C-3PO"}}]}
+                        """)));
+
+        Listing listing = source.list(PEOPLE, new PageQuery(2, 1));
+
+        assertThat(listing).isEqualTo(new Listing.Complete(
+                List.of(new ItemSummary("1", "Luke Skywalker"), new ItemSummary("2", "C-3PO"))));
+    }
+
     @ParameterizedTest(name = "SWAPI answers {0}")
     // 429 is what SWAPI answers after 100 requests in 15 minutes.
     @ValueSource(ints = {400, 404, 429, 500, 503})
@@ -126,8 +144,12 @@ class SwapiCatalogSourceTest {
         "{\"message\":\"ok\"}",
         "{\"total_records\":\"many\",\"results\":[]}",
         "{\"total_records\":82,\"results\":\"none\"}",
-        // The shape of a list that SWAPI does not cut in pages. The list of people never has it.
-        "{\"message\":\"ok\",\"result\":[{\"uid\":\"1\",\"properties\":{\"name\":\"Luke Skywalker\"}}]}"
+        // The shape of a list that SWAPI does not cut in pages, with something missing or wrong:
+        // the result is one element and not a list, or an element has no name or no identifier.
+        "{\"message\":\"ok\",\"result\":{\"uid\":\"1\",\"properties\":{\"name\":\"Luke Skywalker\"}}}",
+        "{\"message\":\"ok\",\"result\":[{\"uid\":\"1\",\"properties\":{\"title\":\"A New Hope\"}}]}",
+        "{\"message\":\"ok\",\"result\":[{\"properties\":{\"name\":\"Luke Skywalker\"}}]}",
+        "{\"message\":\"ok\",\"result\":\"none\"}"
     })
     @DisplayName("An answer that cannot be read is a failure of the data source")
     void answerThatCannotBeReadIsAFailure(String body) {
@@ -329,7 +351,7 @@ class SwapiCatalogSourceTest {
     @Test
     @DisplayName("An entity whose format was not declared is a mistake in the code: it fails before SWAPI is asked")
     void entityWithoutAFormatFailsBeforeAskingSwapi() {
-        assertThatThrownBy(() -> source.find(new CatalogEntity("planets"), LUKE))
+        assertThatThrownBy(() -> source.find(new CatalogEntity("planets", "name"), LUKE))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("planets");
 

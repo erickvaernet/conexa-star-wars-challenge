@@ -55,7 +55,7 @@ class PeopleControllerTest {
 
     private static final String PEOPLE = "/api/v1/people";
 
-    private static final CatalogEntity PEOPLE_ENTITY = new CatalogEntity("people");
+    private static final CatalogEntity PEOPLE_ENTITY = new CatalogEntity("people", "name");
 
     private static final PageResult<ItemSummary> A_PAGE = new PageResult<>(
             List.of(new ItemSummary("1", "Luke Skywalker"), new ItemSummary("2", "C-3PO")), 1, 2, 82, 41);

@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "People", description = "The characters of Star Wars")
 class PeopleController {
 
-    private static final CatalogEntity PEOPLE = new CatalogEntity("people");
+    private static final CatalogEntity PEOPLE = new CatalogEntity("people", "name");
 
     private final CatalogService catalog;
 
