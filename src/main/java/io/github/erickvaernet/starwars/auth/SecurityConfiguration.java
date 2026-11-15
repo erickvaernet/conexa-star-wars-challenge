@@ -72,11 +72,11 @@ class SecurityConfiguration {
                 // use the same answer, so it does not tell why the request was rejected.
                 .oauth2ResourceServer(tokens -> tokens
                         .jwt(token -> token.jwtAuthenticationConverter(roleFromTheToken()))
-                        .authenticationEntryPoint(notAuthenticated)
-                        // Its own answer to a 403 has no body, and a header that describes the error.
-                        .accessDeniedHandler(notAllowed))
+                        .authenticationEntryPoint(notAuthenticated))
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint(notAuthenticated)
+                        // A session whose role does not allow the request. Without this line, the
+                        // answer would have no body, and a header that describes the error.
                         .accessDeniedHandler(notAllowed))
                 // The server keeps no session and uses no cookies: each request stands on its own.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
