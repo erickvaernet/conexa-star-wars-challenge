@@ -35,6 +35,7 @@ class RejectedRequestControllerTest {
     @ParameterizedTest(name = "status {0}")
     @CsvSource(delimiter = '|', value = {
         "400 | Bad Request           | The request was rejected.",
+        "403 | Forbidden             | You do not have permission to perform this request.",
         "405 | Method Not Allowed    | The method of the request is not supported.",
         "404 | Not Found             | The requested resource was not found.",
         "414 | URI Too Long          | The request was rejected.",

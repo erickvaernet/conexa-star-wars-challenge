@@ -35,19 +35,20 @@ Cuando termina de arrancar:
 | La misma documentación, en formato OpenAPI | <http://localhost:8080/v3/api-docs> |
 | Control de estado | <http://localhost:8080/actuator/health> |
 
-**2. Iniciar sesión con el usuario de prueba**
+**2. Iniciar sesión con un usuario de prueba**
 
-`docker compose up` lo carga solo:
+`docker compose up` carga dos, uno de cada rol:
 
-| Usuario | Contraseña |
-|---|---|
-| `demo` | `demo1234` |
+| Usuario | Contraseña | Rol | Qué puede hacer |
+|---|---|---|---|
+| `demo` | `demo1234` | `USER` | Usar los listados y los detalles |
+| `admin` | `admin1234` | `ADMIN` | Lo mismo, y además [crear usuarios](#crear-usuarios) |
 
-Es una credencial de prueba, pensada para quien corrige: en la base de datos solo está su *hash* BCrypt.
+Son credenciales de prueba, pensadas para quien corrige: en la base de datos solo está su *hash* BCrypt.
 
 **3. Probar**
 
-Desde el navegador, con [Swagger UI](#probar-desde-swagger-ui), o desde la terminal, con [`curl`](#probar-con-curl). Están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Todo se puede probar desde la documentación interactiva.
+Desde el navegador, con [Swagger UI](#probar-desde-swagger-ui), o desde la terminal, con [`curl`](#probar-con-curl). Están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Y el alta de usuarios, que solo puede hacer un administrador. Todo se puede probar desde la documentación interactiva.
 
 **4. Correr los tests**
 
@@ -76,7 +77,8 @@ No hace falta ninguna otra herramienta: alcanza con el navegador.
 4. Pulsar **Authorize**, arriba de la lista de pedidos, pegar el token en `Value`, confirmar con **Authorize** y cerrar el diálogo con **Close**. Va solo el token: la palabra `Bearer` la agrega la página.
 5. Probar cualquier pedido. Por ejemplo, `GET /api/v1/people` con `name` igual a `sky`, o `GET /api/v1/films/{id}` con `id` igual a `1`.
 
-- Los pedidos con candado son los que exigen el token: los cuatro listados y los cuatro detalles. El login no lo lleva.
+- Los pedidos con candado son los que exigen el token: los cuatro listados, los cuatro detalles y el alta de usuarios. El login no lo lleva.
+- El alta de usuarios, `POST /api/v1/users`, en el grupo **Users**, exige además el rol de administrador. Para probarla hay que iniciar sesión como `admin`: en el paso 2, cambiar el cuerpo por `{"username": "admin", "password": "admin1234"}`. Con el token de `demo` responde `403`.
 - El token vence a los 60 minutos. Desde ese momento los pedidos responden `401`: se repite el login y se carga el token nuevo. El login no envía el token cargado, así que se puede repetir aunque ese token ya no sirva.
 - **Logout**, en el mismo diálogo de **Authorize**, quita el token de la página.
 - Cada pedido muestra sus parámetros, su respuesta y sus errores.
@@ -149,6 +151,8 @@ curl http://localhost:8080/api/v1/people \
 
 Sin token, o con uno mal formado, con la firma alterada o vencido, la respuesta es `401`, siempre la misma.
 
+Con un token válido cuyo rol no alcanza para el pedido, la respuesta es `403`. Hoy pasa en un solo caso: el [alta de usuarios](#crear-usuarios) con el token de un usuario común.
+
 ## La API
 
 ### Pedidos
@@ -164,6 +168,9 @@ Sin token, o con uno mal formado, con la firma alterada o vencido, la respuesta 
 | `GET /api/v1/starships/{id}` | Todos los datos de una nave | Sí |
 | `GET /api/v1/vehicles` | El listado de vehículos | Sí |
 | `GET /api/v1/vehicles/{id}` | Todos los datos de un vehículo | Sí |
+| `POST /api/v1/users` | El usuario creado | Sí, de un administrador |
+
+El último es el único que escribe algo y el único reservado a un rol: está en [Crear usuarios](#crear-usuarios).
 
 Las cuatro entidades se piden igual: los mismos parámetros, la misma forma de respuesta y los mismos errores. Los ejemplos que siguen usan People. Las reglas que valen para las cuatro están [más abajo](#reglas-que-valen-para-las-cuatro-entidades), y lo que cambia en cada una, en [Lo particular de cada entidad](#lo-particular-de-cada-entidad).
 
@@ -544,6 +551,85 @@ curl http://localhost:8080/api/v1/vehicles/4 \
 - `filmIds` y `pilotIds` son identificadores de películas y de personajes, que se pueden pedir en esta misma API. Un vehículo sin pilotos conocidos, como este, trae `pilotIds` vacío; el vehículo `14`, el Snowspeeder, trae `["1", "18"]`.
 - Un vehículo tiene los mismos datos que una nave, salvo `hyperdriveRating` y `mglt`, y su clase se llama `vehicleClass`.
 
+### Crear usuarios
+
+Solo un administrador puede crear usuarios. Primero se inicia sesión como `admin`, el administrador de prueba:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin1234"}'
+```
+
+Y con ese token:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Authorization: Bearer eyJ..." \
+  -H "Content-Type: application/json" \
+  -d '{"username": "leia", "password": "alderaan-1977"}'
+```
+
+Responde `201` con lo que se creó. El usuario nuevo puede iniciar sesión en el momento:
+
+```json
+{
+  "username": "leia",
+  "role": "USER",
+  "createdAt": "2026-11-16T14:03:27.512Z"
+}
+```
+
+| Campo | Obligatorio | Regla |
+|---|---|---|
+| `username` | Sí | De 3 a 50 caracteres: solo minúsculas de la `a` a la `z`, dígitos, `.`, `_` y `-` |
+| `password` | Sí | De 8 a 72 caracteres, no solo espacios, y no más de 72 bytes en UTF-8. Los espacios cuentan y no se recortan |
+| `role` | No | `USER` o `ADMIN`, en mayúsculas. Si no se envía, `USER` |
+
+- La contraseña se guarda cifrada con BCrypt, tal como llegó. La respuesta nunca la trae, ni tampoco su *hash*.
+- Con `"role": "ADMIN"` se crea otro administrador, que también puede crear usuarios.
+- Nada se corrige en silencio: `Leia` o `"role": "admin"` responden `400`, no se pasan a minúsculas ni a mayúsculas.
+- No hay pedidos para listar, modificar ni borrar usuarios.
+
+Los errores, en el orden en que se comprueban:
+
+| Código | Cuándo | `detail` |
+|---|---|---|
+| `401` | Falta el token, o fue rechazado | `Authentication is required to access this resource.` |
+| `403` | El token es de un usuario común, como `demo` | `You do not have permission to perform this request.` |
+| `400` | Un campo no cumple su regla, o el cuerpo no es JSON | `Invalid request content.` |
+| `409` | Ya existe un usuario con ese `username` | `A user with that username already exists.` |
+
+- El rol se comprueba antes que el contenido: un usuario común recibe `403` también si envía un cuerpo inválido.
+- El `403` no lleva la cabecera `WWW-Authenticate`: quien pide ya inició sesión, y volver a hacerlo no cambia nada.
+- El `400` por campos inválidos trae todos juntos en `errors`, ordenados por nombre, cada uno con su regla:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Invalid request content.",
+  "instance": "/api/v1/users",
+  "errors": [
+    {
+      "field": "password",
+      "message": "must have 8 to 72 characters, not only spaces, and at most 72 bytes in UTF-8"
+    },
+    {
+      "field": "role",
+      "message": "must be USER or ADMIN"
+    },
+    {
+      "field": "username",
+      "message": "must have 3 to 50 characters: lowercase letters, digits, '.', '_' or '-'"
+    }
+  ]
+}
+```
+
+El porqué de los roles está en el [ADR-0017](docs/adr/0017-role-based-access.md), y el del alta y sus reglas, en el [ADR-0018](docs/adr/0018-user-creation.md).
+
 ## Configuración
 
 No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para cambiarlos, copiar `.env.example` a `.env`.
@@ -555,7 +641,7 @@ No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para
 | `DB_PASSWORD` | Contraseña de la base de datos | `starwars` | Obligatoria |
 | `JWT_SECRET` | Clave que firma los tokens, de al menos 32 caracteres | Una clave de desarrollo, pública | Obligatoria: sin ella la aplicación no arranca |
 | `JWT_TTL_MINUTES` | Minutos hasta que vence un token | `60` | `60` |
-| `SEED_ENABLED` | Cargar el usuario de prueba | `true` | `false` |
+| `SEED_ENABLED` | Cargar los usuarios de prueba | `true` | `false` |
 | `SWAPI_BASE_URL` | Dirección de SWAPI | `https://www.swapi.tech/api` | `https://www.swapi.tech/api` |
 | `SWAPI_CONNECT_TIMEOUT` | Tiempo máximo para conectarse con SWAPI | `3s` | `3s` |
 | `SWAPI_READ_TIMEOUT` | Tiempo máximo de espera de una respuesta de SWAPI | `10s` | `10s` |
@@ -586,7 +672,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 978 tests: 799 corren con `./mvnw test` y 179 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Son 1127 tests: 909 corren con `./mvnw test` y 218 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -690,6 +776,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Errores de validación campo por campo ([#35](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/35)): un `400` que sale de un campo del cuerpo o de un parámetro trae la lista `errors`, con el nombre de cada campo inválido y la regla que tiene que cumplir. En el login cada campo tiene un solo texto fijo, el mismo para todas sus reglas, así que aparece una sola vez; en los listados y el detalle la lista trae el primer parámetro inválido, sin cambiar su validación. El `415` pasó a tener un texto fijo, porque el de Spring repetía el `Content-Type` recibido. La documentación de la API muestra `errors` en el `400` de los nueve pedidos. Los tests de aceptación se escribieron antes que el código; ningún test anterior se tocó. Queda hecho el mecanismo que usa el alta de usuarios: un pedido nuevo con cuerpo solo declara el texto de cada campo. |
 | 15/11/2026 | Despliegue público, primera parte ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)): el despliegue quedó descripto en [`render.yaml`](render.yaml), sin ningún secreto y sin cambiar el código de la aplicación. Su test de aceptación lee las variables del propio archivo, así que no pueden desviarse: sin la variable que hace leer las cabeceras del intermediario, la documentación de la API declara su servidor con `http://` y el test falla. La imagen se probó con los límites del plan gratuito, 512 MB y una décima de procesador: arranca en un minuto y medio y usa la mitad de la memoria. El formato del archivo se revisó contra la referencia que publica el servicio, pero no contra el servicio. **Falta crear el servicio,** que es un paso del autor en persona; recién entonces hay una dirección pública, se mide sobre el servicio real y se cierra el ticket. |
 | 15/11/2026 | Datos completos a pedido en los listados ([#37](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/37)): con `expanded=true`, cada elemento de un listado es el mismo objeto que devuelve su detalle, para las cuatro entidades y combinado con los filtros. Es un solo pedido a SWAPI, que tiene ese mismo parámetro, y no uno por elemento; la fuente de datos sumó dos pedidos y el núcleo los pagina con el mismo código que a los resúmenes, sin conocer los datos de ninguna entidad. La caché guarda estas respuestas aparte de las comunes y, además, cada elemento que llega por su identificador: su detalle ya no vuelve a SWAPI. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI; cinco de los veinticuatro casos ya pasaban, porque describen lo que no cambia. Lo más incierto era documentar que un elemento es "el resumen o el detalle": se probaron seis formas antes de programar y quedó la que la librería entiende sola, a costa de un tipo por entidad que nada implementa y de una conversión que el compilador no puede comprobar, explicadas en el código y en el ADR-0019. |
+| 15/11/2026 | Rol de administrador y alta de usuarios ([#36](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/36)): la carga inicial suma a `admin`, con rol `ADMIN`, y en una base que ya tenía a `demo` lo agrega al arrancar sin tocar a `demo`. Las reglas de acceso leen el rol del token y reservan `POST /api/v1/users` al administrador: sin sesión, `401`; con la sesión de un usuario común, `403`, antes de mirar el cuerpo. El alta valida cada campo con su texto fijo, guarda la contraseña cifrada con BCrypt y responde `409` si el nombre ya existe, también cuando dos altas llegan a la vez. Al escribir los tests apareció una contradicción en la especificación: aceptaba una contraseña de solo espacios, que el login rechaza, así que ese usuario no habría podido entrar nunca. Se corrigió la regla: el alta la rechaza. Los tests de aceptación se escribieron antes que el código. |
 
 ## Documentación
 

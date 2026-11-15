@@ -41,7 +41,8 @@ public class AuthController {
                     + "`accessToken` from the answer, press **Authorize** and paste it: it is then sent with "
                     + "every other request, until it expires. The example is the test user, which is loaded "
                     + "only where the seed is on, as in `docker compose`; where the seed is off, that user "
-                    + "does not exist.")
+                    + "does not exist. The seed loads a test administrator too, `admin`, with the password "
+                    + "`admin1234`: it is the user that can create users.")
     // The documentation requires the token in every request unless the request says otherwise.
     // This empty list is how the login says so: it gets no padlock, and Swagger UI sends it no
     // token. That matters, because a public request that brings a rejected token is answered

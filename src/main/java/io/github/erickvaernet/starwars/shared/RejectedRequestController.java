@@ -55,6 +55,11 @@ class RejectedRequestController implements ErrorController {
         if (status == HttpStatus.NOT_FOUND) {
             return ApiExceptionHandler.NOT_FOUND;
         }
+        if (status == HttpStatus.FORBIDDEN) {
+            // The access rules answer their own 403 without coming here. If one ever arrives,
+            // it says the same as theirs.
+            return ApiExceptionHandler.FORBIDDEN;
+        }
         if (status == HttpStatus.METHOD_NOT_ALLOWED) {
             // Without the name of the method: by the time the request arrives here, the web
             // server has already replaced it with GET.

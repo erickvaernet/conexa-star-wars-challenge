@@ -45,7 +45,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` |
 | Ver la cobertura, después de `./mvnw verify` | Abrir `target/site/jacoco/index.html` |
 | Levantar la aplicación y la base de datos | `docker compose up --build` |
-| Probar la aplicación levantada | Abrir <http://localhost:8080/swagger-ui.html>; el usuario de prueba está en el [README](README.md#inicio-rápido) |
+| Probar la aplicación levantada | Abrir <http://localhost:8080/swagger-ui.html>; los usuarios de prueba están en el [README](README.md#inicio-rápido) |
 | Apagar y borrar los datos locales | `docker compose down -v` |
 
 Los tests de aceptación son las clases que terminan en `AcceptanceTest`.
