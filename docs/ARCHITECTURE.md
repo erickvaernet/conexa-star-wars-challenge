@@ -34,7 +34,7 @@ src/test/java/...  misma estructura de carpetas que el código que prueba
 |-------------|------------------------------------------------------------------------------------------------|----------------------------------------------------|
 | `auth`      | El pedido de login, la emisión del token, la tabla de usuarios y las reglas de acceso          | Nada sobre Star Wars                               |
 | `catalog`   | El modelo de página, los filtros, la validación del identificador, la lógica de paginación y la interfaz de la fuente de datos | Nada con el formato de SWAPI |
-| `catalog/*` | Por entidad: su controlador, su documentación y sus datos de detalle, con los nombres de esta API | Lógica de paginación o de filtros, ni nombres de campos de SWAPI (salvo el campo de búsqueda que la entidad declara para la fuente) |
+| `catalog/*` | Por entidad: su controlador, su documentación, sus datos de detalle, con los nombres de esta API, y el nombre que la documentación le da a un elemento de su listado | Lógica de paginación o de filtros, ni nombres de campos de SWAPI (salvo el campo de búsqueda que la entidad declara para la fuente) |
 | `swapi`     | Los pedidos HTTP a SWAPI, la traducción de sus respuestas (por entidad, la de su detalle) y la caché | Controladores o reglas de la API propia   |
 | `shared`    | El formato de los errores, la configuración general y la de la documentación de la API         | Lógica de una funcionalidad en particular          |
 
@@ -108,15 +108,39 @@ Con un filtro el recorrido es el mismo; lo que cambia es qué le pide el núcleo
 - El texto de búsqueda se guarda sin los espacios de los extremos y en minúsculas. Así dos búsquedas que solo difieren en eso son el mismo pedido a la fuente y la misma respuesta guardada.
 - La fuente responde una búsqueda igual que un listado: con una página y su total, o con todo junto. Hoy SWAPI devuelve todas las coincidencias juntas, y el núcleo recorta la página. La caché guarda esa respuesta completa sin página ni tamaño, así que recorrer las páginas de una búsqueda es un solo pedido a SWAPI.
 
+### Con los datos completos de cada elemento
+
+Ejemplo: `GET /api/v1/people?expanded=true&size=2`. El recorrido es el del diagrama; cambia qué se pide y qué vuelve en cada paso ([ADR-0019](adr/0019-expanded-listings.md)).
+
+1. El controlador valida los parámetros, entre ellos `expanded`, que solo acepta `true` o `false`, y llama al núcleo con la misma línea que sin él.
+2. El núcleo le pide a la fuente la misma página, **con los elementos completos**. Es otro pedido de la interfaz, distinto del de la página de resúmenes.
+3. El cliente de SWAPI hace **un solo pedido HTTP**, el del listado con `expanded=true`, y lee cada elemento con la traducción del detalle de su entidad: la misma que usa cuando se pide un elemento solo.
+4. La caché guarda esa respuesta aparte de la de resúmenes, y guarda además cada elemento por su identificador.
+5. El núcleo arma la página con el mismo código que para los resúmenes, sin mirar qué trae cada elemento.
+
+| Pedido                                         | Qué le pide el núcleo a la fuente                         | Qué responde                                                          |
+|------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------------------------|
+| `GET /api/v1/people?expanded=true`             | La página de People, con los elementos completos          | La página, con el detalle de cada personaje                           |
+| `GET /api/v1/people?name=sky&expanded=true`    | Los elementos completos de People cuyo nombre contiene "sky" | La página pedida de las coincidencias, cada una con su detalle     |
+| `GET /api/v1/people?id=1&expanded=true`        | El elemento 1 de People, como siempre                     | Una página con ese elemento en vez de su resumen, o vacía si no existe |
+| `GET /api/v1/people?expanded=false`            | La página de resúmenes: es el pedido de siempre           | La página, con `id` y `name` en cada elemento                         |
+
+- **El núcleo sigue sin conocer los datos de ninguna entidad.** De un elemento completo solo sabe pedirle su resumen, que usa para comparar el nombre cuando hay `id` y `name` juntos.
+- **Las dos formas de respuesta de la fuente valen igual:** la página con su total, o todo junto. SWAPI ignora `expanded` en Films y en las búsquedas, que ya traían todos los datos; se le envía igual y se decide por lo que llega.
+- **Un elemento que no se puede traducir hace fallar toda la página,** con `502`: por ejemplo, una relación cuya dirección no termina en un identificador. El listado de resúmenes no lee esos datos.
+- **Después de un listado completo, el detalle de cualquiera de sus elementos no vuelve a SWAPI,** y el filtro por su ID tampoco: son el mismo pedido a la fuente y ya está guardado.
+- **Pedir el mismo listado de las dos formas son dos pedidos a SWAPI.** Las respuestas no se comparten: armar los resúmenes a partir de los datos completos haría que el listado común dependiera de traducir todos los datos de cada elemento.
+- **En la documentación de la API, un elemento de un listado es "uno de dos":** el resumen o el detalle de la entidad. Java no tiene un tipo para eso, así que cada entidad declara una interfaz que nada implementa, solo para que la documentación lo lea del tipo de la respuesta (ejemplo: `catalog/people/PersonListElement`). El costo y las alternativas están en el ADR-0019.
+
 ## Cómo se agrega una entidad
 
 Sumar una entidad de SWAPI (por ejemplo, Planets) no toca la paginación, los filtros, la validación, la caché ni los errores:
 
 1. Grabar sus respuestas reales de SWAPI y escribir sus tests de aceptación, antes que el código ([flujo de trabajo](process/WORKFLOW.md)). Son dos cosas: una clase con los criterios propios de la entidad (ejemplo: `catalog/films/FilmsAcceptanceTest`), y su ruta en las listas de los criterios que comparten las cuatro entidades, que están en `catalog/PaginationAcceptanceTest`, en `auth/ProtectedAccessAcceptanceTest` y en `ApiDocumentationAcceptanceTest`. Este último comprueba que la documentación de la API tiene exactamente los pedidos previstos: se le suman los dos de la entidad.
 2. Crear su carpeta dentro de `catalog`.
-3. Definir ahí sus datos de detalle, con los nombres de esta API, y decir cuál de ellos es su nombre en un listado (en Films, el título). Ejemplos: `catalog/people/PersonDetail` y `catalog/films/FilmDetail`.
-4. Declarar en su controlador su ruta y sus dos pedidos: el listado y el detalle. Cada uno es una línea que llama al núcleo. Ahí mismo se declaran, en un `CatalogEntity`, los dos datos que la fuente necesita de la entidad: su nombre en SWAPI y el campo de SWAPI que tiene el nombre de cada elemento, que es también el campo por el que se busca (`name`; en Films, `title`). Ejemplos: `catalog/people/PeopleController` y `catalog/films/FilmsController`. En la documentación de la API los dos pedidos quedan con candado sin declarar nada: el token se exige por defecto ([ADR-0008](adr/0008-api-documentation.md)).
-5. Escribir en `swapi` su traducción: los datos de la entidad con los nombres de SWAPI y cómo pasan a su detalle. Ejemplos: `swapi/SwapiPerson` y `swapi/SwapiFilm`. Y sumar una línea a la tabla de formatos de `swapi/SwapiCatalogSource`, que dice con qué traducción se lee cada entidad.
+3. Definir ahí sus datos de detalle, con los nombres de esta API, y decir cuál de ellos es su nombre en un listado (en Films, el título). Ejemplos: `catalog/people/PersonDetail` y `catalog/films/FilmDetail`. Y, al lado, el nombre que la documentación le da a un elemento de su listado, que es "su resumen o su detalle": una interfaz vacía con una anotación. Ejemplos: `catalog/people/PersonListElement` y `catalog/films/FilmListElement`.
+4. Declarar en su controlador su ruta y sus dos pedidos: el listado y el detalle. Cada uno es una línea que llama al núcleo; el listado devuelve una página de ese nombre del paso 3, y con eso acepta `expanded` sin nada más. Ahí mismo se declaran, en un `CatalogEntity`, los dos datos que la fuente necesita de la entidad: su nombre en SWAPI y el campo de SWAPI que tiene el nombre de cada elemento, que es también el campo por el que se busca (`name`; en Films, `title`). Ejemplos: `catalog/people/PeopleController` y `catalog/films/FilmsController`. En la documentación de la API los dos pedidos quedan con candado sin declarar nada: el token se exige por defecto ([ADR-0008](adr/0008-api-documentation.md)).
+5. Escribir en `swapi` su traducción: los datos de la entidad con los nombres de SWAPI y cómo pasan a su detalle. Ejemplos: `swapi/SwapiPerson` y `swapi/SwapiFilm`. Y sumar una línea a la tabla de formatos de `swapi/SwapiCatalogSource`, que dice con qué traducción se lee cada entidad: vale para un elemento pedido solo y para cada elemento de un listado con datos completos.
 
 Cada pieza de los pasos 3 a 5 lleva su test unitario, escrito antes que ella.
 

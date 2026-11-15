@@ -94,3 +94,35 @@ Caché:
 - El tiempo máximo de lectura de SWAPI no cambia: la página completa más grande tardó 1,3 segundos.
 - Si SWAPI dejara de aceptar `expanded=true`, respondería una página de resúmenes y la aplicación lo vería como elementos sin datos: `502`. No hay un camino alternativo; pedir cada elemento por separado es la alternativa B, descartada.
 - El REQ-30 (GraphQL, ciclo 3) resuelve la misma necesidad de otra forma. Esta decisión no lo condiciona: los dos pedidos nuevos de la fuente le sirven igual.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al implementarlo (ticket #37):
+  - **Cómo quedó en el código.**
+    - La respuesta de la fuente a un listado pasó a tener un tipo de elemento: el resumen o el elemento completo. La fuente suma dos pedidos, `listExpanded` y `searchExpanded`, que responden con las mismas dos formas que los de resúmenes.
+    - El núcleo tiene un solo método que arma la página a partir de cualquiera de las dos formas, para las dos clases de elemento. De un elemento completo sigue conociendo solo su resumen.
+    - `swapi` suma `&expanded=true` a los dos pedidos y lee cada elemento con el mismo paso que usa para un elemento pedido solo. La tabla de formatos pasó a decir, por entidad, la clase con sus datos de SWAPI, y con ella se arma el tipo a leer en cada caso.
+    - La caché guarda con las claves de siempre, con un dato más. Los detalles están en el [ADR-0011](0011-swapi-response-cache.md), nota del 15/11/2026, y los de paginación y filtros, en el [ADR-0004](0004-pagination-and-filters.md), nota del 15/11/2026.
+  - **Dos pedidos nuevos en la fuente, y no un parámetro en los que había.** Es lo que dice la decisión. Además, cada pedido devuelve un tipo distinto de elemento: con un parámetro, el tipo de la respuesta dependería de un valor y el compilador no podría ayudar.
+  - **La documentación del "uno de dos": qué se eligió y cuánto cuesta.** Era lo más incierto del ticket, y se probó antes de programar, con controladores de prueba y la librería que genera la documentación (springdoc 3.2.0, que produce un documento OpenAPI 3.1).
+    - *Lo elegido.* El listado de cada entidad devuelve una página cuyo tipo de elemento es una interfaz de esa entidad (`PersonListElement`, `FilmListElement`, `StarshipListElement`, `VehicleListElement`), anotada como "uno de" dos: el resumen y el detalle de la entidad. La librería lo lee del tipo de la respuesta y genera, sin configurar nada, una página por entidad cuyos elementos son `oneOf` de los dos esquemas que la documentación ya tenía.
+    - *El costo.* Esa interfaz no la implementa nadie: existe solo para la documentación. El resumen es del núcleo, que no conoce a las entidades, así que no puede implementar una interfaz de la carpeta de una entidad; y Java no tiene un tipo "uno de dos". Para que el núcleo devuelva una página "de ese tipo" hace falta **una conversión que el compilador no puede comprobar**, en un solo lugar, `CatalogService.list`. Es inocua al ejecutar: el tipo de los elementos se borra y la página solo se escribe como JSON, que mira cada objeto y no ese tipo. Pero el tipo dice algo que no es cierto, y un código que leyera un elemento de la página "como" esa interfaz fallaría. Ninguno lo hace; queda dicho en el Javadoc de las cuatro interfaces y junto a la conversión.
+    - *Las alternativas que se probaron.*
+
+      | Alternativa | Resultado |
+      |---|---|
+      | **A. El tipo genérico de la respuesta,** con una interfaz anotada por entidad | Funciona sin configurar nada. Es la elegida |
+      | B. Declarar la propiedad `content` en la anotación de la respuesta | Genera un documento incorrecto: una referencia con propiedades al lado, y un tipo de texto dentro de los elementos. Declarar las cinco propiedades de la página a mano lo arreglaría, repitiendo cuatro veces su documentación |
+      | C. Anotar el argumento del tipo, sin un tipo nuevo | No compila: la anotación de esquema no admite ese lugar |
+      | D. Un comodín con límite inferior, que para Java es correcto sin ninguna conversión | La librería lo documenta como una página de elementos sin tipo |
+      | E. Un envoltorio real por entidad, que se escribe como JSON igual que lo que contiene | El JSON sale bien, pero la librería ignora la anotación del envoltorio y documenta los elementos sin tipo |
+      | F. Armar el esquema por código | No se probó. Los cuatro listados compartían un esquema de página con nombre, así que habría que construir a mano uno por entidad: bastante más código, y los controladores devolverían una página de cualquier cosa |
+
+    - Si una versión futura de la librería entendiera la alternativa D o la E, se podría quitar la conversión sin cambiar el contrato: la documentación generada sería la misma.
+  - **Consecuencia en la documentación.** El esquema de la página dejó de ser uno para los cuatro listados (`PageResultItemSummary`): ahora hay uno por entidad (`PageResultPersonListElement`…). Un cliente generado a partir de la documentación tiene un tipo de página por entidad, y tiene que distinguir las dos formas de un elemento, como ya anticipaba este ADR.
+  - **Dónde se valida el parámetro.** En un método de la consulta del listado, en `catalog`, que recibe el texto. No hizo falta un tipo propio, como los del identificador y el texto de búsqueda: esos envuelven un texto que después viaja a la fuente, y acá el resultado es un sí o un no.
+  - **Un listado con `expanded=true` y una página posterior a la última sigue costando un pedido a SWAPI,** que responde su última página con los datos completos de sus elementos; la aplicación los descarta. Es lo mismo que pasa sin el parámetro. Esos elementos quedan guardados por su identificador, como los de cualquier respuesta completa.
+  - **Lo que cambió en los tests que ya existían.** La grabación de la búsqueda de "sky" pasó a responder solo a un pedido sin `expanded`, para no empatar con la grabación nueva de la misma búsqueda con el parámetro: entre dos grabaciones con la misma prioridad, la simulación de SWAPI no garantiza cuál responde. Los tests que ya la usaban reciben lo mismo que antes.
+  - **Comprobado contra la SWAPI real,** con la aplicación levantada con `docker compose`. Los cuatro listados con `expanded=true` devolvieron la misma página y los mismos totales que sin él, con el detalle de cada elemento. El detalle de un elemento que había llegado en un listado, y el filtro por su ID, respondieron en milisegundos, sin pedido a SWAPI. La página completa más grande, la de los 82 personajes, tardó 1,8 segundos, y su primer y su último elemento son iguales, campo por campo, a sus detalles.
