@@ -57,3 +57,12 @@ Valor fuera de rango:
 - La única tolerancia es con los espacios al inicio y al final de `name`, que se ignoran: no cambian lo que se busca.
 - Los extremos del rango se verifican con un criterio propio (CA-05.5), además de los valores inválidos (CA-05.4). Un error de límites pasaría inadvertido si solo se probaran los valores que fallan.
 - Este ADR completa al ADR-0004, no lo reemplaza: los valores son los mismos.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al implementar la validación de `page` y `size` (ticket #8):
+  - **Dónde se valida.** Los dos parámetros se reciben como texto y se convierten en `catalog`, en un solo lugar. La alternativa era recibirlos como enteros y validarlos con anotaciones; se descartó porque reparte la misma regla entre la conversión de tipos de Spring, la validación y el formato de los errores, y porque los textos por defecto de esa validación cambian con el idioma de la máquina.
+  - **Casos que la especificación no nombra.** También responden `400`: un parámetro vacío (`page=`), uno repetido (`page=1&page=2`) y un número que no entra en un entero de 32 bits. Ninguno es "un entero" válido, y no se corrigen.
+  - **`page` no tiene máximo.** Una página muy posterior a la última es un pedido válido y devuelve la lista vacía.

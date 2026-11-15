@@ -34,3 +34,14 @@ Los pedidos a SWAPI se hacen con **`RestClient`**, el cliente HTTP síncrono de 
 - Como la dirección de SWAPI es configurable, los tests la apuntan a un servidor simulado sin cambiar código (ver [ADR-0009](0009-testing-strategy.md)).
 - Los tiempos máximos de espera tienen que contemplar la demora progresiva de SWAPI; la caché reduce cuántos pedidos le llegan (ver [ADR-0011](0011-swapi-response-cache.md)).
 - Los reintentos y el corte automático ante fallas repetidas quedan para el ciclo 2 (REQ-22), con su propio ADR.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al escribir el cliente (ticket #8):
+  - **Variables.** La dirección entra por `SWAPI_BASE_URL` y los tiempos máximos por `SWAPI_CONNECT_TIMEOUT` (3 segundos por defecto) y `SWAPI_READ_TIMEOUT` (10 segundos por defecto). Los tiempos se escriben como un número con su unidad: `500ms`, `3s`. La alternativa era un número con la unidad en el nombre, como `JWT_TTL_MINUTES`; se descartó porque los tests necesitan bajar el tiempo de lectura a un segundo o menos, y un único formato con unidad sirve para los dos usos. Un valor vacío, cero o negativo impide arrancar, y el mensaje dice qué variable corregir.
+  - **Qué responde cada falla.** Si se vence el tiempo de conexión o el de lectura, `504`. Todo lo demás es `502`: una respuesta con error (incluido el `429` de SWAPI por exceso de pedidos), una respuesta que no se puede interpretar, una conexión rechazada o cortada. El cliente convierte cualquier falla en uno de esos dos errores, así el resto del código no necesita saber cómo falla un cliente HTTP.
+  - **Sin dependencias nuevas.** `RestClient` se arma en `swapi` sobre el cliente HTTP que trae Java, con los dos tiempos máximos. La alternativa era sumar el módulo de Spring Boot que lo entrega configurado; se descartó porque acá hay un solo cliente y configurarlo a mano son pocas líneas a la vista.
+  - **Hilos virtuales.** Se activan con `spring.threads.virtual.enabled=true`: cada pedido corre en un hilo virtual, y esperar a SWAPI no retiene un hilo del sistema.
+  - **Barra final.** Si `SWAPI_BASE_URL` termina en `/`, esa barra se descarta, para no armar direcciones con dos barras seguidas.

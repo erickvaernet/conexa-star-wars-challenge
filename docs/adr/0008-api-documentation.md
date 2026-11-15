@@ -31,3 +31,12 @@ La documentación se **genera desde el código con springdoc-openapi**, que tamb
 - La especificación técnica define el contrato antes de programar. Una vez implementado, la documentación generada es la referencia.
 - Mantener cada entidad con su propio controlador (ver [ADR-0002](0002-code-organization.md)) permite que Swagger muestre los datos propios de cada una.
 - Las anotaciones de documentación quedan en los controladores, junto al código que describen.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al documentar el primer listado (ticket #8):
+  - **`page` y `size` figuran como enteros.** La aplicación los recibe como texto para validarlos en un solo lugar ([ADR-0013](0013-parameter-limits-and-invalid-values.md)), pero la documentación los declara como lo que son: enteros opcionales, con su mínimo, su máximo y su valor por defecto. Un test lo comprueba sobre la documentación generada.
+  - **Los parámetros y los errores comunes se documentan una sola vez.** Están en `catalog`, y el controlador de cada entidad los toma de ahí en vez de repetirlos.
+  - **El esquema de seguridad** se suma con el ticket de la documentación interactiva (REQ-12).
