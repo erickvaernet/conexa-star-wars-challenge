@@ -134,6 +134,35 @@ class SwapiCacheAcceptanceTest {
         swapi.verify(2, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
     }
 
+    @Test
+    @DisplayName("CA-32.5: a character that does not exist is not stored: asking twice for character 9999 answers 404 both times, and SWAPI receives two requests")
+    void characterThatDoesNotExistIsNotStored() {
+        // A recording: the "not found" that SWAPI really answers for character 9999.
+        client.get().uri(PEOPLE + "/9999").exchange().expectStatus().isNotFound();
+        client.get().uri(PEOPLE + "/9999").exchange().expectStatus().isNotFound();
+
+        swapi.verify(2, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/9999")));
+
+        // A character that does exist is stored like any other answer. Without this last step
+        // the test would also pass with no cache at all, and it would prove nothing about the
+        // one that does not exist.
+        client.get().uri(PEOPLE + "/1").exchange().expectStatus().isOk();
+        client.get().uri(PEOPLE + "/1").exchange().expectStatus().isOk();
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/1")));
+    }
+
+    @Test
+    @DisplayName("The detail of a character and the list filtered by its identifier share one stored answer: SWAPI receives a single request")
+    void detailAndFilterByIdShareOneStoredAnswer() {
+        client.get().uri(PEOPLE + "/1").exchange().expectStatus().isOk();
+
+        assertThat(listOfPeople("?id=1")).contains("Luke Skywalker");
+
+        // Neither a second request for the character nor one for the list.
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/1")));
+        swapi.verify(0, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
+    }
+
     /** Asks for the list of people, checks that it answers 200 and returns the body. */
     private String listOfPeople(String query) {
         byte[] body = client.get().uri(PEOPLE + query)
