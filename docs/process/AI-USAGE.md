@@ -172,3 +172,4 @@ Lo que pasó hasta tener el ciclo 2 listo para empezar a programar. Lo que venga
 - En el ticket #11, los tests unitarios del núcleo, del cliente de SWAPI y de la caché no se vieron fallar por separado antes de su código. El pull request lo dice, y lo cubren trece roturas hechas a propósito.
 - El tiempo máximo de conexión con SWAPI no tiene un test propio. El vencimiento de la caché se prueba adelantando un reloj de prueba, no esperando una hora.
 - El *wrapper* de Maven para Windows (`mvnw.cmd`) no se probó.
+- Hasta el ticket #33, los tests de aceptación y `docker compose` no se habían corrido con Docker Engine, ni los tests sobre un JDK 21. Desde ese ticket corren también así, en el ejecutor de GitHub, en cada pull request y en cada cambio de `main` ([ADR-0014](../adr/0014-continuous-verification.md)). En la primera ejecución pasaron sin cambios.

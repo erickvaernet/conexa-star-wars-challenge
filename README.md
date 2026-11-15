@@ -1,5 +1,7 @@
 # Conexa · Back-end Java Challenge — Star Wars API
 
+[![CI](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml?query=branch%3Amain)
+
 API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/documentation) para listar **People, Films, Starships y Vehicles** de forma paginada, con filtrado por ID y/o nombre y autenticación segura.
 
 > **Estado:** el ciclo 1 (MVP) está cerrado. La versión es la `v0.1.0`, con 793 tests.
@@ -485,8 +487,9 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - Para ver la cobertura, después de `./mvnw verify`, abrir `target/site/jacoco/index.html`.
+- **Cada cambio se verifica solo.** Cada pull request y cada cambio en `main` corren todos los tests sobre un JDK 21 y levantan la aplicación con `docker compose`, en GitHub Actions. El resultado se ve en el pull request, en el distintivo de arriba y en la [lista de ejecuciones](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml). La definición es [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-El porqué de esta estrategia está en el [ADR-0009](docs/adr/0009-testing-strategy.md).
+El porqué de esta estrategia está en el [ADR-0009](docs/adr/0009-testing-strategy.md), y el de la verificación automática, en el [ADR-0014](docs/adr/0014-continuous-verification.md).
 
 ## Uso de herramientas de IA
 
@@ -579,6 +582,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Cierre de la documentación ([#16](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/16)): el README se reordenó para quien llega por primera vez, con los pasos para levantar, probar y correr los tests al principio, y se escribió el [registro de uso de herramientas de IA](docs/process/AI-USAGE.md). Al escribirlo quedó asentado que, desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA y no una persona, como pide el flujo de trabajo: el flujo y las convenciones llevan una nota que lo dice. |
 | 15/11/2026 | Revisión final del MVP y sus correcciones ([pull request #30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30)). Con los doce tickets fusionados, una sesión aparte de una herramienta de IA revisó el conjunto sobre un clon limpio, con la consigna de encontrar y demostrar fallas y sin conocer las revisiones anteriores. No encontró nada crítico. Encontró cuatro fallas importantes: un parámetro mal codificado (`name=100%`) respondía `500`; el login respondía `500` a un usuario con un carácter nulo y no limitaba el largo de sus campos; una dirección o un método que el servidor rechaza respondían `401` aun con un token válido; y nueve roturas hechas a propósito en el código no hacían fallar ninguno de los 715 tests. Se corrigieron con los tests antes que el código, junto con cuatro hallazgos menores: ahora las tres primeras responden `400` o `405`, y ocho de las nueve roturas hacen fallar un test. La que queda es el tiempo máximo de conexión con SWAPI, que sigue sin test propio. Las decisiones quedaron en notas de los ADR 0003, 0005, 0007, 0008 y 0013. |
 | 15/11/2026 | Cierre del ciclo 1: versión `v0.1.0`. Los doce tickets del hito están cerrados, la revisión final está hecha y sus correcciones están fusionadas, y los 793 tests pasan. El `pom.xml` pasó de `0.1.0-SNAPSHOT` a `0.1.0`, que es la versión que muestra la documentación de la API. |
+| 15/11/2026 | Verificación automática en cada cambio ([#33](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/33)), el primer ticket del ciclo 2: cada pull request y cada cambio en `main` corren en GitHub Actions todos los tests sobre un JDK 21 y, a la vez, levantan la aplicación con `docker compose` y le hacen tres pedidos. Hasta acá los tests se habían corrido siempre con un JDK más nuevo y `docker compose` se comprobaba a mano. La primera ejecución pasó sin correcciones, con los 793 tests, en menos de dos minutos. Se comprobó una vez que un test roto se ve: un commit que rompía una regla a propósito dejó la ejecución en rojo, y se revirtió. El README muestra el distintivo con el estado de `main`. |
 
 ## Documentación
 

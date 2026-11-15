@@ -97,6 +97,8 @@ Cada ticket se verifica en dos niveles de tests y una revisión:
 2. **Tests unitarios de cada tarea**, escritos antes de su código.
 3. **Revisión humana** del pull request.
 
+Desde el ciclo 2, los dos niveles de tests corren además solos: cada pull request y cada cambio en `main` disparan la **verificación automática**, que ejecuta todos los tests sobre un JDK 21 y levanta la aplicación con `docker compose` ([ADR-0014](../adr/0014-continuous-verification.md)). Su resultado se ve en el pull request, antes de fusionar. No reemplaza a la revisión: confirma que los tests pasan sin depender de que alguien los haya corrido.
+
 Que los tests pasen es necesario, pero no alcanza. Estos son sus límites y cómo se cubren:
 
 | Límite                                              | Riesgo                                                                 | Cómo se cubre                                                                 |
