@@ -41,7 +41,8 @@ class SwapiCatalogSource implements CatalogSource {
             Map.of(
                     "people", new ParameterizedTypeReference<SwapiItemResponse<SwapiPerson>>() { },
                     "films", new ParameterizedTypeReference<SwapiItemResponse<SwapiFilm>>() { },
-                    "starships", new ParameterizedTypeReference<SwapiItemResponse<SwapiStarship>>() { });
+                    "starships", new ParameterizedTypeReference<SwapiItemResponse<SwapiStarship>>() { },
+                    "vehicles", new ParameterizedTypeReference<SwapiItemResponse<SwapiVehicle>>() { });
 
     /** The characters that mean something in a pattern: {@code \ ^ $ . | ? * + ( ) [ ] { }}. */
     private static final Pattern PATTERN_CHARACTERS = Pattern.compile("[\\\\^$.|?*+()\\[\\]{}]");
