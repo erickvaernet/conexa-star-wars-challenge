@@ -50,7 +50,8 @@ class PaginationAcceptanceTest {
     @ParameterizedTest(name = "GET {0}")
     @ValueSource(strings = {
         "/api/v1/people",
-        "/api/v1/films"
+        "/api/v1/films",
+        "/api/v1/starships"
     })
     @DisplayName("CA-05.1: a list without parameters has exactly content, page, size, totalElements and totalPages")
     void listHasExactlyTheFieldsOfAPage(String path) {
@@ -67,7 +68,8 @@ class PaginationAcceptanceTest {
     @ParameterizedTest(name = "GET {0}")
     @ValueSource(strings = {
         "/api/v1/people",
-        "/api/v1/films"
+        "/api/v1/films",
+        "/api/v1/starships"
     })
     @DisplayName("CA-05.2: every element of a list without parameters has exactly id and name")
     void everyElementHasExactlyIdAndName(String path) {

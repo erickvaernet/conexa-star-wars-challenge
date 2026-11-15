@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/api/starships",
+    "queryParameters": {
+      "page": { "equalTo": "1" },
+      "limit": { "equalTo": "5" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "bodyFileName": "starships-page-1-limit-5.json"
+  }
+}
