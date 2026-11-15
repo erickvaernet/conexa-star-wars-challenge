@@ -145,14 +145,21 @@ class ExpandedListAcceptanceTest {
     @Test
     @DisplayName("CA-24.2: the first element of the page with expanded=true is equal, field by field, to the detail of character 1, Luke Skywalker")
     void expandedElementIsEqualToItsDetail() {
-        Map<String, Object> first = JsonPath.read(listOfPeople("?expanded=true&size=2"), "$.content[0]");
+        // The detail is asked for first, with the cache empty, so it comes from its own recording:
+        // the one of character 1 asked for alone. Asked for after the list, it would be the
+        // element that the list left stored, and the two would be equal whatever they were.
         Map<String, Object> detail = JsonPath.read(getOk(PEOPLE + "/1"), "$");
+        Map<String, Object> first = JsonPath.read(listOfPeople("?expanded=true&size=2"), "$.content[0]");
 
-        // The detail comes from another recording, the one of character 1 asked for alone: the
-        // two answers of SWAPI carry the same data, and the API translates both the same way.
+        // The two answers of SWAPI carry the same data, and the API translates both the same way.
         assertThat(detail).containsEntry("name", "Luke Skywalker");
         assertThat(detail.keySet()).containsExactlyInAnyOrderElementsOf(FIELDS_OF_A_CHARACTER);
         assertThat(first).isEqualTo(detail);
+        // Each one came from its own request to SWAPI.
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/1")));
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE))
+                .withQueryParam("expanded", equalTo("true")));
+        swapi.verify(2, anyRequestedFor(anyUrl()));
     }
 
     @ParameterizedTest(name = "GET {0}?expanded=false")

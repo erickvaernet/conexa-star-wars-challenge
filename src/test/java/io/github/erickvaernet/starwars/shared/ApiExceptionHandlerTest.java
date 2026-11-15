@@ -155,7 +155,7 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("A method that a route does not have is answered with 405, and the answer names the ones it has")
+    @DisplayName("A method that a route does not have is answered with 405 and a fixed text, and the answer names the ones it has")
     void methodThatARouteDoesNotHaveIsAnsweredWithMethodNotAllowed() {
         client.post().uri("/test/not-found")
                 .exchange()
@@ -166,7 +166,8 @@ class ApiExceptionHandlerTest {
                 .jsonPath("$.type").isEqualTo("about:blank")
                 .jsonPath("$.title").isEqualTo("Method Not Allowed")
                 .jsonPath("$.status").isEqualTo(405)
-                .jsonPath("$.detail").isEqualTo("Method 'POST' is not supported.")
+                // Spring would write "Method 'POST' is not supported.", with what the client sent.
+                .jsonPath("$.detail").isEqualTo("The method of the request is not supported.")
                 .jsonPath("$.instance").isEqualTo("/test/not-found");
     }
 

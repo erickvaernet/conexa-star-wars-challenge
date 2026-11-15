@@ -158,7 +158,7 @@ Errores:
 | Situación                                                      | Código |
 |----------------------------------------------------------------|--------|
 | Un campo no cumple su regla. La respuesta dice cuáles, en `errors` | `400` |
-| El cuerpo no es JSON o falta                                   | `400`  |
+| El cuerpo no se puede leer: no es JSON, falta, o un campo trae un tipo que no se puede convertir. La respuesta no lleva `errors` | `400` |
 | Falta el token, o fue rechazado                                | `401`  |
 | El token es de un usuario con rol `USER`                       | `403`  |
 | Ya existe un usuario con ese `username`                        | `409`  |
@@ -449,6 +449,7 @@ Textos de `message`:
 - En el cuerpo, `detail` es siempre `Invalid request content.` y `errors` trae todos los campos inválidos.
 - En los parámetros, `detail` sigue nombrando el parámetro (`Parameter 'size' must be an integer between 1 and 100.`) y `errors` trae un solo elemento, con ese mismo parámetro: el primero inválido.
 - Un `400` que no sale de un campo no lleva `errors`: un cuerpo que no es JSON, un parámetro mal codificado o una dirección rechazada.
+- Un cuerpo que no se puede leer con la forma esperada responde `400` con `Failed to read request` y sin `errors`: no es JSON, falta, o un campo trae un tipo que no se puede convertir, como una lista donde va un texto (`"role": ["ADMIN"]`). En el último caso falló un campo, pero el cuerpo no llegó a leerse, así que no hay regla que informar. Un número o un valor lógico donde va un texto sí se convierten, y se validan como texto ([ADR-0016](../adr/0016-validation-error-detail.md), nota del 15/11/2026).
 
 Códigos:
 
@@ -469,13 +470,17 @@ Códigos:
 - Todo `401` lleva la cabecera `WWW-Authenticate: Bearer`, solo con el nombre del esquema. Cuando el motivo es el token, la respuesta es la misma si falta, está mal formado, tiene otra firma o venció ([ADR-0005](../adr/0005-authentication.md), nota del 15/11/2026). El `403` no lleva esa cabecera ([ADR-0017](../adr/0017-role-based-access.md)).
 - `406` y `415` los responde la aplicación desde el MVP, en este mismo formato; se listan acá desde el ciclo 2. El `406` está en el [ADR-0008](../adr/0008-api-documentation.md) (nota del 15/11/2026). El texto del `415` es fijo desde el ciclo 2: antes repetía el tipo de contenido que había enviado el cliente ([ADR-0016](../adr/0016-validation-error-detail.md)).
 
-Textos de `detail` de los códigos que se suman en el ciclo 2:
+Textos de `detail` de los códigos que se suman en el ciclo 2, y de los que el ciclo 2 fijó:
 
 | Código | `detail`                                               |
 |--------|--------------------------------------------------------|
+| `400`, por un cuerpo que no se puede leer | `Failed to read request` |
 | `403`  | `You do not have permission to perform this request.`  |
+| `405`  | `The method of the request is not supported.`          |
 | `409`  | `A user with that username already exists.`            |
 | `415`  | `The content type of the request is not supported.`    |
+
+El `405` tiene ese mismo texto en sus dos casos, un método que la ruta no tiene y uno que el servidor web tiene apagado, y no repite el método recibido ([ADR-0007](../adr/0007-error-format.md), nota del 15/11/2026). Cuando la ruta existe, la respuesta lleva la cabecera `Allow` con los métodos que sí tiene.
 
 ### Casos límite
 
@@ -517,6 +522,7 @@ Textos de `detail` de los códigos que se suman en el ciclo 2:
 | SWAPI responde `500`                                         | `502`, sin reintentar                                                       |
 | SWAPI no responde dentro del tiempo máximo                   | `504`, sin reintentar                                                       |
 | Los reintentos están apagados (`SWAPI_MAX_RETRIES=0`)        | Toda falla de SWAPI responde como en el MVP, con un solo pedido             |
+| SWAPI cierra la conexión sin enviar nada                     | El cliente HTTP repite el pedido por su cuenta, una vez, antes de informar la falla: SWAPI recibe dos pedidos por intento |
 
 ### Tiempos y caché
 
@@ -532,6 +538,8 @@ Textos de `detail` de los códigos que se suman en el ciclo 2:
 La caché guarda solo las respuestas correctas de SWAPI. Un "no existe" o un error no se guardan ([ADR-0011](../adr/0011-swapi-response-cache.md)). Las respuestas con datos completos (`expanded=true`) se guardan aparte de las de resúmenes, y cada elemento que llega en una de ellas se guarda además como si se hubiera pedido por su identificador ([ADR-0019](../adr/0019-expanded-listings.md)).
 
 Se reintenta solo lo que suele ser pasajero y falla rápido: una respuesta `502`, `503` o `504` de SWAPI, o una conexión rechazada o cortada. No se reintenta un `429`, otro `4xx`, un `500`, un tiempo máximo vencido ni una respuesta que no se puede interpretar ([ADR-0020](../adr/0020-swapi-failure-tolerance.md)). Si el reintento también falla, la respuesta es la de esa última falla. En el peor caso, un pedido espera a SWAPI dos veces el tiempo máximo de lectura más la espera entre intentos.
+
+Los pedidos que recibe SWAPI pueden ser más que los intentos que cuenta esta regla. El cliente HTTP de Java repite por su cuenta, una vez y en el momento, un pedido cuya conexión se cerró antes de recibir nada. Si SWAPI cierra así todas las conexiones, recibe cuatro pedidos con un reintento y dos con los reintentos apagados; ante una respuesta `502`, `503` o `504` no repite nada. No se desactiva ([ADR-0020](../adr/0020-swapi-failure-tolerance.md), nota del 15/11/2026).
 
 ### Configuración
 
@@ -552,6 +560,8 @@ Se reintenta solo lo que suele ser pasajero y falla rápido: una respuesta `502`
 Un valor de `SWAPI_MAX_RETRIES` o de `SWAPI_RETRY_DELAY` fuera de rango, vacío o negativo impide arrancar, y el mensaje dice qué variable corregir, igual que los demás ajustes de SWAPI.
 
 > **Nota del 15/11/2026.** Precisión que apareció al implementar los reintentos (ticket #38): el rango de `SWAPI_RETRY_DELAY` no estaba escrito. Vale cualquier tiempo que no sea negativo, incluido `0s`, que reintenta en el momento, y no tiene tope; vacío o negativo impide arrancar. A diferencia de los tiempos máximos, donde cero significaría "esperar para siempre", acá cero tiene un significado razonable. La precisión la autorizó la sesión supervisora que había escrito la extensión; las alternativas están en el [ADR-0020](../adr/0020-swapi-failure-tolerance.md), nota de esta fecha. Ningún criterio de aceptación cambió.
+
+> **Nota del 15/11/2026.** Precisiones de la revisión final del ciclo 2, que probó la aplicación ya fusionada. Tres dicen algo que la aplicación ya hacía y este documento no: el `400` de un cuerpo que no se puede leer y su texto, lo que pasa con un campo de otro tipo, y los pedidos que el cliente HTTP repite por su cuenta. Una cambia el comportamiento: el `405` de una ruta que no tiene ese método pasó a tener el mismo texto fijo que el de un método apagado, en vez de repetir el método recibido. Las autorizó la sesión supervisora que había escrito la extensión. Ningún criterio de aceptación cambió; el test de CA-24.2 se corrigió, porque comparaba el elemento del listado con el mismo objeto que el listado había dejado guardado.
 
 ## 6. Criterios de aceptación
 

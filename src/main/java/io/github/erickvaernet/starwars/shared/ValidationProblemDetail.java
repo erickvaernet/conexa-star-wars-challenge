@@ -2,7 +2,6 @@ package io.github.erickvaernet.starwars.shared;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
-import org.springframework.http.ProblemDetail;
 
 /**
  * How the API documentation shows a 400: the fields of every error, plus the list that says
@@ -15,7 +14,7 @@ import org.springframework.http.ProblemDetail;
 @Schema(
         description = "An error of a request that is not accepted, as Problem Details. When what failed is a "
                 + "field of the body or a parameter, `errors` says which.",
-        allOf = ProblemDetail.class)
+        allOf = ApiProblemDetail.class)
 public interface ValidationProblemDetail {
 
     /** The invalid fields, each once and sorted by name. A parameter is the only element. */

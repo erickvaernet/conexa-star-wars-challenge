@@ -6,8 +6,8 @@ Qué se delegó en herramientas de IA en este proyecto, cómo se revisó y qué 
 
 | Campo | Valor |
 |---|---|
-| Estado | Al 15/11/2026, con los tickets #5 a #16 fusionados en `main`, la revisión final del MVP hecha y sus correcciones fusionadas, y el ciclo 2 preparado: decisiones tomadas, ADRs y especificación técnica extendida |
-| Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30. La sección del ciclo 2 la redactó la sesión que preparó ese ciclo |
+| Estado | Al 15/11/2026, con el ciclo 1 cerrado (tickets #5 a #16, revisión final y sus correcciones) y el ciclo 2 implementado: los tickets #33, #35, #36, #37 y #38 están fusionados en `main`; del #34 está fusionado el archivo que describe el despliegue, y el servicio público todavía no existe. La revisión final del ciclo 2 está hecha, y este documento incluye sus correcciones |
+| Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30. La sección del ciclo 2 la redactó la sesión que preparó ese ciclo; lo que pasó al implementar se sumó en los pull requests de los tickets, y la sesión de la revisión final del ciclo 2 la completó después de encontrar que había quedado a medio actualizar |
 
 ## En resumen
 
@@ -15,7 +15,7 @@ Qué se delegó en herramientas de IA en este proyecto, cómo se revisó y qué 
 - **En el ciclo 1, qué construir y cómo lo decidió el autor.** Los requisitos, las decisiones técnicas del RFC y las decisiones del contrato de la API se le presentaron una por una, con alternativas y una recomendación, y eligió él. En varias corrigió la recomendación.
 - **En el ciclo 2 delegó también las decisiones,** incluidas las de contrato. Está contado [más abajo](#ciclo-2).
 - **Hasta el ticket #5, el autor aprobó cada paso.** Desde el ticket #6 delegó también la revisión: los tests y los pull requests los revisó otra sesión de la herramienta de IA, y el autor no los revisó uno por uno.
-- **Con todo fusionado, otra sesión de la herramienta hizo una revisión final del conjunto,** con la consigna de encontrar y demostrar fallas. Encontró cuatro importantes, que se corrigieron.
+- **Con todo fusionado, otra sesión de la herramienta hizo una revisión final del conjunto,** con la consigna de encontrar y demostrar fallas. Encontró cuatro importantes, que se corrigieron. Al terminar el ciclo 2 se hizo otra igual, que encontró dos, las dos en la documentación.
 - **Esas revisiones delegadas tienen límites,** y están [al final](#límites).
 
 Una **sesión** es una conversación separada con la herramienta. No comparte memoria con las otras: lo que comparten es el repositorio, sus documentos y unas instrucciones escritas.
@@ -34,6 +34,8 @@ Una **sesión** es una conversación separada con la herramienta. No comparte me
 | Revisión final del MVP (15/11) | Una sesión aparte revisó el conjunto ya fusionado y escribió un informe con lo que encontró | La pidió |
 | Correcciones de la revisión final (15/11) | La sesión de la revisión escribió los tests y, después de que la sesión supervisora los revisó, el código y la documentación. La sesión supervisora abrió el pull request y lo fusionó | Pidió corregir los cuatro hallazgos importantes |
 | Preparación del ciclo 2 (15/11) | Una sesión aparte relevó lo que hacía falta decidir y redactó los ADRs y la extensión de la especificación técnica. La sesión supervisora tomó las decisiones | Pidió el ciclo, fijó su alcance y delegó las decisiones. Ver [Ciclo 2](#ciclo-2) |
+| Tickets #33 a #38: el ciclo 2 (15/11) | Igual que en el ciclo 1: una sesión por ticket escribió los tests de aceptación y, después de su revisión, el código, la documentación y el pull request. La sesión supervisora revisó los tests, eligió entre las alternativas de diseño que cada sesión le presentó, revisó cada pull request y lo fusionó | Aprobó los tests de aceptación del ticket #35. En lo demás no intervino |
+| Revisión final del ciclo 2 y sus correcciones (15/11) | Una sesión aparte revisó el ciclo ya fusionado y escribió un informe. La sesión supervisora eligió qué corregir, y la sesión de la revisión lo corrigió, con los tests antes que el código | La pidió antes de cerrar el ciclo |
 
 En GitHub, los commits, los pull requests y las fusiones figuran a nombre del autor: las herramientas trabajaron con su cuenta y no firman.
 
@@ -48,6 +50,10 @@ En GitHub, los commits, los pull requests y las fusiones figuran a nombre del au
 | Pull requests de los tickets #6 a #16 ([#19](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/19) a [#29](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/29)) | La sesión supervisora | Con la lista de control de abajo, antes de fusionar. **El autor no revisó esos pull requests uno por uno** |
 | El MVP completo, con los doce tickets fusionados | Una sesión aparte de la herramienta de IA, sin conocer las conclusiones de las revisiones anteriores | Con la consigna de encontrar y demostrar fallas, no de confirmar que estaba bien. Trabajó sobre un clon limpio de GitHub: siguió el README, comparó cada criterio de aceptación con su test y rompió el código a propósito para ver si los tests lo detectaban, envió entradas mal formadas a la aplicación levantada, y revisó la seguridad, el comportamiento ante fallas de SWAPI y la caché, el código, la documentación contra lo construido y la higiene del repositorio y de su historia. Encontró 0 fallas críticas, 4 importantes y 10 menores, y dejó 9 observaciones |
 | Pull request de las correcciones de la revisión final ([#30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30)) | La sesión supervisora | Revisó los tests antes del código. Después revisó el cambio completo: leyó el diff, corrió la verificación completa y probó cada caso contra la aplicación levantada con `docker compose`. Lo fusionó |
+| ADRs y extensión de la especificación técnica del ciclo 2 ([#39](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/39)) | La sesión supervisora, que además había tomado esas decisiones | Antes de abrir el pull request: en GitHub se abrió y se fusionó con 9 segundos de diferencia. **El autor no los revisó** |
+| Tests de aceptación de los tickets #33 a #38 | La sesión supervisora, salvo los del ticket #35, que aprobó el autor | Antes del código, con el mismo criterio que en el ciclo 1. En el ticket #33 no hay tests nuevos: lo que se revisó fue la prueba de romper un test a propósito, ver la ejecución en rojo y revertirlo |
+| Pull requests de los tickets #33 a #38 ([#40](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/40) a [#45](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/45)) | La sesión supervisora | Con la misma lista de control, y desde el ticket #33 con la verificación automática de GitHub a la vista. **El autor no revisó ninguno** |
+| El ciclo 2 completo, con cinco de sus seis tickets fusionados | Una sesión aparte de la herramienta de IA, sin conocer las conclusiones de las revisiones anteriores. Es la misma herramienta: no es una mirada independiente | Con la misma consigna que la del ciclo 1, sobre un clon limpio. Además de lo que hizo aquella, atacó las reglas por rol y el alta de usuarios, y midió los reintentos contra una SWAPI simulada propia. Encontró 0 fallas críticas, 2 importantes y 6 menores, y dejó 6 observaciones. De 17 roturas hechas a propósito, los tests detectaron 16 |
 
 Lista de control de cada pull request, que armó la propia sesión supervisora:
 
@@ -58,7 +64,7 @@ Lista de control de cada pull request, que armó la propia sesión supervisora:
 5. Comprobar que la descripción del pull request solo afirma cosas ciertas.
 6. Levantar la aplicación con `docker compose` y probar lo nuevo contra la SWAPI real.
 
-Esas revisiones ocurrieron en mensajes entre las sesiones. No quedaron como revisiones ni como comentarios en GitHub: los pull requests muestran el resultado, no el intercambio.
+Esas revisiones ocurrieron en mensajes entre las sesiones. No quedaron como revisiones ni como comentarios en GitHub: los pull requests muestran el resultado, no el intercambio. Vale también para el ciclo 2: ninguno de sus pull requests tiene una revisión ni un comentario en GitHub, y por eso hay algunos fusionados a segundos o a pocos minutos de abrirse. Desde afuera no se puede comprobar que esas revisiones existieron; lo único que se ve es la verificación automática de cada uno.
 
 ## Qué se corrigió
 
@@ -125,7 +131,7 @@ La especificación técnica, que el autor aprobó el 14/11/2026, recibió despu�
 
 ## Ciclo 2
 
-Lo que pasó hasta tener el ciclo 2 listo para empezar a programar. Lo que venga después se suma acá cuando ocurra.
+Cómo se decidió el ciclo 2 antes de empezar a programar, lo que pasó al implementar cada ticket y lo que encontró su revisión final.
 
 **Qué pidió el autor.**
 
@@ -155,10 +161,25 @@ Lo que pasó hasta tener el ciclo 2 listo para empezar a programar. Lo que venga
 
 **Lo que pasó al implementarlo.**
 
+- **Ticket #33, la verificación automática.** No tiene tests de aceptación: sus criterios se comprueban por revisión. La prueba fue romper un test a propósito, ver la ejecución en rojo en GitHub y revertirlo; la revisó la sesión supervisora, que también revisó el pull request y lo fusionó. El autor no intervino.
+- **Ticket #34, el despliegue público.** El test de aceptación y el pull request con el archivo del despliegue los revisó la sesión supervisora, que lo fusionó sin cerrar el ticket: falta crear el servicio, que es un paso del autor. El archivo sigue sin probarse contra el servicio.
 - **Ticket #35, el detalle de los errores de validación.** Los tests de aceptación los aprobó el autor directamente, antes del código, desde la sesión del ticket y sin comentarios. El pull request lo revisó la sesión supervisora.
 - **Ticket #36, el rol de administrador y el alta de usuarios.** Los tests de aceptación los revisó la sesión supervisora, antes del código. Al escribirlos, la sesión del ticket encontró una contradicción en la extensión de la especificación (una contraseña de solo espacios se aceptaba en el alta y el login la rechaza) y presentó tres opciones; la sesión supervisora eligió una y autorizó corregir la especificación ([ADR-0018](../adr/0018-user-creation.md), nota del 15/11/2026). El autor no intervino. El pull request lo revisó la sesión supervisora.
-- **Ticket #37, los datos completos a pedido en los listados.** Los tests de aceptación y el diseño los aprobó la sesión supervisora, antes del código; el autor no los revisó. La sesión del ticket le presentó tres decisiones, con sus alternativas, y la sesión supervisora eligió: documentar un elemento como "uno de dos" con un tipo por entidad que nada implementa y una conversión que el compilador no puede comprobar; sumar una línea a una grabación de SWAPI que ya existía; y cambiar lo que esperaban cinco tests unitarios de la documentación. Están contadas en el [ADR-0019](../adr/0019-expanded-listings.md), nota del 15/11/2026. El pull request lo revisa la sesión supervisora.
-- **Ticket #38, la tolerancia a fallas de SWAPI.** Los tests de aceptación y el diseño los aprobó la sesión supervisora, antes del código; el autor no los revisó. Antes de diseñar, la sesión del ticket probó con un programa suelto la pieza de Spring Framework que reintenta y midió qué informa el cliente HTTP ante cada falla. Le presentó tres decisiones a la sesión supervisora, con sus alternativas, y esta eligió: que cada intento traduzca su propia falla, en vez de reintentar sobre la falla sin traducir, que era lo que pedía el encargo; reintentar también cuando en lugar de una respuesta HTTP llegan datos que no lo son; y aceptar una espera de cero, sin tope. La tercera precisó la extensión de la especificación, con autorización de la sesión supervisora. Están contadas en el [ADR-0020](../adr/0020-swapi-failure-tolerance.md), nota del 15/11/2026. La verificación automática del pull request falló en un test unitario nuevo, que afirmaba un resultado que en realidad cambia de una corrida a otra; la sesión supervisora lo vio, la sesión del ticket midió el caso cuarenta veces con cada versión de Java y corrigió el test y lo que había quedado escrito. El pull request lo revisa la sesión supervisora.
+- **Ticket #37, los datos completos a pedido en los listados.** Los tests de aceptación y el diseño los aprobó la sesión supervisora, antes del código; el autor no los revisó. La sesión del ticket le presentó tres decisiones, con sus alternativas, y la sesión supervisora eligió: documentar un elemento como "uno de dos" con un tipo por entidad que nada implementa y una conversión que el compilador no puede comprobar; sumar una línea a una grabación de SWAPI que ya existía; y cambiar lo que esperaban cinco tests unitarios de la documentación. Están contadas en el [ADR-0019](../adr/0019-expanded-listings.md), nota del 15/11/2026. El pull request lo revisó y lo fusionó la sesión supervisora.
+- **Ticket #38, la tolerancia a fallas de SWAPI.** Los tests de aceptación y el diseño los aprobó la sesión supervisora, antes del código; el autor no los revisó. Antes de diseñar, la sesión del ticket probó con un programa suelto la pieza de Spring Framework que reintenta y midió qué informa el cliente HTTP ante cada falla. Le presentó tres decisiones a la sesión supervisora, con sus alternativas, y esta eligió: que cada intento traduzca su propia falla, en vez de reintentar sobre la falla sin traducir, que era lo que pedía el encargo; reintentar también cuando en lugar de una respuesta HTTP llegan datos que no lo son; y aceptar una espera de cero, sin tope. La tercera precisó la extensión de la especificación, con autorización de la sesión supervisora. Están contadas en el [ADR-0020](../adr/0020-swapi-failure-tolerance.md), nota del 15/11/2026. La primera ejecución de la verificación automática del pull request falló en un test unitario nuevo, el de una conexión que se corta después de la primera línea de la respuesta. La sesión supervisora lo vio y lo atribuyó a una diferencia entre versiones de Java: ese diagnóstico estaba mal. La sesión del ticket midió el caso cuarenta veces con cada versión y encontró que era una carrera entre dos resultados, los dos válidos, que cambia de una corrida a otra con la misma versión. El test pasó a afirmar solo lo que no varía, lo que había quedado escrito se corrigió y el código no cambió. El pull request lo revisó y lo fusionó la sesión supervisora.
+
+**La revisión final del ciclo 2.** La hizo una sesión aparte, con cinco de los seis tickets fusionados y antes de etiquetar la versión.
+
+- **Qué encontró.** Ningún error de comportamiento. Los dos hallazgos importantes eran de este registro y de su resumen en el README:
+  - El resumen del README seguía diciendo que el autor había decidido el contrato de la API "una por una", que es cierto para el ciclo 1 y no para el ciclo 2.
+  - Esta sección decía "ciclo 2 preparado" con el ciclo ya implementado, no contaba los tickets #33 y #34, y daba por abiertos dos pull requests ya fusionados.
+- **Qué se corrigió,** además de esos dos, en un solo pull request:
+  - Los ejemplos de la documentación de la API, que mostraban una página que la API nunca responde y un campo que ningún error tiene.
+  - El texto del `405`, que repetía el método recibido.
+  - Un test de aceptación que comparaba un objeto consigo mismo (el de CA-24.2).
+  - Cuatro precisiones de los documentos.
+- **Qué quedó como está, declarado:** la conversión que el compilador no puede comprobar en los listados ([ADR-0019](../adr/0019-expanded-listings.md)), el bloque del reintento escrito dos veces en el cliente de SWAPI y la caché sin tipos. Las tres son observaciones de diseño de esa revisión, no errores.
+- **Quién decidió qué.** La sesión supervisora eligió qué corregir y qué no; el autor no lo revisó antes. La sesión de la revisión escribió las correcciones, con los tests antes que el código. Cambió dos tests ya aprobados, con autorización de la sesión supervisora: el de CA-24.2, y el test unitario que fijaba el texto anterior del `405`.
 
 ## Límites
 
@@ -170,7 +191,7 @@ Lo que pasó hasta tener el ciclo 2 listo para empezar a programar. Lo que venga
 - **Las decisiones de la sección anterior no pasaron por el autor** antes de fusionarse. Están escritas para que se puedan revisar después, una por una.
 - **Los tests y el código de cada ticket los escribió la misma sesión.** Si entendió mal un criterio, el test repite el error. Lo que lo acota es que los criterios ya estaban aprobados por el autor y que los tests se revisaron antes del código, pero esa revisión también fue de la herramienta.
 
-**Qué mostró la revisión final sobre los tests.** Que su cantidad no era protección en todos lados: nueve roturas hechas a propósito en el código, varias de seguridad, no hacían fallar ninguno. Ocho ya tienen un test que las detecta. La novena, quitar el tiempo máximo de conexión con SWAPI, sigue sin ninguno.
+**Qué mostró la revisión final sobre los tests.** Que su cantidad no era protección en todos lados: nueve roturas hechas a propósito en el código, varias de seguridad, no hacían fallar ninguno. Ocho ya tienen un test que las detecta. La novena, quitar el tiempo máximo de conexión con SWAPI, sigue sin ninguno. La revisión final del ciclo 2 repitió la prueba sobre el código nuevo, con diecisiete roturas: los tests detectaron dieciséis. La que no, reintentar un `408` de SWAPI, ya tiene su caso.
 
 **Qué no se verificó, entre otras cosas.**
 

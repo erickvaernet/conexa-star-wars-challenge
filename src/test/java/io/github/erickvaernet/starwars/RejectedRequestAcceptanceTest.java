@@ -117,6 +117,21 @@ class RejectedRequestAcceptanceTest {
     }
 
     @Test
+    @DisplayName("A method that a route does not have is answered with the same 405 as one that is switched off, without the method that was sent")
+    void methodThatARouteDoesNotHaveGetsTheSameTextAsOneThatIsSwitchedOff() throws Exception {
+        HttpResponse<String> switchedOff = send("TRACE", "/api/v1/people", token);
+        HttpResponse<String> notOfTheRoute = send("PATCH", "/api/v1/people", token);
+
+        expectProblem(notOfTheRoute, 405, "Method Not Allowed", "/api/v1/people");
+        assertThat(detailOf(notOfTheRoute))
+                .isEqualTo("The method of the request is not supported.")
+                .isEqualTo(detailOf(switchedOff))
+                .doesNotContain("PATCH");
+        // The route says which methods it does have.
+        assertThat(notOfTheRoute.headers().firstValue("Allow")).hasValue("GET");
+    }
+
+    @Test
     @DisplayName("A method that the web server has switched off is answered with 405 without a session too")
     void methodThatIsSwitchedOffIsNotAllowedWithoutASession() throws Exception {
         // The web server answers it before the access rules see the request. It tells nothing

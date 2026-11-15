@@ -9,6 +9,8 @@ import io.github.erickvaernet.starwars.catalog.PageParameters;
 import io.github.erickvaernet.starwars.catalog.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -51,7 +53,23 @@ class StarshipsController {
                     + "that starship only if its name contains the text. "
                     + "With `expanded=true`, each element is the complete data of the starship, the same object "
                     + "that its detail answers, instead of its summary.")
-    @ApiResponse(responseCode = "200", description = "The page that was asked for, with the totals of the list.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "The page that was asked for, with the totals of the list.",
+            // The schema is still the one of the type that the method returns: declaring the
+            // examples would otherwise leave the answer without one.
+            useReturnTypeSchema = true,
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    examples = {
+                        @ExampleObject(
+                                name = "summary",
+                                summary = "Without expanded: the summary of each element",
+                                value = StarshipsListExamples.SUMMARIES),
+                        @ExampleObject(
+                                name = "expanded",
+                                summary = "With expanded=true: the complete data of each element",
+                                value = StarshipsListExamples.COMPLETE_ELEMENTS)}))
     @ListErrorResponses
     PageResult<StarshipListElement> list(@ParameterObject PageParameters parameters) {
         return catalog.list(STARSHIPS, parameters.toQuery());

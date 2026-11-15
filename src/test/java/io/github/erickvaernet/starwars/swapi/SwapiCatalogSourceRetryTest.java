@@ -170,7 +170,8 @@ class SwapiCatalogSourceRetryTest {
     @ParameterizedTest(name = "SWAPI answers {0}")
     // 429 is what SWAPI answers after 100 requests in 15 minutes: one more would make it worse.
     // 500 is usually an error that repeats itself. 501 is the same answer however many times.
-    @ValueSource(ints = {400, 404, 429, 500, 501})
+    // 408 is a 4xx like the others, although its name sounds like something worth trying again.
+    @ValueSource(ints = {400, 404, 408, 429, 500, 501})
     @DisplayName("Any other error status is not retried: it is a failure after a single request")
     void otherErrorStatusIsNotRetried(int status) {
         swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1).willReturn(error(status)));
@@ -182,7 +183,7 @@ class SwapiCatalogSourceRetryTest {
     }
 
     @ParameterizedTest(name = "SWAPI answers {0}")
-    @ValueSource(ints = {400, 429, 500})
+    @ValueSource(ints = {400, 408, 429, 500})
     @DisplayName("Any other error status for one element is not retried either")
     void otherErrorStatusForAnElementIsNotRetried(int status) {
         swapi.stubFor(get(urlPathEqualTo(SWAPI_LUKE)).atPriority(1).willReturn(error(status)));

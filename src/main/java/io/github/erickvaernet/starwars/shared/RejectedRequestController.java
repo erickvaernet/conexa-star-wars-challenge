@@ -63,7 +63,7 @@ class RejectedRequestController implements ErrorController {
         if (status == HttpStatus.METHOD_NOT_ALLOWED) {
             // Without the name of the method: by the time the request arrives here, the web
             // server has already replaced it with GET.
-            return "The method of the request is not supported.";
+            return ApiExceptionHandler.METHOD_NOT_SUPPORTED;
         }
         return status.is5xxServerError() ? ApiExceptionHandler.UNEXPECTED : "The request was rejected.";
     }
