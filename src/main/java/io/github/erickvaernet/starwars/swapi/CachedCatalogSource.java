@@ -2,9 +2,12 @@ package io.github.erickvaernet.starwars.swapi;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import io.github.erickvaernet.starwars.catalog.CatalogEntity;
+import io.github.erickvaernet.starwars.catalog.CatalogItem;
 import io.github.erickvaernet.starwars.catalog.CatalogSource;
+import io.github.erickvaernet.starwars.catalog.ItemId;
 import io.github.erickvaernet.starwars.catalog.Listing;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
+import java.util.Optional;
 
 /**
  * The data source the catalog actually gets: SWAPI, with its answers kept for a while.
@@ -14,7 +17,8 @@ import io.github.erickvaernet.starwars.catalog.PageQuery;
  * which slows down and cuts off whoever asks too much.
  *
  * <p>Only an answer that arrived well is stored. When SWAPI fails, the client throws, and the
- * exception leaves this class before anything is stored: the next request asks SWAPI again.
+ * exception leaves this class before anything is stored: the next request asks SWAPI again. An
+ * element that does not exist is not stored either.
  *
  * <p>{@link SwapiCacheConfiguration} builds it around the client and makes it the source that
  * the rest of the application receives.
@@ -54,6 +58,27 @@ class CachedCatalogSource implements CatalogSource {
     }
 
     /**
+     * Returns the stored element, or asks SWAPI for it and stores it if it exists.
+     *
+     * <p>The filter by identifier and the detail both end here, with the same key: asking for
+     * the detail of an element and then filtering its list by that identifier is one request to
+     * SWAPI.
+     *
+     * <p>That an element does not exist is not stored. Hardly anyone asks twice for the same
+     * identifier that does not exist, so those entries would only take the place of useful ones.
+     */
+    @Override
+    public Optional<CatalogItem> find(CatalogEntity entity, ItemId id) {
+        ItemKey key = new ItemKey(entity, id);
+        if (answers.getIfPresent(key) instanceof CatalogItem stored) {
+            return Optional.of(stored);
+        }
+        Optional<CatalogItem> fresh = swapi.find(entity, id);
+        fresh.ifPresent(item -> answers.put(key, item));
+        return fresh;
+    }
+
+    /**
      * What makes two requests for a list "the same request": the entity, the page and the size.
      *
      * <p>Being a record, two keys are equal when those three are. Another kind of request gets
@@ -61,6 +86,10 @@ class CachedCatalogSource implements CatalogSource {
      * be mixed up.
      */
     private record PageKey(CatalogEntity entity, PageQuery query) {
+    }
+
+    /** What makes two requests for one element "the same request": the entity and the identifier. */
+    private record ItemKey(CatalogEntity entity, ItemId id) {
     }
 
 }

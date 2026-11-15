@@ -80,6 +80,14 @@ class ApiExceptionHandlerTest {
         assertThat(body).doesNotContain("static resource");
     }
 
+    @Test
+    @DisplayName("An element that does not exist is answered with 404 and the same text as a route that does not exist")
+    void elementThatDoesNotExistIsAnsweredWithNotFound() {
+        String body = expectProblem("/test/not-found", 404, "Not Found");
+
+        assertThat(detailOf(body)).isEqualTo("The requested resource was not found.");
+    }
+
     /**
      * Checks an error in Problem Details format that shows nothing of its cause, and returns its
      * body.
@@ -122,6 +130,11 @@ class ApiExceptionHandlerTest {
         @GetMapping("/test/gateway-timeout")
         String gatewayTimeout() {
             throw new GatewayTimeoutException("GET " + INTERNAL_TEXT + " timed out", new IOException(INTERNAL_TEXT));
+        }
+
+        @GetMapping("/test/not-found")
+        String notFound() {
+            throw new NotFoundException();
         }
 
     }

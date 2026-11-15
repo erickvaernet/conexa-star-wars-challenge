@@ -1,15 +1,21 @@
 package io.github.erickvaernet.starwars.swapi;
 
 import io.github.erickvaernet.starwars.catalog.CatalogEntity;
+import io.github.erickvaernet.starwars.catalog.CatalogItem;
 import io.github.erickvaernet.starwars.catalog.CatalogSource;
+import io.github.erickvaernet.starwars.catalog.ItemId;
 import io.github.erickvaernet.starwars.catalog.Listing;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
 import io.github.erickvaernet.starwars.shared.BadGatewayException;
 import io.github.erickvaernet.starwars.shared.GatewayTimeoutException;
 import java.net.http.HttpClient;
 import java.net.http.HttpTimeoutException;
+import java.util.Map;
+import java.util.Optional;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -22,6 +28,15 @@ import org.springframework.web.client.RestClientException;
  */
 @Component
 class SwapiCatalogSource implements CatalogSource {
+
+    /**
+     * How the answer for one element of each entity is read, by the name of the entity in SWAPI.
+     *
+     * <p>The outside of the answer is the same for every entity; the data inside is not. An
+     * entity that is added to the catalog adds its line here.
+     */
+    private static final Map<String, ParameterizedTypeReference<? extends SwapiItemResponse<?>>> ITEM_FORMATS =
+            Map.of("people", new ParameterizedTypeReference<SwapiItemResponse<SwapiPerson>>() { });
 
     private final RestClient swapi;
 
@@ -55,17 +70,55 @@ class SwapiCatalogSource implements CatalogSource {
                 throw new BadGatewayException("SWAPI answered " + request + " without a body", null);
             }
             return response.toListing();
-        } catch (ResourceAccessException error) {
+        } catch (RestClientException error) {
+            throw failure(request, error);
+        }
+    }
+
+    /**
+     * Asks SWAPI for one element.
+     *
+     * <p>When SWAPI answers 404, the element does not exist: that is a normal answer, and the
+     * result is empty. Any other error status is a failure, like in a list.
+     *
+     * @throws IllegalStateException if no format was declared for the entity, which is a mistake
+     *     in the code and not something a request can cause
+     */
+    @Override
+    public Optional<CatalogItem> find(CatalogEntity entity, ItemId id) {
+        ParameterizedTypeReference<? extends SwapiItemResponse<?>> format = ITEM_FORMATS.get(entity.sourceName());
+        if (format == null) {
+            throw new IllegalStateException("No format is declared for one element of " + entity.sourceName());
+        }
+        String request = "GET /" + entity.sourceName() + "/" + id.value();
+        try {
+            SwapiItemResponse<?> response = swapi.get()
+                    .uri("/{entity}/{id}", entity.sourceName(), id.value())
+                    .retrieve()
+                    .body(format);
+            if (response == null) {
+                throw new BadGatewayException("SWAPI answered " + request + " without a body", null);
+            }
+            return Optional.of(response.toItem());
+        } catch (HttpClientErrorException.NotFound notFound) {
+            return Optional.empty();
+        } catch (RestClientException error) {
+            throw failure(request, error);
+        }
+    }
+
+    /** Turns a failure of the HTTP client into one of the two errors of the data source. */
+    private static RuntimeException failure(String request, RestClientException error) {
+        if (error instanceof ResourceAccessException) {
             // The request could not be completed. Running out of time, to connect or to read, is
             // told apart from the rest: it is the only case that is answered with a 504.
             if (error.getCause() instanceof HttpTimeoutException) {
-                throw new GatewayTimeoutException("SWAPI did not answer " + request + " in time", error);
+                return new GatewayTimeoutException("SWAPI did not answer " + request + " in time", error);
             }
-            throw new BadGatewayException("SWAPI could not be reached for " + request, error);
-        } catch (RestClientException error) {
-            // An error status, such as 500 or 429, or a body that is not the JSON that was expected.
-            throw new BadGatewayException("SWAPI answered " + request + " with an error or an unreadable body", error);
+            return new BadGatewayException("SWAPI could not be reached for " + request, error);
         }
+        // An error status, such as 500 or 429, or a body that is not the JSON that was expected.
+        return new BadGatewayException("SWAPI answered " + request + " with an error or an unreadable body", error);
     }
 
 }

@@ -1,6 +1,8 @@
 package io.github.erickvaernet.starwars.swapi;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
@@ -12,9 +14,11 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.http.Fault;
 import io.github.erickvaernet.starwars.SwapiStubConfiguration;
 import io.github.erickvaernet.starwars.catalog.CatalogEntity;
+import io.github.erickvaernet.starwars.catalog.ItemId;
 import io.github.erickvaernet.starwars.catalog.ItemSummary;
 import io.github.erickvaernet.starwars.catalog.Listing;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
+import io.github.erickvaernet.starwars.catalog.people.PersonDetail;
 import io.github.erickvaernet.starwars.shared.BadGatewayException;
 import io.github.erickvaernet.starwars.shared.GatewayTimeoutException;
 import java.time.Duration;
@@ -43,6 +47,9 @@ class SwapiCatalogSourceTest {
     private static final CatalogEntity PEOPLE = new CatalogEntity("people");
 
     private static final String SWAPI_PEOPLE = "/api/people";
+
+    /** The identifier of the character that has a recording. */
+    private static final ItemId LUKE = new ItemId("1");
 
     private static final String JSON = "application/json; charset=utf-8";
 
@@ -200,6 +207,133 @@ class SwapiCatalogSourceTest {
                 .isInstanceOf(BadGatewayException.class)
                 .hasMessageContaining("people")
                 .hasCauseInstanceOf(Exception.class);
+    }
+
+    @Test
+    @DisplayName("A real character of SWAPI is read: every field of its detail, and its relations as identifiers")
+    void realCharacterIsRead() {
+        assertThat(source.find(PEOPLE, LUKE)).contains(new PersonDetail(
+                "1", "Luke Skywalker", "19BBY", "male", "172", "77", "blond", "fair", "blue",
+                List.of("1", "2", "3", "6"), List.of("12", "22"), List.of("14", "30")));
+    }
+
+    @Test
+    @DisplayName("SWAPI is asked for one element by the name of the entity and the identifier, and for nothing else")
+    void swapiIsAskedForTheElement() {
+        source.find(PEOPLE, LUKE);
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/1")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("When SWAPI really answers that a character does not exist, there is no element, and it is not a failure")
+    void characterThatDoesNotExistIsNotAFailure() {
+        // The recording of the real answer for character 9999: a 404 with a body of its own.
+        assertThat(source.find(PEOPLE, new ItemId("9999"))).isEmpty();
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/9999")));
+    }
+
+    @ParameterizedTest(name = "SWAPI answers {0}")
+    // Every error but 404, which for one element means that it does not exist.
+    @ValueSource(ints = {400, 429, 500, 503})
+    @DisplayName("Any other error answer of SWAPI for one element is a failure of the data source")
+    void errorAnswerForAnElementIsAFailure(int status) {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(status)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"message\":\"it failed\"}")));
+
+        assertThatThrownBy(() -> source.find(PEOPLE, LUKE)).isInstanceOf(BadGatewayException.class);
+    }
+
+    @ParameterizedTest(name = "SWAPI answers 200 with: {0}")
+    @ValueSource(strings = {
+        "this is not JSON",
+        "{\"message\":\"ok\",\"result\":{\"uid\":\"1\",\"properties\":{\"name\":\"Luke",
+        "[]",
+        "{}",
+        "{\"message\":\"ok\"}",
+        // Without the identifier, without the data, and without the name.
+        "{\"result\":{\"properties\":{\"name\":\"Luke Skywalker\"}}}",
+        "{\"result\":{\"uid\":\"1\"}}",
+        "{\"result\":{\"uid\":\"1\",\"properties\":{\"height\":\"172\"}}}",
+        // A relation that is not a list, and one with an address without its identifier.
+        "{\"result\":{\"uid\":\"1\",\"properties\":{\"name\":\"Luke Skywalker\",\"films\":\"none\"}}}",
+        "{\"result\":{\"uid\":\"1\",\"properties\":{\"name\":\"Luke Skywalker\","
+                + "\"films\":[\"https://www.swapi.tech/api/films/\"]}}}",
+        // The shape of a list instead of the one of an element.
+        "{\"message\":\"ok\",\"total_records\":82,\"results\":[{\"uid\":\"1\",\"name\":\"Luke Skywalker\"}]}"
+    })
+    @DisplayName("An answer for one element that cannot be read is a failure of the data source")
+    void answerForAnElementThatCannotBeReadIsAFailure(String body) {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody(body)));
+
+        assertThatThrownBy(() -> source.find(PEOPLE, LUKE)).isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("A character with only its identifier and its name is read: what SWAPI does not send is null or empty")
+    void characterWithOnlyItsNameIsRead() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"result\":{\"uid\":\"1\",\"properties\":{\"name\":\"Luke Skywalker\"}}}")));
+
+        assertThat(source.find(PEOPLE, LUKE)).contains(new PersonDetail(
+                "1", "Luke Skywalker", null, null, null, null, null, null, null, List.of(), List.of(), List.of()));
+    }
+
+    @Test
+    @DisplayName("An answer for one element without a body is a failure of the data source")
+    void answerForAnElementWithoutABodyIsAFailure() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)));
+
+        assertThatThrownBy(() -> source.find(PEOPLE, LUKE)).isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("When nothing listens at the address of SWAPI, asking for one element is a failure of the data source")
+    void nothingListeningIsAFailureForAnElement() {
+        SwapiCatalogSource unreachable = sourceAt("http://localhost:1/api");
+
+        assertThatThrownBy(() -> unreachable.find(PEOPLE, LUKE)).isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("An answer for one element that takes longer than the read timeout is a timeout")
+    void slowAnswerForAnElementIsATimeout() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBodyFile("people-1.json")
+                        .withFixedDelay(3000)));
+
+        assertThatThrownBy(() -> source.find(PEOPLE, LUKE)).isInstanceOf(GatewayTimeoutException.class);
+    }
+
+    @Test
+    @DisplayName("The failure of a request for one element keeps what failed for the log")
+    void failureForAnElementKeepsWhatFailedForTheLog() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(500)));
+
+        assertThatThrownBy(() -> source.find(PEOPLE, LUKE))
+                .isInstanceOf(BadGatewayException.class)
+                .hasMessageContaining("people/1")
+                .hasCauseInstanceOf(Exception.class);
+    }
+
+    @Test
+    @DisplayName("An entity whose format was not declared is a mistake in the code: it fails before SWAPI is asked")
+    void entityWithoutAFormatFailsBeforeAskingSwapi() {
+        assertThatThrownBy(() -> source.find(new CatalogEntity("planets"), LUKE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("planets");
+
+        swapi.verify(0, anyRequestedFor(anyUrl()));
     }
 
     private static SwapiCatalogSource sourceAt(String baseUrl) {

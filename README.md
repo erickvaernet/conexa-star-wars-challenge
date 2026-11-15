@@ -30,7 +30,7 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora están el login, la protección del acceso y el listado de People, con la caché de las respuestas de SWAPI. Los filtros, el detalle y las otras tres entidades llegan con los próximos tickets.
+Por ahora están el login, la protección del acceso, el listado de People con su filtro por ID y el detalle de un personaje, con la caché de las respuestas de SWAPI. El filtro por nombre y las otras tres entidades llegan con los próximos tickets.
 
 ### Iniciar sesión
 
@@ -98,11 +98,63 @@ curl "http://localhost:8080/api/v1/people?page=2&size=3" \
 |---|---|---|
 | `page` | `1` | Un entero de 1 o más. La primera página es la 1 |
 | `size` | `10` | Un entero de 1 a 100 |
+| `id` | — | Solo dígitos: de 1 a 10, sin ceros a la izquierda |
 
 - Una página posterior a la última devuelve `content` vacío, con los totales correctos.
 - Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
 - Los datos salen de [SWAPI](https://www.swapi.tech/documentation). Si SWAPI responde con un error, el listado responde `502`; si no responde a tiempo, `504`. El login no depende de SWAPI.
 - Las respuestas de SWAPI se guardan en memoria durante una hora: un pedido repetido responde sin volver a SWAPI, que demora cada vez más a quien le hace muchos pedidos. Un error no se guarda. El porqué y los detalles están en el [ADR-0011](docs/adr/0011-swapi-response-cache.md).
+
+### Filtrar por ID y ver el detalle
+
+Con `id`, el listado devuelve solo ese personaje, con la misma forma que cualquier otra página:
+
+```bash
+curl "http://localhost:8080/api/v1/people?id=1" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "content": [
+    { "id": "1", "name": "Luke Skywalker" }
+  ],
+  "page": 1,
+  "size": 10,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+El detalle devuelve todos los datos del personaje:
+
+```bash
+curl http://localhost:8080/api/v1/people/1 \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "id": "1",
+  "name": "Luke Skywalker",
+  "birthYear": "19BBY",
+  "gender": "male",
+  "height": "172",
+  "mass": "77",
+  "hairColor": "blond",
+  "skinColor": "fair",
+  "eyeColor": "blue",
+  "filmIds": ["1", "2", "3", "6"],
+  "starshipIds": ["12", "22"],
+  "vehicleIds": ["14", "30"]
+}
+```
+
+- Un ID que no existe responde distinto según cómo se pida: el filtro devuelve `200` con `content` vacío, como cualquier búsqueda sin resultados, y el detalle responde `404`.
+- Un ID con otro formato (`0`, `01`, `abc`) responde `400`, en el filtro y en el detalle, sin consultar a SWAPI: `Parameter 'id' must be a number of 1 to 10 digits, without leading zeros.`
+- Los valores son texto, como los entrega SWAPI, porque algunos no son números: una altura puede ser `"unknown"`. Si SWAPI no envía un valor, llega como `null`.
+- Las relaciones son listas de identificadores, que se pueden pedir en esta misma API. El planeta de origen no se devuelve, porque la API no expone planetas. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
+- El filtro y el detalle del mismo personaje comparten la respuesta guardada: son un solo pedido a SWAPI. Un "no existe" no se guarda.
 
 ### Configuración
 
@@ -199,6 +251,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Acceso solo con sesión ([#7](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/7)): cada pedido valida la firma y el vencimiento del token, y uno ausente, mal formado, alterado o vencido recibe el mismo `401`. Como antes de este ticket todo respondía `401`, casi todos los tests de aceptación pasaban sin código; se sumó un caso provisorio, con un token válido, para tener uno que fallara por el motivo correcto. |
 | 15/11/2026 | Listado de People por páginas ([#8](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/8)), la historia de referencia: el núcleo de paginación y el cliente de SWAPI que usan las otras entidades. Los tests de aceptación se escribieron antes que el código, con respuestas reales grabadas. Al grabarlas se vio que SWAPI repite su última página cuando se le pide una posterior, así que la lista vacía de ese caso la arma la aplicación. Los errores de SWAPI responden `502` y sus demoras, `504`. |
 | 15/11/2026 | Caché de las respuestas de SWAPI ([#9](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/9)): un pedido repetido ya no vuelve a SWAPI durante una hora, y un error no se guarda. Se eligió Caffeine después de compararla con el mapa que trae Spring, que no vence ni tiene tope, y con escribirla a mano; se usa de forma directa, en una clase que envuelve al cliente de SWAPI. Los tests de aceptación se escribieron antes que el código y prueban el vencimiento adelantando el reloj de la caché, sin esperar. Quedó escrito el motivo del tope de 500 respuestas, que figuraba sin justificar. |
+| 15/11/2026 | Filtro por ID y detalle de un personaje ([#10](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/10)): `?id=` devuelve una página con uno o ningún elemento y `/people/{id}` todos los datos, con las relaciones como listas de identificadores. Los dos usan el mismo pedido a SWAPI y la misma respuesta guardada, y un "no existe" no se guarda. Los tests de aceptación se escribieron antes que el código; al escribirlos se vio que el detalle de un personaje inexistente ya respondía `404` antes de existir, porque la ruta no existía, así que los tests comprueban también qué se le pidió a SWAPI. El detalle vive en `catalog` sin ningún nombre de SWAPI y su traducción en `swapi`: desde ahora, sumar una entidad incluye esa pieza. |
 
 ## Documentación
 

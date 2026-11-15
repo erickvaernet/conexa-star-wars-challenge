@@ -63,6 +63,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "Parameter '" + error.parameter() + "' " + error.requirement() + ".");
     }
 
+    /**
+     * An element that does not exist, asked for by its address. The answer is the same as for a
+     * route that does not exist: for the client, both are an address with nothing behind it.
+     */
+    @ExceptionHandler(NotFoundException.class)
+    ProblemDetail handleNotFound(NotFoundException error) {
+        return notFound();
+    }
+
     /** The data source failed. What failed goes to the log, not to the answer. */
     @ExceptionHandler(BadGatewayException.class)
     ProblemDetail handleBadGateway(BadGatewayException error) {

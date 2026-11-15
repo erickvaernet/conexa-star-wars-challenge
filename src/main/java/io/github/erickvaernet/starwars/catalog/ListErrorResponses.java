@@ -15,7 +15,8 @@ import org.springframework.http.ProblemDetail;
  *
  * <p>It only adds to the API documentation; it changes nothing of how the request behaves.
  */
-@Target(ElementType.METHOD)
+// Also on another annotation: the errors of a detail are these and one more.
+@Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @ApiResponse(
         responseCode = "400",

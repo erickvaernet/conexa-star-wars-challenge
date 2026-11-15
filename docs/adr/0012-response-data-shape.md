@@ -93,3 +93,27 @@ Valores numéricos:
 - Si más adelante hiciera falta ordenar o filtrar por un valor numérico, se puede sumar un campo convertido al lado del texto, sin romper el contrato.
 - La capa anticorrupción protege al código de los cambios de SWAPI, pero no al contrato publicado. Por eso estas decisiones se toman acá y no quedan libradas a la implementación.
 - Las reglas exactas (cuántos dígitos se aceptan y qué código responde cada caso) están en la [especificación técnica](../spec/SPEC.md#5-validaciones-errores-y-casos-límite).
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al implementar el primer detalle (ticket #10):
+  - **Qué es "una dirección que no permite obtener el identificador".** El identificador es el texto que sigue a la última barra de la dirección, y tiene que cumplir la misma regla que se le exige a un identificador en la entrada: solo dígitos, de 1 a 10, sin ceros a la izquierda. Si no la cumple, o si la dirección falta o no tiene ninguna barra, la respuesta es `502`.
+    - La regla está escrita en un solo lugar, en `catalog`, y `swapi` la usa. La suposición de que los identificadores son numéricos sigue en un solo lugar, como dice este ADR: si SWAPI empezara a usar letras, se afloja ahí y vale para la entrada y para las relaciones.
+    - Así todo identificador que la API devuelve se puede volver a pedir en la API.
+    - La alternativa era aceptar cualquier texto no vacío después de la última barra. Se descartó porque da por buena una dirección como `…/api/films`, sin identificador, y devolvería `"films"` como si lo fuera.
+  - **Una dirección mal formada hace fallar toda la respuesta.** Si una relación llegó con cuatro direcciones y una no se puede leer, la respuesta es `502`, no una lista de tres. Es la regla que este ADR ya fijaba (CA-16.5).
+  - **Qué pasa si SWAPI no envía un dato.** Este ADR no lo decía. Se decidió según el dato:
+
+    | Dato que SWAPI no envía                | Qué responde la API                         |
+    |----------------------------------------|---------------------------------------------|
+    | El identificador o el nombre           | `502`, igual que en un listado              |
+    | Cualquier otro valor de texto          | Ese campo llega como `null`                 |
+    | Una relación completa                  | Esa lista llega vacía                       |
+
+    - Un texto vacío no es un dato que falta: se devuelve tal cual, vacío.
+    - El motivo: las tablas de la especificación salen de una respuesta real por entidad, y SWAPI tiene 163 elementos. No conviene que el detalle de alguno responda `502` por un valor secundario que le falte. Sin identificador o sin nombre, en cambio, el elemento no se puede mostrar ni en un listado.
+    - La alternativa era responder `502` ante cualquier dato que falte, con el mismo criterio que una dirección mal formada. Se descartó porque no son el mismo caso: una dirección mal formada es un dato que llegó y no se entiende, y devolver la relación sin ese elemento sería esconderlo; un valor que no llegó se ve en la respuesta, como `null`.
+    - Límite conocido: en una relación, la respuesta no distingue "SWAPI no la envió" de "no tiene elementos". Las dos llegan como lista vacía.
+  - **Dónde está cada cosa.** Los datos de detalle de cada entidad, con los nombres de esta API, están en `catalog`; los nombres de los campos de SWAPI y sus direcciones, en `swapi`, que es donde se traduce y se limpia ([ADR-0002](0002-code-organization.md), nota del 15/11/2026).
