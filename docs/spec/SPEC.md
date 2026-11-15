@@ -313,6 +313,8 @@ La caché guarda solo las respuestas correctas de SWAPI. Un "no existe" o un err
 | `SWAPI_BASE_URL`         | Dirección de SWAPI                                    | No. Por defecto, `https://www.swapi.tech/api` |
 | `SWAPI_CONNECT_TIMEOUT`  | Tiempo máximo de conexión con SWAPI                   | No. Por defecto, `3s`             |
 | `SWAPI_READ_TIMEOUT`     | Tiempo máximo de lectura de SWAPI                     | No. Por defecto, `10s`            |
+| `SWAPI_CACHE_TTL`        | Vencimiento de la caché de SWAPI                      | No. Por defecto, `1h`             |
+| `SWAPI_CACHE_MAX_SIZE`   | Cantidad máxima de respuestas en caché                | No. Por defecto, `500`            |
 
 ## 6. Criterios de aceptación
 
