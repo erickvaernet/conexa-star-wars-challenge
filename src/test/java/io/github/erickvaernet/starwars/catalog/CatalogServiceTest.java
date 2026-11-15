@@ -12,13 +12,14 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Checks that the core decides by how the source answered, and never by which entity it is; and
- * what it does when it is asked for one element by its identifier, as a filter and as a detail.
+ * what it does when it is asked for one element by its identifier, as a filter and as a detail,
+ * and when it is asked to filter by name, alone and together with the identifier.
  *
  * <p>The source is a fake one written here: the core is tested without SWAPI and without Spring.
  */
 class CatalogServiceTest {
 
-    private static final CatalogEntity ANY_ENTITY = new CatalogEntity("anything");
+    private static final CatalogEntity ANY_ENTITY = new CatalogEntity("anything", "name");
 
     private static final List<ItemSummary> SIX_ITEMS = List.of(
             new ItemSummary("1", "first"),
@@ -72,7 +73,7 @@ class CatalogServiceTest {
     void sourceIsAskedForWhatWasRequested() {
         FakeSource source = new FakeSource(new Listing.Complete(List.of()));
         CatalogService catalog = new CatalogService(source);
-        CatalogEntity people = new CatalogEntity("people");
+        CatalogEntity people = new CatalogEntity("people", "name");
 
         catalog.list(people, unfiltered(9, 10));
 
@@ -118,7 +119,7 @@ class CatalogServiceTest {
     void filterByIdAsksTheSourceForThatElement() {
         FakeSource source = new FakeSource(new Listing.Complete(SIX_ITEMS));
         CatalogService catalog = new CatalogService(source);
-        CatalogEntity people = new CatalogEntity("people");
+        CatalogEntity people = new CatalogEntity("people", "name");
 
         catalog.list(people, filteredBy(THIRD_ID, 1, 10));
 
@@ -126,11 +127,116 @@ class CatalogServiceTest {
     }
 
     @Test
+    @DisplayName("Filtered by name, the source is asked to search that text in that entity, with the page and the size, and never for the list")
+    void filterByNameAsksTheSourceToSearch() {
+        FakeSource source = new FakeSource(new Listing.Complete(List.of()));
+        CatalogService catalog = new CatalogService(source);
+        CatalogEntity people = new CatalogEntity("people", "name");
+
+        catalog.list(people, filteredBy("sky", 2, 5));
+
+        assertThat(source.asked).containsExactly(people, new NameFilter("sky"), new PageQuery(2, 5));
+    }
+
+    @Test
+    @DisplayName("When the source answers a search with every match, the page is cut out here and the totals are counted here")
+    void matchesOfASearchAreCutHere() {
+        List<ItemSummary> threeMatches = SIX_ITEMS.subList(0, 3);
+        CatalogService catalog = new CatalogService(new FakeSource(new Listing.Complete(threeMatches)));
+
+        assertThat(catalog.list(ANY_ENTITY, filteredBy("anything", 1, 10)))
+                .isEqualTo(new PageResult<>(threeMatches, 1, 10, 3, 1));
+        assertThat(catalog.list(ANY_ENTITY, filteredBy("anything", 2, 2)))
+                .isEqualTo(new PageResult<>(SIX_ITEMS.subList(2, 3), 2, 2, 3, 2));
+        assertThat(catalog.list(ANY_ENTITY, filteredBy("anything", 3, 2)))
+                .isEqualTo(new PageResult<>(List.of(), 3, 2, 3, 2));
+    }
+
+    @Test
+    @DisplayName("The matches are the ones the source found: the core does not filter them again")
+    void matchesOfTheSourceAreNotFilteredAgain() {
+        CatalogService catalog = new CatalogService(new FakeSource(new Listing.Complete(SIX_ITEMS)));
+
+        // None of the six names contains this text. They are what the source answered.
+        PageResult<ItemSummary> page = catalog.list(ANY_ENTITY, filteredBy("zzzz", 1, 10));
+
+        assertThat(page.content()).isEqualTo(SIX_ITEMS);
+    }
+
+    @Test
+    @DisplayName("If the source answered a search with a page and its total, that page is used")
+    void pageOfASearchIsUsed() {
+        List<ItemSummary> secondPage = SIX_ITEMS.subList(2, 4);
+        CatalogService catalog = new CatalogService(new FakeSource(new Listing.OnePage(secondPage, 6)));
+
+        PageResult<ItemSummary> page = catalog.list(ANY_ENTITY, filteredBy("anything", 2, 2));
+
+        assertThat(page).isEqualTo(new PageResult<>(secondPage, 2, 2, 6, 3));
+    }
+
+    @Test
+    @DisplayName("A search without matches is an empty page with the totals at 0")
+    void searchWithoutMatchesIsEmpty() {
+        CatalogService catalog = new CatalogService(new FakeSource(new Listing.Complete(List.of())));
+
+        assertThat(catalog.list(ANY_ENTITY, filteredBy("zzzz", 1, 10)))
+                .isEqualTo(new PageResult<>(List.of(), 1, 10, 0, 0));
+    }
+
+    @Test
+    @DisplayName("Filtered by identifier and name, the list has the element when its name contains the text, without telling upper from lower case")
+    void listFilteredByIdAndNameHasTheElementWhoseNameContainsTheText() {
+        CatalogService catalog = new CatalogService(new FakeSource(new Listing.Complete(SIX_ITEMS)));
+        PageResult<ItemSummary> theThird = new PageResult<>(List.of(new ItemSummary("3", "third")), 1, 10, 1, 1);
+
+        assertThat(catalog.list(ANY_ENTITY, filteredBy(THIRD_ID, "third", 1, 10))).isEqualTo(theThird);
+        assertThat(catalog.list(ANY_ENTITY, filteredBy(THIRD_ID, "hir", 1, 10))).isEqualTo(theThird);
+        assertThat(catalog.list(ANY_ENTITY, filteredBy(THIRD_ID, "THIRD", 1, 10))).isEqualTo(theThird);
+    }
+
+    @Test
+    @DisplayName("Filtered by identifier and name, the list is empty with the totals at 0 when the name does not contain the text")
+    void listFilteredByIdAndNameIsEmptyWhenTheNameDoesNotMatch() {
+        CatalogService catalog = new CatalogService(new FakeSource(new Listing.Complete(SIX_ITEMS)));
+
+        // The text is the name of another element: the two filters have to be met by the same one.
+        assertThat(catalog.list(ANY_ENTITY, filteredBy(THIRD_ID, "second", 1, 10)))
+                .isEqualTo(new PageResult<>(List.of(), 1, 10, 0, 0));
+        // A missing element has no name to compare.
+        assertThat(catalog.list(ANY_ENTITY, filteredBy(MISSING_ID, "third", 1, 10)))
+                .isEqualTo(new PageResult<>(List.of(), 1, 10, 0, 0));
+    }
+
+    @Test
+    @DisplayName("Filtered by identifier and name, a page after the first one is empty, and the totals count the element only if it matches")
+    void pageAfterTheFirstOneOfAFilterByIdAndNameIsEmpty() {
+        CatalogService catalog = new CatalogService(new FakeSource(new Listing.Complete(SIX_ITEMS)));
+
+        assertThat(catalog.list(ANY_ENTITY, filteredBy(THIRD_ID, "third", 2, 10)))
+                .isEqualTo(new PageResult<>(List.of(), 2, 10, 1, 1));
+        assertThat(catalog.list(ANY_ENTITY, filteredBy(THIRD_ID, "second", 2, 10)))
+                .isEqualTo(new PageResult<>(List.of(), 2, 10, 0, 0));
+    }
+
+    @Test
+    @DisplayName("Filtered by identifier and name, the source is asked for that element only: it is not asked to search, nor for the list")
+    void filterByIdAndNameAsksTheSourceForThatElementOnly() {
+        FakeSource source = new FakeSource(new Listing.Complete(SIX_ITEMS));
+        CatalogService catalog = new CatalogService(source);
+        CatalogEntity people = new CatalogEntity("people", "name");
+
+        catalog.list(people, filteredBy(THIRD_ID, "third", 1, 10));
+        catalog.list(people, filteredBy(THIRD_ID, "another", 1, 10));
+
+        assertThat(source.asked).containsExactly(people, THIRD_ID, people, THIRD_ID);
+    }
+
+    @Test
     @DisplayName("The detail of an element is the element of the source, as the type of its entity")
     void detailIsTheElementOfTheSource() {
         FakeSource source = new FakeSource(new Listing.Complete(SIX_ITEMS));
         CatalogService catalog = new CatalogService(source);
-        CatalogEntity people = new CatalogEntity("people");
+        CatalogEntity people = new CatalogEntity("people", "name");
 
         FakeItem detail = catalog.detail(people, THIRD_ID, FakeItem.class);
 
@@ -148,16 +254,24 @@ class CatalogServiceTest {
     }
 
     private static ListQuery unfiltered(int page, int size) {
-        return new ListQuery(new PageQuery(page, size), null);
+        return new ListQuery(new PageQuery(page, size), null, null);
     }
 
     private static ListQuery filteredBy(ItemId id, int page, int size) {
-        return new ListQuery(new PageQuery(page, size), id);
+        return new ListQuery(new PageQuery(page, size), id, null);
+    }
+
+    private static ListQuery filteredBy(String name, int page, int size) {
+        return new ListQuery(new PageQuery(page, size), null, new NameFilter(name));
+    }
+
+    private static ListQuery filteredBy(ItemId id, String name, int page, int size) {
+        return new ListQuery(new PageQuery(page, size), id, new NameFilter(name));
     }
 
     /**
-     * The fake source. It answers every request for a list with the same listing, has a single
-     * element, and notes down what it is asked.
+     * The fake source. It answers every request for a list, and every search, with the same
+     * listing, has a single element, and notes down what it is asked.
      */
     private static final class FakeSource implements CatalogSource {
 
@@ -172,6 +286,14 @@ class CatalogServiceTest {
         @Override
         public Listing list(CatalogEntity entity, PageQuery query) {
             asked.add(entity);
+            asked.add(query);
+            return listing;
+        }
+
+        @Override
+        public Listing search(CatalogEntity entity, NameFilter name, PageQuery query) {
+            asked.add(entity);
+            asked.add(name);
             asked.add(query);
             return listing;
         }

@@ -7,9 +7,9 @@ import org.springframework.stereotype.Service;
 /**
  * The common core of the catalog: the same code pages, filters and looks up the four entities.
  *
- * <p>For a list, it asks the source for the page and then decides by how the source answered. It
- * never asks which entity it is, so an entity that SWAPI starts or stops paging needs no change
- * here.
+ * <p>For a list or a search, it asks the source for the page and then decides by how the source
+ * answered. It never asks which entity it is, so an entity that SWAPI starts or stops paging
+ * needs no change here.
  */
 @Service
 public class CatalogService {
@@ -21,23 +21,35 @@ public class CatalogService {
     }
 
     /**
-     * Returns one page of the list of an entity, with its filter if it has one.
+     * Returns one page of the list of an entity, with its filters if it has any.
      *
      * <p>A filter by identifier does not go through the list of the source: the source is asked
      * for that element, and the list is the one or no element that it found. An identifier that
      * does not exist is an empty list and not an error, like any search without results.
      *
+     * <p>With the identifier and the name together, the element is asked for in the same way,
+     * and it stays in the list only if its name contains the text. The source is not asked to
+     * search: one element is enough to know.
+     *
+     * <p>With the name alone, the source searches. Its matches are used as they come.
+     *
      * @param entity the entity to list
-     * @param query  the page, the size and the filter that were asked for
+     * @param query  the page, the size and the filters that were asked for
      */
     public PageResult<ItemSummary> list(CatalogEntity entity, ListQuery query) {
         if (query.id() != null) {
-            List<ItemSummary> found = source.find(entity, query.id()).map(CatalogItem::summary).stream().toList();
+            List<ItemSummary> found = source.find(entity, query.id())
+                    .map(CatalogItem::summary)
+                    .filter(item -> query.name() == null || query.name().matches(item.name()))
+                    .stream().toList();
             // Cut like any whole list: a page after the first one is empty, and the totals still
             // count the element.
             return PageResult.sliceOf(found, query.page());
         }
-        return switch (source.list(entity, query.page())) {
+        Listing listing = query.name() == null
+                ? source.list(entity, query.page())
+                : source.search(entity, query.name(), query.page());
+        return switch (listing) {
             case Listing.OnePage page -> PageResult.ofSourcePage(page.items(), page.totalElements(), query.page());
             case Listing.Complete all -> PageResult.sliceOf(all.items(), query.page());
         };

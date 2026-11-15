@@ -23,16 +23,17 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * The requests about people, the characters of Star Wars.
  *
- * <p>It only declares what is particular to people: the route, the name of the entity and the
- * type of its detail. The paging, the filter and the search of one element are the ones of the
- * common core, the same for every entity.
+ * <p>It only declares what is particular to people: the route, the name of the entity, the field
+ * by which it is searched and the type of its detail. The paging, the filters and the search of
+ * one element are the ones of the common core, the same for every entity.
  */
 @RestController
 @RequestMapping("/api/v1/people")
 @Tag(name = "People", description = "The characters of Star Wars")
 class PeopleController {
 
-    private static final CatalogEntity PEOPLE = new CatalogEntity("people");
+    /** In SWAPI the entity is called {@code people}, and it is searched by the field {@code name}. */
+    private static final CatalogEntity PEOPLE = new CatalogEntity("people", "name");
 
     private final CatalogService catalog;
 
@@ -44,7 +45,9 @@ class PeopleController {
     @Operation(
             summary = "List people, one page at a time",
             description = "Each element has the identifier and the name of a character, in the order of SWAPI. "
-                    + "With `id`, the list has only that character, or is empty if it does not exist.")
+                    + "With `id`, the list has only that character, or is empty if it does not exist. "
+                    + "With `name`, it has the characters whose name contains that text. With both, it has "
+                    + "that character only if its name contains the text.")
     @ApiResponse(responseCode = "200", description = "The page that was asked for, with the totals of the list.")
     @ListErrorResponses
     PageResult<ItemSummary> list(@ParameterObject PageParameters parameters) {

@@ -1,6 +1,7 @@
 package io.github.erickvaernet.starwars.swapi;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -8,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.matching.RequestPatternBuilder;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
 import io.github.erickvaernet.starwars.SwapiStubConfiguration;
 import io.github.erickvaernet.starwars.TestSession;
@@ -161,6 +163,67 @@ class SwapiCacheAcceptanceTest {
         // Neither a second request for the character nor one for the list.
         swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/1")));
         swapi.verify(0, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
+    }
+
+    @Test
+    @DisplayName("Walking the pages of a search by name sends SWAPI a single request: the whole answer is stored, whatever the page")
+    void pagesOfASearchShareOneStoredAnswer() {
+        String firstPage = listOfPeople("?name=sky&size=2&page=1");
+        String secondPage = listOfPeople("?name=sky&size=2&page=2");
+        // Another page size is not another request either.
+        String wholeSearch = listOfPeople("?name=sky&size=10");
+
+        // Each page is cut out of the same stored answer.
+        assertThat(firstPage).contains("Luke Skywalker", "Anakin Skywalker").doesNotContain("Shmi Skywalker");
+        assertThat(secondPage).contains("Shmi Skywalker").doesNotContain("Luke Skywalker", "Anakin Skywalker");
+        assertThat(wholeSearch).contains("Luke Skywalker", "Anakin Skywalker", "Shmi Skywalker");
+        swapi.verify(1, searchOfPeopleFor("sky"));
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
+    }
+
+    @Test
+    @DisplayName("Two searches that differ only in upper and lower case, or in the spaces around the text, share one stored answer")
+    void searchesThatDifferOnlyInCaseShareOneStoredAnswer() {
+        String lowerCase = peopleNamed("sky");
+        String upperCase = peopleNamed("SKY");
+        String betweenSpaces = peopleNamed("  Sky ");
+
+        assertThat(lowerCase).contains("Luke Skywalker", "Anakin Skywalker", "Shmi Skywalker");
+        assertThat(upperCase).isEqualTo(lowerCase);
+        assertThat(betweenSpaces).isEqualTo(lowerCase);
+        // One request, and it is the search: the three answers are not the plain list of people.
+        swapi.verify(1, searchOfPeopleFor("sky"));
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
+    }
+
+    @Test
+    @DisplayName("A search without matches is stored like any correct answer: asking twice for it sends SWAPI a single request")
+    void searchWithoutMatchesIsStored() {
+        // A recording: SWAPI really answers 200 with an empty list, not a "not found".
+        String first = listOfPeople("?name=zzzz");
+        String second = listOfPeople("?name=zzzz");
+
+        assertThat(first).contains("\"totalElements\":0");
+        assertThat(second).isEqualTo(first);
+        swapi.verify(1, searchOfPeopleFor("zzzz"));
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
+    }
+
+    /** A request to SWAPI that searches the people whose name contains that text. */
+    private static RequestPatternBuilder searchOfPeopleFor(String text) {
+        return getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)).withQueryParam("name", equalTo(text));
+    }
+
+    /**
+     * Asks for the people whose name contains that text, checks that it answers 200 and returns
+     * the body. The text goes as a variable, so that its spaces travel encoded (%20).
+     */
+    private String peopleNamed(String name) {
+        byte[] body = client.get().uri(PEOPLE + "?name={name}", name)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().returnResult().getResponseBody();
+        return new String(body, StandardCharsets.UTF_8);
     }
 
     /** Asks for the list of people, checks that it answers 200 and returns the body. */

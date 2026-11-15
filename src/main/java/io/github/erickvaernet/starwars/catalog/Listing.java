@@ -3,10 +3,10 @@ package io.github.erickvaernet.starwars.catalog;
 import java.util.List;
 
 /**
- * What the data source answered when it was asked for one page of a list.
+ * What the data source answered when it was asked for one page of a list or of a search.
  *
  * <p>The source is always asked for a page and a size, but it does not always follow them: SWAPI
- * cuts the pages of some lists and returns others whole. There are two possible answers, and the
+ * cuts the pages of some lists, and returns others, and every search, whole. There are two possible answers, and the
  * core decides what to do by which one arrived, never by which entity it is.
  */
 public sealed interface Listing {

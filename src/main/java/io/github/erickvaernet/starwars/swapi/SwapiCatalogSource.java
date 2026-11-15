@@ -5,6 +5,7 @@ import io.github.erickvaernet.starwars.catalog.CatalogItem;
 import io.github.erickvaernet.starwars.catalog.CatalogSource;
 import io.github.erickvaernet.starwars.catalog.ItemId;
 import io.github.erickvaernet.starwars.catalog.Listing;
+import io.github.erickvaernet.starwars.catalog.NameFilter;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
 import io.github.erickvaernet.starwars.shared.BadGatewayException;
 import io.github.erickvaernet.starwars.shared.GatewayTimeoutException;
@@ -12,6 +13,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpTimeoutException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -38,6 +40,9 @@ class SwapiCatalogSource implements CatalogSource {
     private static final Map<String, ParameterizedTypeReference<? extends SwapiItemResponse<?>>> ITEM_FORMATS =
             Map.of("people", new ParameterizedTypeReference<SwapiItemResponse<SwapiPerson>>() { });
 
+    /** The characters that mean something in a pattern: {@code \ ^ $ . | ? * + ( ) [ ] { }}. */
+    private static final Pattern PATTERN_CHARACTERS = Pattern.compile("[\\\\^$.|?*+()\\[\\]{}]");
+
     private final RestClient swapi;
 
     SwapiCatalogSource(SwapiProperties properties) {
@@ -61,18 +66,51 @@ class SwapiCatalogSource implements CatalogSource {
     @Override
     public Listing list(CatalogEntity entity, PageQuery query) {
         String request = "GET /" + entity.sourceName() + "?page=" + query.page() + "&limit=" + query.size();
+        return listing(entity, request, swapi.get()
+                .uri("/{entity}?page={page}&limit={limit}", entity.sourceName(), query.page(), query.size()));
+    }
+
+    /**
+     * Asks SWAPI for the elements whose name contains a text.
+     *
+     * <p>It is the request of a list with one more parameter: the field that the entity
+     * declares, with the text. The page and the size are sent here too; today SWAPI ignores them
+     * in a search and answers every match at once.
+     */
+    @Override
+    public Listing search(CatalogEntity entity, NameFilter name, PageQuery query) {
+        // Without the text: it comes from the client and may have anything in it, line breaks
+        // included, and this description ends up in the log.
+        String request = "GET /" + entity.sourceName() + "?" + entity.searchField() + "=..."
+                + "&page=" + query.page() + "&limit=" + query.size();
+        return listing(entity, request, swapi.get()
+                .uri("/{entity}?{field}={text}&page={page}&limit={limit}",
+                        entity.sourceName(), entity.searchField(), literal(name.value()),
+                        query.page(), query.size()));
+    }
+
+    /** Sends a request for a list or for a search, and reads the answer in whichever form it came. */
+    private static Listing listing(CatalogEntity entity, String request, RestClient.RequestHeadersSpec<?> call) {
         try {
-            SwapiListResponse response = swapi.get()
-                    .uri("/{entity}?page={page}&limit={limit}", entity.sourceName(), query.page(), query.size())
-                    .retrieve()
-                    .body(SwapiListResponse.class);
+            SwapiListResponse response = call.retrieve().body(SwapiListResponse.class);
             if (response == null) {
                 throw new BadGatewayException("SWAPI answered " + request + " without a body", null);
             }
-            return response.toListing();
+            return response.toListing(entity.searchField());
         } catch (RestClientException error) {
             throw failure(request, error);
         }
+    }
+
+    /**
+     * Writes a text so that SWAPI searches it as it is.
+     *
+     * <p>SWAPI reads the text of a search as a pattern (a regular expression): a point matches
+     * any character, and an opening parenthesis alone is an error. A backslash before each
+     * character that means something in a pattern makes SWAPI look for that character itself.
+     */
+    static String literal(String text) {
+        return PATTERN_CHARACTERS.matcher(text).replaceAll("\\\\$0");
     }
 
     /**

@@ -34,7 +34,7 @@ src/test/java/...  misma estructura de carpetas que el código que prueba
 |-------------|------------------------------------------------------------------------------------------------|----------------------------------------------------|
 | `auth`      | El pedido de login, la emisión del token, la tabla de usuarios y las reglas de acceso          | Nada sobre Star Wars                               |
 | `catalog`   | El modelo de página, los filtros, la validación del identificador, la lógica de paginación y la interfaz de la fuente de datos | Nada con el formato de SWAPI |
-| `catalog/*` | Por entidad: su controlador, su documentación y sus datos de detalle, con los nombres de esta API | Lógica de paginación o de filtros, ni nombres de campos de SWAPI |
+| `catalog/*` | Por entidad: su controlador, su documentación y sus datos de detalle, con los nombres de esta API | Lógica de paginación o de filtros, ni nombres de campos de SWAPI (salvo el campo de búsqueda que la entidad declara para la fuente) |
 | `swapi`     | Los pedidos HTTP a SWAPI, la traducción de sus respuestas (por entidad, la de su detalle) y la caché | Controladores o reglas de la API propia   |
 | `shared`    | El formato de los errores, la configuración general y la de la documentación de la API         | Lógica de una funcionalidad en particular          |
 
@@ -56,7 +56,7 @@ flowchart LR
 ```
 
 1. **`catalog` no conoce a `swapi`.** `catalog` define la interfaz de la fuente de datos y `swapi` la implementa.
-2. **El formato de SWAPI no sale de `swapi`.** Sus respuestas se traducen ahí al modelo de `catalog`. Para eso `swapi` conoce los datos de detalle de cada entidad, que están en `catalog/*`; al revés no: ninguna carpeta de `catalog` conoce a `swapi`, ni los nombres de sus campos, ni sus direcciones.
+2. **El formato de SWAPI no sale de `swapi`.** Sus respuestas se traducen ahí al modelo de `catalog`. Para eso `swapi` conoce los datos de detalle de cada entidad, que están en `catalog/*`; al revés no: ninguna carpeta de `catalog` conoce a `swapi`, ni los nombres de sus campos, ni sus direcciones. Lo único de SWAPI que una entidad declara en `catalog` son dos textos que el núcleo no interpreta y le pasa a la fuente tal cual: su nombre en SWAPI y su campo de búsqueda.
 3. **`auth` y `catalog` no dependen entre sí.**
 4. **Nada depende de un controlador.**
 5. **Cualquier carpeta puede usar `shared`;** `shared` no usa a ninguna otra.
@@ -93,16 +93,20 @@ sequenceDiagram
 4. El cliente de SWAPI responde desde la caché o hace el pedido HTTP ([ADR-0003](adr/0003-swapi-client.md), [ADR-0011](adr/0011-swapi-response-cache.md)).
 5. El núcleo arma la página: usa la de SWAPI si vino paginada, o recorta en memoria si vino la lista completa ([ADR-0004](adr/0004-pagination-and-filters.md)).
 
-Con un identificador el recorrido es el mismo, pero el núcleo no pide una página: pide ese elemento.
+Con un filtro el recorrido es el mismo; lo que cambia es qué le pide el núcleo a la fuente. Con un identificador no pide una página: pide ese elemento.
 
-| Pedido                        | Qué le pide el núcleo a la fuente | Qué responde                                                        |
-|-------------------------------|-----------------------------------|---------------------------------------------------------------------|
-| `GET /api/v1/people?id=1`     | El elemento 1 de People           | Una página con el resumen de ese elemento, o vacía si no existe     |
-| `GET /api/v1/people/1`        | El elemento 1 de People           | Todos sus datos, o `404` si no existe                               |
+| Pedido                              | Qué le pide el núcleo a la fuente              | Qué responde                                                                  |
+|-------------------------------------|------------------------------------------------|-------------------------------------------------------------------------------|
+| `GET /api/v1/people?id=1`           | El elemento 1 de People                        | Una página con el resumen de ese elemento, o vacía si no existe               |
+| `GET /api/v1/people/1`              | El elemento 1 de People                        | Todos sus datos, o `404` si no existe                                         |
+| `GET /api/v1/people?name=sky`       | Los elementos de People cuyo nombre contiene "sky" | La página pedida de las coincidencias, o vacía si no hay ninguna          |
+| `GET /api/v1/people?id=1&name=luke` | El elemento 1 de People                        | Una página con ese elemento si su nombre contiene "luke"; si no, vacía        |
 
-- El identificador se valida en `catalog`, en un solo lugar, antes de pedirle nada a la fuente. Vale igual para el parámetro y para la ruta.
-- Los dos pedidos son el mismo para la fuente, así que comparten la respuesta guardada en la caché.
+- El identificador y el texto de búsqueda se validan en `catalog`, cada uno en un solo lugar, antes de pedirle nada a la fuente. El identificador vale igual para el parámetro y para la ruta.
+- Los dos pedidos por identificador son el mismo para la fuente, así que comparten la respuesta guardada en la caché. El de identificador y nombre también: el nombre se comprueba en `catalog`, sobre el elemento que devolvió la fuente, y no se hace ninguna búsqueda.
 - Que un elemento no exista es una respuesta normal de la fuente, no una falla, y no se guarda.
+- El texto de búsqueda se guarda sin los espacios de los extremos y en minúsculas. Así dos búsquedas que solo difieren en eso son el mismo pedido a la fuente y la misma respuesta guardada.
+- La fuente responde una búsqueda igual que un listado: con una página y su total, o con todo junto. Hoy SWAPI devuelve todas las coincidencias juntas, y el núcleo recorta la página. La caché guarda esa respuesta completa sin página ni tamaño, así que recorrer las páginas de una búsqueda es un solo pedido a SWAPI.
 
 ## Cómo se agrega una entidad
 
@@ -110,7 +114,7 @@ Sumar una entidad de SWAPI (por ejemplo, Planets) no toca la paginación, los fi
 
 1. Crear su carpeta dentro de `catalog`.
 2. Definir ahí sus datos de detalle, con los nombres de esta API, y decir cuál de ellos es su nombre en un listado (en Films, el título). Ejemplo: `catalog/people/PersonDetail`.
-3. Declarar en su controlador su ruta, su nombre en SWAPI y el campo por el que se busca, y sus dos pedidos: el listado y el detalle. Cada uno es una línea que llama al núcleo. Ejemplo: `catalog/people/PeopleController`.
+3. Declarar en su controlador su ruta y sus dos pedidos: el listado y el detalle. Cada uno es una línea que llama al núcleo. Ahí mismo se declaran, en un `CatalogEntity`, los dos datos que la fuente necesita de la entidad: su nombre en SWAPI y el campo de SWAPI que tiene el nombre de cada elemento, que es también el campo por el que se busca (`name`; en Films, `title`). Ejemplo: `catalog/people/PeopleController`.
 4. Escribir en `swapi` su traducción: los datos de la entidad con los nombres de SWAPI y cómo pasan a su detalle. Ejemplo: `swapi/SwapiPerson`. Y sumar una línea a la tabla de formatos de `swapi/SwapiCatalogSource`, que dice con qué traducción se lee cada entidad.
 5. Grabar sus respuestas reales de SWAPI y agregar sus tests de aceptación.
 
