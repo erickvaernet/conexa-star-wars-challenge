@@ -30,7 +30,7 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora están el login, la protección del acceso, el listado de People con su filtro por ID y el detalle de un personaje, con la caché de las respuestas de SWAPI. El filtro por nombre y las otras tres entidades llegan con los próximos tickets.
+Por ahora están el login, la protección del acceso, el listado de People con sus filtros por ID y por nombre, y el detalle de un personaje, con la caché de las respuestas de SWAPI. Las otras tres entidades llegan con los próximos tickets.
 
 ### Iniciar sesión
 
@@ -99,6 +99,7 @@ curl "http://localhost:8080/api/v1/people?page=2&size=3" \
 | `page` | `1` | Un entero de 1 o más. La primera página es la 1 |
 | `size` | `10` | Un entero de 1 a 100 |
 | `id` | — | Solo dígitos: de 1 a 10, sin ceros a la izquierda |
+| `name` | — | Un texto de 1 a 100 caracteres, sin contar los espacios del inicio y del final |
 
 - Una página posterior a la última devuelve `content` vacío, con los totales correctos.
 - Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
@@ -155,6 +156,41 @@ curl http://localhost:8080/api/v1/people/1 \
 - Los valores son texto, como los entrega SWAPI, porque algunos no son números: una altura puede ser `"unknown"`. Si SWAPI no envía un valor, llega como `null`.
 - Las relaciones son listas de identificadores, que se pueden pedir en esta misma API. El planeta de origen no se devuelve, porque la API no expone planetas. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
 - El filtro y el detalle del mismo personaje comparten la respuesta guardada: son un solo pedido a SWAPI. Un "no existe" no se guarda.
+
+### Filtrar por nombre
+
+Con `name`, el listado devuelve los personajes cuyo nombre contiene ese texto, en cualquier parte y sin distinguir mayúsculas de minúsculas. Se pagina igual que el listado completo:
+
+```bash
+curl "http://localhost:8080/api/v1/people?name=sky&page=1&size=2" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "content": [
+    { "id": "1", "name": "Luke Skywalker" },
+    { "id": "11", "name": "Anakin Skywalker" }
+  ],
+  "page": 1,
+  "size": 2,
+  "totalElements": 3,
+  "totalPages": 2
+}
+```
+
+Con `id` y `name` juntos, devuelve ese personaje solo si además su nombre contiene el texto:
+
+```bash
+curl "http://localhost:8080/api/v1/people?id=1&name=luke" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+- `name=SKY`, `name=sky` y `name=%20sky%20` son la misma búsqueda: no se distinguen mayúsculas y los espacios del inicio y del final se ignoran.
+- Una búsqueda sin coincidencias responde `200` con `content` vacío y los totales en 0. Lo mismo si el personaje del `id` existe pero su nombre no contiene el texto.
+- Un `name` vacío, solo de espacios o de más de 100 caracteres responde `400`, sin consultar a SWAPI: `Parameter 'name' must have 1 to 100 characters, not counting leading and trailing spaces.`
+- El texto se busca tal cual: un punto es un punto y un paréntesis es un paréntesis. SWAPI los interpreta como parte de un patrón, así que la aplicación los escapa antes de consultarla. El porqué está en el [ADR-0004](docs/adr/0004-pagination-and-filters.md).
+- SWAPI responde una búsqueda con todas las coincidencias juntas. La aplicación recorta la página pedida y guarda la respuesta completa: recorrer las páginas de una búsqueda es un solo pedido a SWAPI.
 
 ### Configuración
 
@@ -252,6 +288,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Listado de People por páginas ([#8](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/8)), la historia de referencia: el núcleo de paginación y el cliente de SWAPI que usan las otras entidades. Los tests de aceptación se escribieron antes que el código, con respuestas reales grabadas. Al grabarlas se vio que SWAPI repite su última página cuando se le pide una posterior, así que la lista vacía de ese caso la arma la aplicación. Los errores de SWAPI responden `502` y sus demoras, `504`. |
 | 15/11/2026 | Caché de las respuestas de SWAPI ([#9](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/9)): un pedido repetido ya no vuelve a SWAPI durante una hora, y un error no se guarda. Se eligió Caffeine después de compararla con el mapa que trae Spring, que no vence ni tiene tope, y con escribirla a mano; se usa de forma directa, en una clase que envuelve al cliente de SWAPI. Los tests de aceptación se escribieron antes que el código y prueban el vencimiento adelantando el reloj de la caché, sin esperar. Quedó escrito el motivo del tope de 500 respuestas, que figuraba sin justificar. |
 | 15/11/2026 | Filtro por ID y detalle de un personaje ([#10](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/10)): `?id=` devuelve una página con uno o ningún elemento y `/people/{id}` todos los datos, con las relaciones como listas de identificadores. Los dos usan el mismo pedido a SWAPI y la misma respuesta guardada, y un "no existe" no se guarda. Los tests de aceptación se escribieron antes que el código; al escribirlos se vio que el detalle de un personaje inexistente ya respondía `404` antes de existir, porque la ruta no existía, así que los tests comprueban también qué se le pidió a SWAPI. El detalle vive en `catalog` sin ningún nombre de SWAPI y su traducción en `swapi`: desde ahora, sumar una entidad incluye esa pieza. |
+| 15/11/2026 | Filtro por nombre, solo y junto con el ID ([#11](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/11)): `?name=` busca por una parte del nombre, sin distinguir mayúsculas, y con `id` y `name` juntos se pide ese elemento y se comprueba su nombre. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI a una búsqueda con coincidencias y a una sin ninguna. Al grabarlas se vio que SWAPI interpreta el texto como un patrón: un punto coincidía con cualquier carácter y un paréntesis suelto le hacía responder un error. Ahora el texto se busca tal cual. La caché guarda una búsqueda entera, sin página ni tamaño, así que recorrer sus páginas es un solo pedido a SWAPI; lo mismo va a valer para el listado de Films. |
 
 ## Documentación
 
