@@ -604,6 +604,7 @@ class PeopleControllerTest {
         "?size=101           | size | must be an integer between 1 and 100",
         "?id=abc             | id   | must be a number of 1 to 10 digits, without leading zeros",
         "?name=              | name | must have 1 to 100 characters, not counting leading and trailing spaces",
+        "?expanded=TRUE      | expanded | must be true or false",
         "/abc                | id   | must be a number of 1 to 10 digits, without leading zeros",
         // With several invalid parameters, only the first one in the order page, size, id, name.
         "?name=&id=0&size=0&page=0 | page | must be an integer greater than or equal to 1",

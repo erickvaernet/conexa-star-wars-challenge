@@ -333,20 +333,27 @@ class ExpandedListAcceptanceTest {
         "TRUE",
         "''"
     })
-    @DisplayName("CA-24.10: a value of expanded that is not exactly true or false is rejected with 400, the detail names the parameter, and SWAPI receives no request")
+    @DisplayName("CA-24.10: a value of expanded that is not exactly true or false is rejected with 400, the detail and errors name the parameter, and SWAPI receives no request")
     void invalidValueOfExpandedIsRejected(String value) {
         client.get().uri(PEOPLE + "?expanded=" + value)
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
-                .expectBody()
-                .jsonPath("$.type").isEqualTo("about:blank")
-                .jsonPath("$.title").isEqualTo("Bad Request")
-                .jsonPath("$.status").isEqualTo(400)
-                .jsonPath("$.instance").isEqualTo(PEOPLE)
-                // The fixed text of the specification: the name of the parameter and its rule,
-                // without the value that was received.
-                .jsonPath("$.detail").isEqualTo("Parameter 'expanded' must be true or false.");
+                // Strict: the fields of every error of the API and errors, nothing else. The two
+                // texts are the fixed ones of the specification: the name of the parameter and
+                // its rule, without the value that was received.
+                .expectBody().json("""
+                        {
+                          "type": "about:blank",
+                          "title": "Bad Request",
+                          "status": 400,
+                          "detail": "Parameter 'expanded' must be true or false.",
+                          "instance": "/api/v1/people",
+                          "errors": [
+                            { "field": "expanded", "message": "must be true or false" }
+                          ]
+                        }
+                        """, JsonCompareMode.STRICT);
 
         // It is rejected here: nothing is asked to SWAPI.
         swapi.verify(0, anyRequestedFor(anyUrl()));

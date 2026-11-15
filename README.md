@@ -335,7 +335,7 @@ El porqué de esta forma, y las alternativas, están en el [ADR-0019](docs/adr/0
 
 - Una página posterior a la última devuelve `content` vacío, con los totales correctos.
 - Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
-- Ese `400` trae además la lista `errors`, igual que el del login, con un elemento: `{ "field": "size", "message": "must be an integer between 1 and 100" }`. Si hay varios parámetros inválidos, nombra el primero, en el orden `page`, `size`, `id`, `name`. Vale también para el `id` de la ruta del detalle.
+- Ese `400` trae además la lista `errors`, igual que el del login, con un elemento: `{ "field": "size", "message": "must be an integer between 1 and 100" }`. Si hay varios parámetros inválidos, nombra el primero, en el orden `page`, `size`, `id`, `name`, `expanded`. Vale también para el `id` de la ruta del detalle.
 - Un ID con otro formato (`0`, `01`, `abc`) responde `400`, en el filtro y en el detalle, sin consultar a SWAPI: `Parameter 'id' must be a number of 1 to 10 digits, without leading zeros.`
 - Un `name` vacío, solo de espacios o de más de 100 caracteres responde `400`, sin consultar a SWAPI: `Parameter 'name' must have 1 to 100 characters, not counting leading and trailing spaces.`
 - Un `expanded` que no es exactamente `true` o `false` (`1`, `TRUE`, vacío) responde `400`, sin consultar a SWAPI: `Parameter 'expanded' must be true or false.`
