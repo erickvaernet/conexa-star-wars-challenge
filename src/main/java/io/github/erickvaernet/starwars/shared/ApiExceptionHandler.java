@@ -13,7 +13,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Answers every error of the API as Problem Details (RFC 9457).
@@ -51,11 +53,53 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return unauthorized("Authentication is required to access this resource.");
     }
 
+    /**
+     * A parameter with a value that is not accepted. The answer names the parameter and the rule
+     * it must follow, and never repeats the value that was received.
+     */
+    @ExceptionHandler(InvalidParameterException.class)
+    ProblemDetail handleInvalidParameter(InvalidParameterException error) {
+        return problem(HttpStatus.BAD_REQUEST,
+                "Parameter '" + error.parameter() + "' " + error.requirement() + ".");
+    }
+
+    /** The data source failed. What failed goes to the log, not to the answer. */
+    @ExceptionHandler(BadGatewayException.class)
+    ProblemDetail handleBadGateway(BadGatewayException error) {
+        log.warn("The data source failed", error);
+        return problem(HttpStatus.BAD_GATEWAY, "The data source failed or returned an unexpected response.");
+    }
+
+    /** The data source did not answer in time. */
+    @ExceptionHandler(GatewayTimeoutException.class)
+    ProblemDetail handleGatewayTimeout(GatewayTimeoutException error) {
+        log.warn("The data source did not respond in time", error);
+        return problem(HttpStatus.GATEWAY_TIMEOUT, "The data source did not respond in time.");
+    }
+
     /** Any error that has no handler of its own. The cause goes to the log, not to the answer. */
     @ExceptionHandler(Exception.class)
     ProblemDetail handleUnexpected(Exception error) {
         log.error("Unexpected error", error);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred.");
+    }
+
+    /**
+     * A route that does not exist. Spring looks for a static file when no controller answers a
+     * route, and its own text says so ("No static resource ..."): that is an internal detail,
+     * so the text is replaced.
+     */
+    @Override
+    protected ResponseEntity<Object> handleNoResourceFoundException(
+            NoResourceFoundException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return handleExceptionInternal(error, notFound(), headers, status, request);
+    }
+
+    /** The same answer, for the case in which Spring is not looking for static files. */
+    @Override
+    protected ResponseEntity<Object> handleNoHandlerFoundException(
+            NoHandlerFoundException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return handleExceptionInternal(error, notFound(), headers, status, request);
     }
 
     /**
@@ -85,6 +129,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
                 .body(problem(HttpStatus.UNAUTHORIZED, detail));
+    }
+
+    private static ProblemDetail notFound() {
+        return problem(HttpStatus.NOT_FOUND, "The requested resource was not found.");
     }
 
     private static ProblemDetail problem(HttpStatus status, String detail) {
