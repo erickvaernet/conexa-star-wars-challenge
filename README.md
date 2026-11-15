@@ -6,10 +6,10 @@ API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/docume
 
 ## Alcance
 
-- [ ] Integración con la API de Star Wars (People, Films, Starships, Vehicles)
-- [ ] Listados paginados
-- [ ] Filtrado por ID y/o nombre
-- [ ] Login seguro con autenticación y autorización para acceder a los listados (usuarios en base de datos + seed inicial)
+- [x] Integración con la API de Star Wars (People, Films, Starships, Vehicles)
+- [x] Listados paginados
+- [x] Filtrado por ID y/o nombre
+- [x] Login seguro con autenticación y autorización para acceder a los listados (usuarios en base de datos + seed inicial)
 - [ ] Documentación de la API con Swagger / OpenAPI
 - [ ] Pruebas unitarias y de integración
 - [x] Entorno local dockerizado
@@ -30,7 +30,7 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora están el login, la protección del acceso y tres de las cuatro entidades, People, Films y Starships, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Vehicles llega con el próximo ticket.
+Por ahora están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI.
 
 ### Iniciar sesión
 
@@ -324,6 +324,83 @@ curl http://localhost:8080/api/v1/starships/9 \
 - Todos los valores son texto, también las cantidades, porque muchos no se pueden leer como número sin interpretarlos: `"342,953"`, `"4.0"`, `"3 years"` o `"n/a"`. Se devuelven como los entrega SWAPI. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
 - `filmIds` y `pilotIds` son identificadores de películas y de personajes, que se pueden pedir en esta misma API. Una nave sin pilotos conocidos, como esta, trae `pilotIds` vacío; la nave `10`, el Millennium Falcon, trae `["13", "14", "25", "31"]`.
 
+### Vehicles
+
+Los vehículos se piden igual que las otras tres entidades: los mismos parámetros, la misma forma de respuesta y los mismos errores.
+
+| Pedido | Qué devuelve |
+|---|---|
+| `GET /api/v1/vehicles` | El listado, con `page`, `size`, `id` y `name` |
+| `GET /api/v1/vehicles/{id}` | Todos los datos de un vehículo |
+
+Sin parámetros, el listado devuelve la primera página, de 10 elementos:
+
+```bash
+curl http://localhost:8080/api/v1/vehicles \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "content": [
+    { "id": "4", "name": "Sand Crawler" },
+    { "id": "7", "name": "X-34 landspeeder" },
+    { "id": "6", "name": "T-16 skyhopper" },
+    { "id": "8", "name": "TIE/LN starfighter" },
+    { "id": "14", "name": "Snowspeeder" },
+    { "id": "18", "name": "AT-AT" },
+    { "id": "16", "name": "TIE bomber" },
+    { "id": "19", "name": "AT-ST" },
+    { "id": "20", "name": "Storm IV Twin-Pod cloud car" },
+    { "id": "24", "name": "Sail barge" }
+  ],
+  "page": 1,
+  "size": 10,
+  "totalElements": 39,
+  "totalPages": 4
+}
+```
+
+El filtro `name` busca en el nombre del vehículo. Este pedido devuelve los ocho vehículos cuyo nombre contiene "speeder", entre ellos X-34 landspeeder, Snowspeeder y Sith speeder.
+
+```bash
+curl "http://localhost:8080/api/v1/vehicles?name=speeder" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+El detalle devuelve todos los datos del vehículo:
+
+```bash
+curl http://localhost:8080/api/v1/vehicles/4 \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "id": "4",
+  "name": "Sand Crawler",
+  "model": "Digger Crawler",
+  "vehicleClass": "wheeled",
+  "manufacturer": "Corellia Mining Corporation",
+  "costInCredits": "150000",
+  "length": "36.8",
+  "crew": "46",
+  "passengers": "30",
+  "maxAtmospheringSpeed": "30",
+  "cargoCapacity": "50000",
+  "consumables": "2 months",
+  "filmIds": ["1", "5"],
+  "pilotIds": []
+}
+```
+
+- El orden del listado es el de SWAPI, que no es el de los identificadores: después del vehículo `7` viene el `6`. Los identificadores además tienen huecos: el primer vehículo es el `4`.
+- SWAPI pagina los vehículos, como los personajes y las naves: cada página del listado es un pedido a SWAPI, y se guarda por separado.
+- Todos los valores son texto, también las cantidades, porque algunos no se pueden leer como número sin interpretarlos: `"2 months"` o `"unknown"`. Se devuelven como los entrega SWAPI. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
+- A los textos solo se les quitan los espacios del inicio y del final: SWAPI entrega el largo de este vehículo como `"36.8 "`, con un espacio al final, y la API lo devuelve como `"36.8"`.
+- `filmIds` y `pilotIds` son identificadores de películas y de personajes, que se pueden pedir en esta misma API. Un vehículo sin pilotos conocidos, como este, trae `pilotIds` vacío; el vehículo `14`, el Snowspeeder, trae `["1", "18"]`.
+- Un vehículo tiene los mismos datos que una nave, salvo `hyperdriveRating` y `mglt`, y su clase se llama `vehicleClass`.
+
 ### Configuración
 
 No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para cambiarlos, copiar `.env.example` a `.env`.
@@ -423,6 +500,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Filtro por nombre, solo y junto con el ID ([#11](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/11)): `?name=` busca por una parte del nombre, sin distinguir mayúsculas, y con `id` y `name` juntos se pide ese elemento y se comprueba su nombre. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI a una búsqueda con coincidencias y a una sin ninguna. Al grabarlas se vio que SWAPI interpreta el texto como un patrón: un punto coincidía con cualquier carácter y un paréntesis suelto le hacía responder un error. Ahora el texto se busca tal cual. La caché guarda una búsqueda entera, sin página ni tamaño, así que recorrer sus páginas es un solo pedido a SWAPI; lo mismo va a valer para el listado de Films. |
 | 15/11/2026 | Films, la segunda entidad ([#12](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/12)): listado paginado, filtros por ID y por título, y detalle. Fue el primer uso de los pasos para sumar una entidad: una carpeta en `catalog` con su controlador y sus datos de detalle, y su traducción en `swapi`; el núcleo, la validación, los errores y la caché no se tocaron. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que confirmaron lo previsto: no pagina las películas (devuelve las seis, se le pida la página que se le pida) y las busca por título. La aplicación recorta la página y recorrer las tres páginas es un solo pedido a SWAPI. El episodio es el único valor numérico: si SWAPI no lo envía llega como `null`, y si envía algo que no es un entero la respuesta es `502`, sin convertirlo. |
 | 15/11/2026 | Starships, la tercera entidad ([#13](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/13)): listado paginado, filtros por ID y por nombre, y detalle, con los mismos pasos que Films y sin tocar el núcleo, la validación, los errores ni la caché. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que pagina las naves como los personajes: son 36. Al grabarlas se vio que el orden del listado no es el de los identificadores. Todos los valores de una nave son texto y ninguno se convierte. La nave grabada no tiene pilotos y repite el mismo valor en dos campos, así que la traducción se prueba además con una nave armada en el test, con todos los valores distintos. |
+| 15/11/2026 | Vehicles, la cuarta y última entidad ([#14](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/14)): listado paginado, filtros por ID y por nombre, y detalle, con los mismos pasos que Films y Starships y sin tocar el núcleo, la validación, los errores ni la caché. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que pagina los vehículos como los personajes y las naves: son 39, y tampoco llegan en el orden de los identificadores. SWAPI entrega el largo del vehículo grabado como `"36.8 "`, con un espacio al final, y la API lo devuelve sin el espacio; el test comprueba primero que la grabación lo sigue trayendo. Ese vehículo no tiene pilotos y repite el mismo valor en dos campos, así que la traducción se prueba además con un vehículo armado en el test. Con esto las cuatro entidades tienen listado, filtros y detalle. |
 
 ## Documentación
 
