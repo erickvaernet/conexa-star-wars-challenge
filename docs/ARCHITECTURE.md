@@ -112,13 +112,17 @@ Con un filtro el recorrido es el mismo; lo que cambia es qué le pide el núcleo
 
 Sumar una entidad de SWAPI (por ejemplo, Planets) no toca la paginación, los filtros, la validación, la caché ni los errores:
 
-1. Crear su carpeta dentro de `catalog`.
-2. Definir ahí sus datos de detalle, con los nombres de esta API, y decir cuál de ellos es su nombre en un listado (en Films, el título). Ejemplo: `catalog/people/PersonDetail`.
-3. Declarar en su controlador su ruta y sus dos pedidos: el listado y el detalle. Cada uno es una línea que llama al núcleo. Ahí mismo se declaran, en un `CatalogEntity`, los dos datos que la fuente necesita de la entidad: su nombre en SWAPI y el campo de SWAPI que tiene el nombre de cada elemento, que es también el campo por el que se busca (`name`; en Films, `title`). Ejemplo: `catalog/people/PeopleController`.
-4. Escribir en `swapi` su traducción: los datos de la entidad con los nombres de SWAPI y cómo pasan a su detalle. Ejemplo: `swapi/SwapiPerson`. Y sumar una línea a la tabla de formatos de `swapi/SwapiCatalogSource`, que dice con qué traducción se lee cada entidad.
-5. Grabar sus respuestas reales de SWAPI y agregar sus tests de aceptación.
+1. Grabar sus respuestas reales de SWAPI y escribir sus tests de aceptación, antes que el código ([flujo de trabajo](process/WORKFLOW.md)). Son dos cosas: una clase con los criterios propios de la entidad (ejemplo: `catalog/films/FilmsAcceptanceTest`), y su ruta en las listas de los criterios que comparten las cuatro entidades, que están en `catalog/PaginationAcceptanceTest` y en `auth/ProtectedAccessAcceptanceTest`.
+2. Crear su carpeta dentro de `catalog`.
+3. Definir ahí sus datos de detalle, con los nombres de esta API, y decir cuál de ellos es su nombre en un listado (en Films, el título). Ejemplos: `catalog/people/PersonDetail` y `catalog/films/FilmDetail`.
+4. Declarar en su controlador su ruta y sus dos pedidos: el listado y el detalle. Cada uno es una línea que llama al núcleo. Ahí mismo se declaran, en un `CatalogEntity`, los dos datos que la fuente necesita de la entidad: su nombre en SWAPI y el campo de SWAPI que tiene el nombre de cada elemento, que es también el campo por el que se busca (`name`; en Films, `title`). Ejemplos: `catalog/people/PeopleController` y `catalog/films/FilmsController`.
+5. Escribir en `swapi` su traducción: los datos de la entidad con los nombres de SWAPI y cómo pasan a su detalle. Ejemplos: `swapi/SwapiPerson` y `swapi/SwapiFilm`. Y sumar una línea a la tabla de formatos de `swapi/SwapiCatalogSource`, que dice con qué traducción se lee cada entidad.
 
-El paso 4 es el único fuera de la carpeta de la entidad. Está ahí porque los nombres de los campos de SWAPI no pueden aparecer en `catalog` ([ADR-0002](adr/0002-code-organization.md), nota del 15/11/2026).
+Cada pieza de los pasos 3 a 5 lleva su test unitario, escrito antes que ella.
+
+El paso 5 es el único del código que queda fuera de la carpeta de la entidad. Está ahí porque los nombres de los campos de SWAPI no pueden aparecer en `catalog` ([ADR-0002](adr/0002-code-organization.md), nota del 15/11/2026).
+
+Films fue la primera entidad que se sumó con estos pasos (ticket #12), y no hizo falta nada fuera de ellos.
 
 ## Decisiones transversales
 

@@ -97,3 +97,4 @@ Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
   - **ID y nombre juntos no suman ninguna entrada.** Se resuelven con el pedido del elemento, que ya tiene la suya.
   - **Menos entradas de las que estimaba la nota del ticket #9.** Decía que las búsquedas suman una entrada por cada combinación de página, tamaño y texto. Como SWAPI las responde completas, hoy suman una por texto. El riesgo de una avalancha de textos distintos sigue siendo el del REQ-35.
   - **El costo.** Un listado que SWAPI pagina hace ahora dos consultas a la caché en vez de una antes de ir a SWAPI. Las dos son en memoria.
+- **15/11/2026.** Confirmado al implementar Films (ticket #12): pedir las páginas 1, 2 y 3 de las películas, de a dos, es un solo pedido a SWAPI (CA-32.2). La lista llega completa y se guarda con la clave sin página ni tamaño, como anticipaba la nota anterior. La caché no cambió.
