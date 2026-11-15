@@ -47,6 +47,9 @@ class ApiDocumentationAcceptanceTest {
             "GET /api/v1/starships/{id}",
             "GET /api/v1/vehicles/{id}");
 
+    /** The request that creates a user, which only an administrator can make. */
+    private static final String USER_CREATION = "POST /api/v1/users";
+
     @LocalServerPort
     private int port;
 
@@ -70,8 +73,9 @@ class ApiDocumentationAcceptanceTest {
         expected.add(LOGIN);
         expected.addAll(LISTS);
         expected.addAll(DETAILS);
+        expected.add(USER_CREATION);
 
-        // Exactly these nine: a request that is added later has to be added here too.
+        // Exactly these ten: a request that is added later has to be added here too.
         assertThat(documentedRequests()).containsExactlyInAnyOrderElementsOf(expected);
     }
 
@@ -145,7 +149,8 @@ class ApiDocumentationAcceptanceTest {
                 "GET /api/v1/starships", "listStarships",
                 "GET /api/v1/starships/{id}", "getStarship",
                 "GET /api/v1/vehicles", "listVehicles",
-                "GET /api/v1/vehicles/{id}", "getVehicle");
+                "GET /api/v1/vehicles/{id}", "getVehicle",
+                "POST /api/v1/users", "createUser");
 
         Map<String, String> documented = new HashMap<>();
         for (String request : documentedRequests()) {

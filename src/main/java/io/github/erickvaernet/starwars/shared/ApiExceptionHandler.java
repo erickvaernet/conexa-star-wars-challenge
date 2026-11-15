@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -55,6 +56,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /** The text of every 415. The one of Spring repeats the content type that the client sent. */
     static final String UNSUPPORTED_MEDIA_TYPE = "The content type of the request is not supported.";
 
+    /** The text of every 403: the session is valid, and its role does not allow the request. */
+    static final String FORBIDDEN = "You do not have permission to perform this request.";
+
     /** The name of the list that says which fields or parameters are invalid. */
     private static final String ERRORS = "errors";
 
@@ -74,6 +78,21 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     ResponseEntity<ProblemDetail> handleNotAuthenticated(AuthenticationException error) {
         return unauthorized("Authentication is required to access this resource.");
+    }
+
+    /**
+     * A request from a user whose role does not allow it. Unlike a 401, the answer does not say
+     * how to authenticate: the user already did, and doing it again changes nothing.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail handleNotAllowed(AccessDeniedException error) {
+        return problem(HttpStatus.FORBIDDEN, FORBIDDEN);
+    }
+
+    /** A user that cannot be created because another one already has that name. */
+    @ExceptionHandler(UsernameAlreadyExistsException.class)
+    ProblemDetail handleUsernameAlreadyExists(UsernameAlreadyExistsException error) {
+        return problem(HttpStatus.CONFLICT, "A user with that username already exists.");
     }
 
     /**

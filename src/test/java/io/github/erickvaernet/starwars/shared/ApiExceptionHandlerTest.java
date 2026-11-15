@@ -27,6 +27,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -113,6 +114,44 @@ class ApiExceptionHandlerTest {
         String body = expectProblem("/test/not-found", 404, "Not Found");
 
         assertThat(detailOf(body)).isEqualTo("The requested resource was not found.");
+    }
+
+    @Test
+    @DisplayName("A request that the user is not allowed to make is answered with 403 and a fixed text, without saying how to authenticate")
+    void requestThatIsNotAllowedIsAnsweredWithForbidden() {
+        client.get().uri("/test/forbidden")
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                // Whoever asked is already authenticated: doing it again changes nothing.
+                .expectHeader().doesNotExist(HttpHeaders.WWW_AUTHENTICATE)
+                .expectBody().json("""
+                        {
+                          "type": "about:blank",
+                          "title": "Forbidden",
+                          "status": 403,
+                          "detail": "You do not have permission to perform this request.",
+                          "instance": "/test/forbidden"
+                        }
+                        """, JsonCompareMode.STRICT);
+    }
+
+    @Test
+    @DisplayName("A user name that is already taken is answered with 409 and a fixed text")
+    void userNameThatIsTakenIsAnsweredWithConflict() {
+        client.get().uri("/test/username-taken")
+                .exchange()
+                .expectStatus().isEqualTo(409)
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody().json("""
+                        {
+                          "type": "about:blank",
+                          "title": "Conflict",
+                          "status": 409,
+                          "detail": "A user with that username already exists.",
+                          "instance": "/test/username-taken"
+                        }
+                        """, JsonCompareMode.STRICT);
     }
 
     @Test
@@ -378,6 +417,16 @@ class ApiExceptionHandlerTest {
         @GetMapping("/test/not-found")
         String notFound() {
             throw new NotFoundException();
+        }
+
+        @GetMapping("/test/forbidden")
+        String forbidden() {
+            throw new AccessDeniedException("the token has the role USER and the request needs ADMIN");
+        }
+
+        @GetMapping("/test/username-taken")
+        String usernameTaken() {
+            throw new UsernameAlreadyExistsException();
         }
 
         @PostMapping("/test/body")

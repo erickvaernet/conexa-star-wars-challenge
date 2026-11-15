@@ -91,3 +91,25 @@ Respuesta:
 - No hay forma de cambiar una contraseña, ni de borrar o listar usuarios. Es un límite declarado: el requisito pide el alta. Cualquiera de esas operaciones se suma después como un pedido nuevo, sin romper este.
 - El costo de BCrypt hace que cada alta tarde unas décimas de segundo. No hay límite de cantidad de altas; el límite de pedidos por usuario es el REQ-31, del ciclo 3.
 - La documentación de la API muestra el pedido en un grupo propio, "Users", con candado, y dice que exige el rol de administrador.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión, salvo la primera, que corrige una regla y dice quién lo autorizó.
+
+- **15/11/2026.** **La contraseña no puede ser solo espacios.** Corrección hecha al implementarlo (ticket #36):
+  - **La contradicción.** Este ADR decía "sin reglas de composición", y la especificación tenía como caso límite que una contraseña de 8 espacios se acepta. Las dos cosas decían también que el usuario creado puede iniciar sesión en el momento. Pero el login rechaza con `400` una contraseña vacía o de solo espacios ([ADR-0005](0005-authentication.md), nota del 15/11/2026): ese usuario se habría creado y no habría podido entrar nunca. Apareció al escribir los tests de aceptación, antes del código.
+  - **Las tres opciones.** (a) Dejarlo y declararlo como límite. (b) Que el login deje de rechazar una contraseña de solo espacios. (c) Que el alta la rechace.
+  - **Se eligió (c).** La API no puede crear un usuario que después no puede iniciar sesión, y declararlo como límite es dejar a la vista algo que quien pruebe la API va a tomar por un error. La (b) reabría una regla y un texto del ciclo 1, ya aprobados por el autor. La (c) solo toca la extensión del ciclo 2.
+  - **Quién lo decidió.** La sesión supervisora de una herramienta de IA, que había escrito esa extensión por encargo del autor ([registro de uso de herramientas de IA](../process/AI-USAGE.md#ciclo-2)). El autor no la revisó antes.
+  - **La regla, completa.** De 8 a 72 caracteres, no solo espacios, y no más de 72 bytes en UTF-8. Su texto fijo es `must have 8 to 72 characters, not only spaces, and at most 72 bytes in UTF-8`. Los espacios siguen contando para el largo y no se recortan: una contraseña con espacios adentro y en los extremos vale tal cual, y el usuario inicia sesión con ella.
+  - **Cómo se comprueba.** Con la misma anotación que usa el login para su contraseña. Así lo que el alta acepta y lo que el login acepta no pueden separarse. "Solo espacios" incluye los tabuladores y los saltos de línea, que esa anotación trata igual.
+  - **Sigue sin haber reglas de composición** en el sentido de la guía de referencia: no se exige mayúscula, dígito ni símbolo.
+- **15/11/2026.** Otras precisiones que aparecieron al implementarlo (ticket #36):
+  - **"Caracteres" son los que cuenta Java,** igual que en el login. Un emoji cuenta dos. Una contraseña de cuatro emojis tiene, para esta regla, 8 caracteres. Se dejó así para que el alta y el login cuenten igual.
+  - **El tope de 72 bytes es una regla propia sobre el campo.** Las reglas que trae la librería de validación cuentan caracteres. Se escribió una anotación, `@MaxUtf8Bytes`, que cuenta los bytes en UTF-8. Tiene que estar sobre el campo, y no sobre el pedido entero, para que el error nombre a `password` ([ADR-0016](0016-validation-error-detail.md), nota del 15/11/2026). Con ella BCrypt nunca recibe más de 72 bytes, que es cuando falla.
+  - **Usuario ya existente, en las dos situaciones.** Primero se pregunta si el nombre existe: es el caso común, y responde sin pagar el costo de BCrypt y sin dejar un error de la base de datos en el registro. Si dos altas del mismo nombre llegan a la vez, las dos pasan esa pregunta, y la base de datos rechaza la segunda fila por la columna única: ese rechazo se convierte en el mismo `409`. Un test envía cuatro altas iguales a la vez y espera un `201`, tres `409` y una sola fila.
+  - **Alternativa descartada para eso.** No preguntar antes y depender solo de la base de datos. Es un camino en vez de dos, pero cada conflicto pagaría BCrypt y dejaría un error en el registro.
+  - **`createdAt` es exactamente lo que queda guardado.** El momento se corta a milisegundos al crear el usuario. La base de datos guarda menos decimales que los que da el reloj: sin cortarlo, la respuesta diría un instante distinto del guardado.
+  - **El rol llega como texto.** Si fuera uno de dos valores fijos, un valor inválido haría ilegible el cuerpo entero y la respuesta no nombraría el campo.
+  - **Lo que no es texto se lee como texto.** `{"username": 123}` crea al usuario `123`, y `{"role": 5}` es un rol inválido. Es lo que ya hace el login.
+  - **Un límite de la regla del nombre.** Acepta nombres hechos solo de signos, como `...` o `-_-`. No se agregó otra regla: la decisión fija qué caracteres valen, no cómo combinarlos.

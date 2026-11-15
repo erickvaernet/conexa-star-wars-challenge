@@ -60,6 +60,14 @@ class ApiDocumentationConfigurationTest {
     }
 
     @Test
+    @DisplayName("The documentation says that there are two test users, and that creating users needs the administrator")
+    void documentationSaysWhichTestUserCanCreateUsers() {
+        String description = JsonPath.read(documentation, "$.info.description");
+
+        assertThat(description).contains("`demo`", "`admin`", "POST /api/v1/users");
+    }
+
+    @Test
     @DisplayName("The version is the one of the project, taken from the build and not written a second time")
     void versionIsTheOneOfTheProject() {
         String version = JsonPath.read(documentation, "$.info.version");

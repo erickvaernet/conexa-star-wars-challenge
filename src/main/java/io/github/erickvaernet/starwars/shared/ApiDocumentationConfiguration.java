@@ -48,11 +48,17 @@ class ApiDocumentationConfiguration {
 
             **How to try it**
 
-            1. Run `POST /api/v1/auth/login` with the test user.
+            1. Run `POST /api/v1/auth/login` with a test user.
             2. Copy the `accessToken` of the answer.
             3. Press **Authorize**, paste the token and confirm.
             4. Run any list or detail: the token is sent with each request, until it expires, \
             60 minutes later by default.
+
+            **Test users**
+
+            There are two, one of each role: `demo`, a common user, and `admin`, an administrator. \
+            Both can use the lists and the details. Only `admin` can create users, with \
+            `POST /api/v1/users`: the same request answers 403 to `demo`.
             """;
 
 }

@@ -27,7 +27,7 @@ services:
       # Key that signs the login tokens. This default is public, so it is only for local use.
       JWT_SECRET: ${JWT_SECRET:-local-development-signing-key-change-me}
       JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-60}
-      # Loads the test user, so there is someone to log in with right away.
+      # Loads the test users, so there is someone to log in with right away.
       SEED_ENABLED: ${SEED_ENABLED:-true}
       # Where the Star Wars data comes from, and the longest the application waits for it.
       SWAPI_BASE_URL: ${SWAPI_BASE_URL:-https://www.swapi.tech/api}
