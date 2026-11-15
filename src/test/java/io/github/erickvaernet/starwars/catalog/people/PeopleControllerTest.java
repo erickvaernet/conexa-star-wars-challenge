@@ -70,6 +70,8 @@ class PeopleControllerTest {
     private static final String NAME_RULE =
             "Parameter 'name' must have 1 to 100 characters, not counting leading and trailing spaces.";
 
+    private static final String EXPANDED_RULE = "Parameter 'expanded' must be true or false.";
+
     private static final PersonDetail LUKE = new PersonDetail(
             "1", "Luke Skywalker", "19BBY", "male", "172", "77", "blond", "fair", "blue",
             List.of("1", "2", "3", "6"), List.of("12", "22"), List.of("14", "30"));
@@ -90,7 +92,7 @@ class PeopleControllerTest {
     @Test
     @DisplayName("The page is answered as JSON with exactly the fields of the contract")
     void pageIsAnsweredWithTheFieldsOfTheContract() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(PEOPLE + "?page=1&size=2")
                 .exchange()
@@ -113,31 +115,31 @@ class PeopleControllerTest {
     @Test
     @DisplayName("Without parameters, the core is asked for the first page of 10 people")
     void withoutParametersTheFirstPageOfTenIsAskedFor() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(PEOPLE).exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, null));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, null, false));
     }
 
     @Test
     @DisplayName("The page and the size of the request are passed to the core")
     void pageAndSizeArePassedToTheCore() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(PEOPLE + "?page=9&size=100").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(9, 100), null, null));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(9, 100), null, null, false));
     }
 
     @Test
     @DisplayName("A parameter that is not in the specification is ignored")
     void unknownParameterIsIgnored() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(PEOPLE + "?size=5&sort=name&limit=50&unknown=").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 5), null, null));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 5), null, null, false));
     }
 
     @ParameterizedTest(name = "?{0} is rejected for {1}")
@@ -207,7 +209,7 @@ class PeopleControllerTest {
     void documentationShowsNoOtherParameter() {
         List<String> names = JsonPath.read(apiDocumentation(), "$.paths['/api/v1/people'].get.parameters[*].name");
 
-        assertThat(names).containsExactlyInAnyOrder("page", "size", "id", "name");
+        assertThat(names).containsExactlyInAnyOrder("page", "size", "id", "name", "expanded");
     }
 
     @Test
@@ -239,12 +241,12 @@ class PeopleControllerTest {
     @DisplayName("The documentation describes the page, each of its fields and each field of its elements")
     void documentationDescribesThePageAndItsElements() {
         String documentation = apiDocumentation();
-        Map<String, Object> page = JsonPath.read(documentation, "$.components.schemas['PageResultItemSummary']");
+        Map<String, Object> page = JsonPath.read(documentation, "$.components.schemas['PageResultPersonListElement']");
         Map<String, Object> element = JsonPath.read(documentation, "$.components.schemas['ItemSummary']");
 
         assertThat((String) page.get("description")).isNotBlank();
         assertThat((String) element.get("description")).isNotBlank();
-        for (String schema : List.of("PageResultItemSummary", "ItemSummary")) {
+        for (String schema : List.of("PageResultPersonListElement", "ItemSummary")) {
             Map<String, Map<String, Object>> fields = JsonPath.read(documentation,
                     "$.components.schemas['" + schema + "'].properties");
             fields.forEach((name, field) ->
@@ -252,7 +254,7 @@ class PeopleControllerTest {
         }
         // The types are still the ones of the contract: the identifier is text, the totals are integers.
         Map<String, Map<String, Object>> pageFields = JsonPath.read(documentation,
-                "$.components.schemas['PageResultItemSummary'].properties");
+                "$.components.schemas['PageResultPersonListElement'].properties");
         Map<String, Map<String, Object>> elementFields = JsonPath.read(documentation,
                 "$.components.schemas['ItemSummary'].properties");
         assertThat(pageFields.get("content")).containsEntry("type", "array");
@@ -284,13 +286,13 @@ class PeopleControllerTest {
     @Test
     @DisplayName("The id of the request is passed to the core as the filter of the list, next to the page and the size")
     void idIsPassedToTheCoreAsAFilter() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(PEOPLE + "?id=1").exchange().expectStatus().isOk();
         client.get().uri(PEOPLE + "?id=83&page=2&size=5").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), new ItemId("1"), null));
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(2, 5), new ItemId("83"), null));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), new ItemId("1"), null, false));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(2, 5), new ItemId("83"), null, false));
     }
 
     @ParameterizedTest(name = "?{0}")
@@ -327,38 +329,38 @@ class PeopleControllerTest {
     @Test
     @DisplayName("The name of the request is passed to the core as a filter, without the spaces around it and in lower case")
     void nameIsPassedToTheCoreAsAFilter() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(PEOPLE + "?name=sky").exchange().expectStatus().isOk();
         client.get().uri(PEOPLE + "?name={name}&page=2&size=5", "  Obi-Wan Kenobi ").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("sky")));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("sky"), false));
         verify(catalog).list(PEOPLE_ENTITY,
-                new ListQuery(new PageQuery(2, 5), null, new NameFilter("obi-wan kenobi")));
+                new ListQuery(new PageQuery(2, 5), null, new NameFilter("obi-wan kenobi"), false));
     }
 
     @Test
     @DisplayName("The id and the name of the request are passed to the core together")
     void idAndNameArePassedToTheCoreTogether() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(PEOPLE + "?id=1&name=LUKE").exchange().expectStatus().isOk();
 
         verify(catalog).list(PEOPLE_ENTITY,
-                new ListQuery(new PageQuery(1, 10), new ItemId("1"), new NameFilter("luke")));
+                new ListQuery(new PageQuery(1, 10), new ItemId("1"), new NameFilter("luke"), false));
     }
 
     @Test
     @DisplayName("A name of exactly 100 characters is accepted, also between spaces")
     void nameOfTheMaximumLengthIsAccepted() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
         String longest = "a".repeat(100);
 
         client.get().uri(PEOPLE + "?name={name}", longest).exchange().expectStatus().isOk();
         client.get().uri(PEOPLE + "?name={name}", "  " + longest + "  ").exchange().expectStatus().isOk();
 
         verify(catalog, times(2))
-                .list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter(longest)));
+                .list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter(longest), false));
     }
 
     static Stream<Arguments> invalidNames() {
@@ -422,12 +424,12 @@ class PeopleControllerTest {
     @Test
     @DisplayName("A name sent twice is not rejected: the two values arrive joined by a comma, and that is the text to search")
     void nameSentTwiceIsSearchedAsOneTextWithAComma() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(PEOPLE + "?name=luke&name=leia").exchange().expectStatus().isOk();
 
         // The same text as name=luke,leia. Nothing tells the two requests apart.
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("luke,leia")));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("luke,leia"), false));
     }
 
     @Test
@@ -640,6 +642,141 @@ class PeopleControllerTest {
         }
         // It tells where to look for the parameter that failed.
         assertThat((String) responses.get("400").get("description")).contains("errors");
+    }
+
+    @Test
+    @DisplayName("The expanded of the request is passed to the core, alone and next to the page, the size and the filters")
+    void expandedIsPassedToTheCore() {
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
+
+        client.get().uri(PEOPLE + "?expanded=true").exchange().expectStatus().isOk();
+        client.get().uri(PEOPLE + "?expanded=false").exchange().expectStatus().isOk();
+        client.get().uri(PEOPLE + "?expanded=true&page=2&size=5&id=1&name=LUKE").exchange().expectStatus().isOk();
+
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, null, true));
+        // Sent as false, it is the same query as not sent.
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, null, false));
+        verify(catalog).list(PEOPLE_ENTITY,
+                new ListQuery(new PageQuery(2, 5), new ItemId("1"), new NameFilter("luke"), true));
+    }
+
+    @Test
+    @DisplayName("When the core returns the elements with their complete data, the page is answered with them, each one with exactly the fields of the table of People")
+    void pageOfCompleteElementsIsAnsweredAsItIs() {
+        when(catalog.<PersonDetail>list(any(), any())).thenReturn(new PageResult<>(List.of(LUKE), 1, 1, 82, 82));
+
+        client.get().uri(PEOPLE + "?expanded=true&size=1")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                // The same page, and the element is the object that the detail answers.
+                .expectBody().json("""
+                        {
+                          "content": [
+                            {
+                              "id": "1",
+                              "name": "Luke Skywalker",
+                              "birthYear": "19BBY",
+                              "gender": "male",
+                              "height": "172",
+                              "mass": "77",
+                              "hairColor": "blond",
+                              "skinColor": "fair",
+                              "eyeColor": "blue",
+                              "filmIds": ["1", "2", "3", "6"],
+                              "starshipIds": ["12", "22"],
+                              "vehicleIds": ["14", "30"]
+                            }
+                          ],
+                          "page": 1,
+                          "size": 1,
+                          "totalElements": 82,
+                          "totalPages": 82
+                        }
+                        """, JsonCompareMode.STRICT);
+    }
+
+    @ParameterizedTest(name = "?{0}")
+    @ValueSource(strings = {
+        "expanded=1",
+        "expanded=TRUE",
+        "expanded=True",
+        "expanded=yes",
+        // Empty, with a space before it, and sent twice.
+        "expanded=",
+        "expanded=%20true",
+        "expanded=true&expanded=true",
+        // The other parameters being valid does not save it.
+        "page=1&size=10&id=1&name=luke&expanded=0"
+    })
+    @DisplayName("An invalid expanded is answered with 400 naming the parameter and its rule, and the core is not asked")
+    void invalidExpandedIsRejected(String query) {
+        client.get().uri(PEOPLE + "?" + query)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.type").isEqualTo("about:blank")
+                .jsonPath("$.title").isEqualTo("Bad Request")
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.instance").isEqualTo(PEOPLE)
+                .jsonPath("$.detail").isEqualTo(EXPANDED_RULE);
+
+        verifyNoInteractions(catalog);
+    }
+
+    @ParameterizedTest(name = "?{0} names {1}")
+    @CsvSource({
+        "expanded=x&page=0&size=0&id=x&name=, page",
+        "expanded=x&size=0&id=x&name=, size",
+        "expanded=x&id=x&name=, id",
+        "expanded=x&name=, name",
+        "expanded=x, expanded"
+    })
+    @DisplayName("When several parameters are invalid, expanded is the last one to be named")
+    void expandedIsTheLastInvalidParameterToBeNamed(String query, String parameter) {
+        client.get().uri(PEOPLE + "?" + query)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.detail").value(String.class,
+                        detail -> assertThat(detail).startsWith("Parameter '" + parameter + "' "));
+
+        verifyNoInteractions(catalog);
+    }
+
+    @Test
+    @DisplayName("The documentation shows expanded as an optional boolean, false by default")
+    void documentationShowsExpandedAsABoolean() {
+        Map<String, Object> expanded = documentedParameter("expanded");
+
+        assertThat(expanded).containsEntry("in", "query").containsEntry("required", false);
+        assertThat(schemaOf(expanded))
+                .containsEntry("type", "boolean")
+                // The boolean, not the text "false".
+                .containsEntry("default", false)
+                .doesNotContainKeys("pattern", "minimum", "maximum", "minLength", "maxLength");
+        // It says what arrives with each value.
+        assertThat((String) expanded.get("description")).contains("`true`", "`false`", "detail", "summary");
+    }
+
+    @Test
+    @DisplayName("The documentation shows an element of the list as one of two: the summary or the detail of a character")
+    void documentationShowsAnElementOfTheListAsOneOfTwo() {
+        String documentation = apiDocumentation();
+        Map<String, Object> elements = JsonPath.read(documentation,
+                "$.components.schemas['PageResultPersonListElement'].properties.content.items");
+        Map<String, Object> oneOfTwo = JsonPath.read(documentation, "$.components.schemas['PersonListElement']");
+
+        assertThat(elements).containsEntry("$ref", "#/components/schemas/PersonListElement");
+        // The two schemas that the documentation already has: the one of an element of any
+        // list, and the one of the detail of a character.
+        assertThat(oneOfTwo.get("oneOf")).isEqualTo(List.of(
+                Map.of("$ref", "#/components/schemas/ItemSummary"),
+                Map.of("$ref", "#/components/schemas/PersonDetail")));
+        // It says when each one arrives, which the two names alone do not.
+        assertThat((String) oneOfTwo.get("description")).contains("expanded");
+        // It is not an object with fields of its own.
+        assertThat(oneOfTwo).doesNotContainKey("properties");
     }
 
     private Map<String, Object> documentedParameter(String name) {

@@ -4,7 +4,6 @@ import io.github.erickvaernet.starwars.catalog.CatalogEntity;
 import io.github.erickvaernet.starwars.catalog.CatalogService;
 import io.github.erickvaernet.starwars.catalog.DetailErrorResponses;
 import io.github.erickvaernet.starwars.catalog.ItemId;
-import io.github.erickvaernet.starwars.catalog.ItemSummary;
 import io.github.erickvaernet.starwars.catalog.ListErrorResponses;
 import io.github.erickvaernet.starwars.catalog.PageParameters;
 import io.github.erickvaernet.starwars.catalog.PageResult;
@@ -54,10 +53,12 @@ class FilmsController {
                     + "SWAPI: the one of release, not the one of the episodes. "
                     + "With `id`, the list has only that film, or is empty if it does not exist. "
                     + "With `name`, it has the films whose title contains that text. With both, it has "
-                    + "that film only if its title contains the text.")
+                    + "that film only if its title contains the text. "
+                    + "With `expanded=true`, each element is the complete data of the film, the same object "
+                    + "that its detail answers, where its title is `title`, instead of its summary.")
     @ApiResponse(responseCode = "200", description = "The page that was asked for, with the totals of the list.")
     @ListErrorResponses
-    PageResult<ItemSummary> list(@ParameterObject PageParameters parameters) {
+    PageResult<FilmListElement> list(@ParameterObject PageParameters parameters) {
         return catalog.list(FILMS, parameters.toQuery());
     }
 

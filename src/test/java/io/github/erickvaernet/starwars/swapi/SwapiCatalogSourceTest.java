@@ -1,6 +1,7 @@
 package io.github.erickvaernet.starwars.swapi;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.absent;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
@@ -9,11 +10,13 @@ import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.http.Fault;
 import io.github.erickvaernet.starwars.SwapiStubConfiguration;
 import io.github.erickvaernet.starwars.catalog.CatalogEntity;
+import io.github.erickvaernet.starwars.catalog.CatalogItem;
 import io.github.erickvaernet.starwars.catalog.ItemId;
 import io.github.erickvaernet.starwars.catalog.ItemSummary;
 import io.github.erickvaernet.starwars.catalog.Listing;
@@ -41,7 +44,9 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 /**
  * Checks the client of SWAPI against the simulated SWAPI: what it asks for, in a list, in a search
- * and for one element, how it reads a real answer and what it does with each kind of failure.
+ * and for one element, how it reads a real answer and what it does with each kind of failure. A
+ * list and a search are checked in their two versions: with the summary of each element, and with
+ * its complete data.
  *
  * <p>It needs neither the application nor Docker: only the stub is started. The failures are not
  * recordings; each test tells the stub what to answer.
@@ -71,6 +76,15 @@ class SwapiCatalogSourceTest {
     private static final String JSON = "application/json; charset=utf-8";
 
     private static final NameFilter SKY = new NameFilter("sky");
+
+    /** The first two characters of SWAPI, as the recordings of the pages with the complete data have them. */
+    private static final PersonDetail LUKE_SKYWALKER = new PersonDetail(
+            "1", "Luke Skywalker", "19BBY", "male", "172", "77", "blond", "fair", "blue",
+            List.of("1", "2", "3", "6"), List.of("12", "22"), List.of("14", "30"));
+
+    private static final PersonDetail C_3PO = new PersonDetail(
+            "2", "C-3PO", "112BBY", "n/a", "167", "75", "n/a", "gold", "yellow",
+            List.of("1", "2", "3", "4", "5", "6"), List.of(), List.of());
 
     /** What SWAPI really answers to a search without matches. */
     private static final String NO_MATCHES = "{\"message\":\"ok\",\"result\":[]}";
@@ -112,9 +126,9 @@ class SwapiCatalogSourceTest {
     @Test
     @DisplayName("A real page of SWAPI is read: its elements, in order, and the total of records")
     void realPageIsRead() {
-        Listing listing = source.list(PEOPLE, new PageQuery(9, 10));
+        Listing<ItemSummary> listing = source.list(PEOPLE, new PageQuery(9, 10));
 
-        assertThat(listing).isEqualTo(new Listing.OnePage(
+        assertThat(listing).isEqualTo(new Listing.OnePage<>(
                 List.of(new ItemSummary("82", "Sly Moore"), new ItemSummary("83", "Tion Medon")), 82));
     }
 
@@ -131,7 +145,7 @@ class SwapiCatalogSourceTest {
     @Test
     @DisplayName("The first page of the largest size brings the 82 people")
     void largestPageBringsEveryone() {
-        Listing.OnePage page = (Listing.OnePage) source.list(PEOPLE, new PageQuery(1, 100));
+        Listing.OnePage<ItemSummary> page = (Listing.OnePage<ItemSummary>) source.list(PEOPLE, new PageQuery(1, 100));
 
         assertThat(page.items()).hasSize(82);
         assertThat(page.totalElements()).isEqualTo(82);
@@ -149,9 +163,9 @@ class SwapiCatalogSourceTest {
                           {"uid":"2","properties":{"name":"C-3PO"}}]}
                         """)));
 
-        Listing listing = source.list(PEOPLE, new PageQuery(2, 1));
+        Listing<ItemSummary> listing = source.list(PEOPLE, new PageQuery(2, 1));
 
-        assertThat(listing).isEqualTo(new Listing.Complete(
+        assertThat(listing).isEqualTo(new Listing.Complete<>(
                 List.of(new ItemSummary("1", "Luke Skywalker"), new ItemSummary("2", "C-3PO"))));
     }
 
@@ -413,9 +427,9 @@ class SwapiCatalogSourceTest {
     @Test
     @DisplayName("A real search of SWAPI is read: every match at once, in order, with the name taken from the data of each one")
     void realSearchIsRead() {
-        Listing listing = source.search(PEOPLE, SKY, new PageQuery(1, 10));
+        Listing<ItemSummary> listing = source.search(PEOPLE, SKY, new PageQuery(1, 10));
 
-        assertThat(listing).isEqualTo(new Listing.Complete(List.of(
+        assertThat(listing).isEqualTo(new Listing.Complete<>(List.of(
                 new ItemSummary("1", "Luke Skywalker"),
                 new ItemSummary("11", "Anakin Skywalker"),
                 new ItemSummary("43", "Shmi Skywalker"))));
@@ -425,7 +439,7 @@ class SwapiCatalogSourceTest {
     @DisplayName("A real search of SWAPI without matches is read as a complete list without elements, not as a failure")
     void realSearchWithoutMatchesIsRead() {
         assertThat(source.search(PEOPLE, new NameFilter("zzzz"), new PageQuery(1, 10)))
-                .isEqualTo(new Listing.Complete(List.of()));
+                .isEqualTo(new Listing.Complete<>(List.of()));
     }
 
     @Test
@@ -444,9 +458,9 @@ class SwapiCatalogSourceTest {
     @DisplayName("The search uses the field that the entity declares, to ask and to read the names: for a film, its title")
     void searchUsesTheFieldOfTheEntity() {
         // The recording of the real search of SWAPI for the films whose title contains "hope".
-        Listing listing = source.search(FILMS, new NameFilter("hope"), new PageQuery(1, 10));
+        Listing<ItemSummary> listing = source.search(FILMS, new NameFilter("hope"), new PageQuery(1, 10));
 
-        assertThat(listing).isEqualTo(new Listing.Complete(List.of(new ItemSummary("1", "A New Hope"))));
+        assertThat(listing).isEqualTo(new Listing.Complete<>(List.of(new ItemSummary("1", "A New Hope"))));
         swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_FILMS)).withQueryParam("title", equalTo("hope")));
         swapi.verify(0, getRequestedFor(urlPathEqualTo(SWAPI_FILMS)).withQueryParam("name", equalTo("hope")));
     }
@@ -497,7 +511,7 @@ class SwapiCatalogSourceTest {
                         """)));
 
         assertThat(source.search(PEOPLE, SKY, new PageQuery(2, 2)))
-                .isEqualTo(new Listing.OnePage(List.of(new ItemSummary("43", "Shmi Skywalker")), 3));
+                .isEqualTo(new Listing.OnePage<>(List.of(new ItemSummary("43", "Shmi Skywalker")), 3));
     }
 
     @ParameterizedTest(name = "SWAPI answers {0}")
@@ -584,9 +598,9 @@ class SwapiCatalogSourceTest {
     @DisplayName("The real list of films, which SWAPI does not cut in pages, is read as the complete list, with each title as the name")
     void realListOfFilmsIsReadAsComplete() {
         // The recording answers the six films whatever the page and the size, like SWAPI.
-        Listing listing = source.list(FILMS, new PageQuery(2, 2));
+        Listing<ItemSummary> listing = source.list(FILMS, new PageQuery(2, 2));
 
-        assertThat(listing).isEqualTo(new Listing.Complete(List.of(
+        assertThat(listing).isEqualTo(new Listing.Complete<>(List.of(
                 new ItemSummary("1", "A New Hope"),
                 new ItemSummary("2", "The Empire Strikes Back"),
                 new ItemSummary("3", "Return of the Jedi"),
@@ -646,10 +660,10 @@ class SwapiCatalogSourceTest {
     @Test
     @DisplayName("A real page of starships, which SWAPI cuts in pages, is read as one page with the total, in the order of SWAPI")
     void realPageOfStarshipsIsRead() {
-        Listing listing = source.list(STARSHIPS, new PageQuery(1, 5));
+        Listing<ItemSummary> listing = source.list(STARSHIPS, new PageQuery(1, 5));
 
         // The order of SWAPI is not the one of the identifiers, and they have gaps.
-        assertThat(listing).isEqualTo(new Listing.OnePage(List.of(
+        assertThat(listing).isEqualTo(new Listing.OnePage<>(List.of(
                 new ItemSummary("2", "CR90 corvette"),
                 new ItemSummary("3", "Star Destroyer"),
                 new ItemSummary("5", "Sentinel-class landing craft"),
@@ -725,10 +739,10 @@ class SwapiCatalogSourceTest {
     @Test
     @DisplayName("A real page of vehicles, which SWAPI cuts in pages, is read as one page with the total, in the order of SWAPI")
     void realPageOfVehiclesIsRead() {
-        Listing listing = source.list(VEHICLES, new PageQuery(1, 10));
+        Listing<ItemSummary> listing = source.list(VEHICLES, new PageQuery(1, 10));
 
         // The order of SWAPI is not the one of the identifiers, and they have gaps.
-        assertThat(listing).isEqualTo(new Listing.OnePage(List.of(
+        assertThat(listing).isEqualTo(new Listing.OnePage<>(List.of(
                 new ItemSummary("4", "Sand Crawler"),
                 new ItemSummary("7", "X-34 landspeeder"),
                 new ItemSummary("6", "T-16 skyhopper"),
@@ -809,6 +823,243 @@ class SwapiCatalogSourceTest {
     @DisplayName("An entity whose format was not declared is a mistake in the code: it fails before SWAPI is asked")
     void entityWithoutAFormatFailsBeforeAskingSwapi() {
         assertThatThrownBy(() -> source.find(new CatalogEntity("planets", "name"), LUKE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("planets");
+
+        swapi.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("A real page of SWAPI with the complete data is read: its elements, in order, each one as the detail of its entity, and the total of records")
+    void realExpandedPageIsRead() {
+        Listing<CatalogItem> listing = source.listExpanded(PEOPLE, new PageQuery(1, 2));
+
+        assertThat(listing).isEqualTo(new Listing.OnePage<>(List.of(LUKE_SKYWALKER, C_3PO), 82));
+    }
+
+    @Test
+    @DisplayName("For the complete data, SWAPI is asked for the same page and size with expanded=true, once")
+    void swapiIsAskedForTheExpandedPage() {
+        source.listExpanded(PEOPLE, new PageQuery(1, 2));
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE))
+                .withQueryParam("page", equalTo("1"))
+                .withQueryParam("limit", equalTo("2"))
+                .withQueryParam("expanded", equalTo("true")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("A list of summaries is asked for without expanded: SWAPI is not asked for data that is not shown")
+    void listOfSummariesIsAskedWithoutExpanded() {
+        source.list(PEOPLE, new PageQuery(1, 2));
+        source.search(PEOPLE, SKY, new PageQuery(1, 2));
+
+        swapi.verify(2, anyRequestedFor(anyUrl()).withQueryParam("expanded", absent()));
+        swapi.verify(2, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("Each element of a page with the complete data is equal to what SWAPI answers when that element is asked for alone")
+    void expandedElementIsEqualToTheElementAskedForAlone() {
+        Listing<CatalogItem> listing = source.listExpanded(PEOPLE, new PageQuery(1, 2));
+
+        // Two recordings of different requests, read with the same translation.
+        assertThat(source.find(PEOPLE, LUKE)).contains(listing.items().getFirst());
+    }
+
+    @Test
+    @DisplayName("The real page after the last one with the complete data is read as SWAPI sends it: its last page, repeated")
+    void realExpandedPageAfterTheLastOneIsRead() {
+        Listing<CatalogItem> listing = source.listExpanded(PEOPLE, new PageQuery(50, 10));
+
+        // The core is the one that leaves the page empty: here the answer is not touched.
+        assertThat(listing.items()).extracting(CatalogItem::summary)
+                .containsExactly(new ItemSummary("82", "Sly Moore"), new ItemSummary("83", "Tion Medon"));
+        assertThat(listing).isInstanceOf(Listing.OnePage.class)
+                .extracting("totalElements").isEqualTo(82);
+    }
+
+    @Test
+    @DisplayName("A real search of SWAPI with expanded=true is read: every match at once, in order, each one as the detail of its entity")
+    void realExpandedSearchIsRead() {
+        Listing<CatalogItem> listing = source.searchExpanded(PEOPLE, SKY, new PageQuery(1, 2));
+
+        assertThat(listing).isEqualTo(new Listing.Complete<>(List.of(
+                LUKE_SKYWALKER,
+                new PersonDetail("11", "Anakin Skywalker", "41.9BBY", "male", "188", "84", "blond", "fair", "blue",
+                        List.of("4", "5", "6"), List.of("39", "59", "65"), List.of("44", "46")),
+                new PersonDetail("43", "Shmi Skywalker", "72BBY", "female", "163", "unknown", "black", "fair", "brown",
+                        List.of("4", "5"), List.of(), List.of()))));
+        // SWAPI ignores the parameter in a search, which already brings the complete data. It
+        // is sent all the same, with the page and the size: always the same request, and what
+        // is done depends on what arrives.
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE))
+                .withQueryParam("name", equalTo("sky"))
+                .withQueryParam("page", equalTo("1"))
+                .withQueryParam("limit", equalTo("2"))
+                .withQueryParam("expanded", equalTo("true")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("The search with the complete data uses the field that the entity declares, and escapes the text like the other search")
+    void expandedSearchUsesTheFieldOfTheEntityAndEscapesTheText() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_FILMS)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody(NO_MATCHES)));
+
+        assertThat(source.searchExpanded(FILMS, new NameFilter("a.b"), new PageQuery(1, 10)))
+                .isEqualTo(new Listing.Complete<>(List.of()));
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_FILMS))
+                .withQueryParam("title", equalTo("a\\.b"))
+                .withQueryParam("expanded", equalTo("true")));
+    }
+
+    @Test
+    @DisplayName("The real list of films with expanded=true, which SWAPI does not cut in pages, is read as the complete list of the six films with their data")
+    void realExpandedListOfFilmsIsReadAsComplete() {
+        // The recording answers the six films whatever the page and the size, like SWAPI.
+        Listing<CatalogItem> listing = source.listExpanded(FILMS, new PageQuery(2, 2));
+
+        assertThat(listing).isInstanceOf(Listing.Complete.class);
+        assertThat(listing.items()).hasSize(6).allSatisfy(film -> assertThat(film).isInstanceOf(FilmDetail.class));
+        assertThat(listing.items()).extracting("title", "episodeId").containsExactly(
+                tuple("A New Hope", 4),
+                tuple("The Empire Strikes Back", 5),
+                tuple("Return of the Jedi", 6),
+                tuple("The Phantom Menace", 1),
+                tuple("Attack of the Clones", 2),
+                tuple("Revenge of the Sith", 3));
+        // The first one is, field by field, the film that SWAPI answers when it is asked alone.
+        assertThat(source.find(FILMS, new ItemId("1"))).contains(listing.items().getFirst());
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_FILMS))
+                .withQueryParam("page", equalTo("2"))
+                .withQueryParam("limit", equalTo("2"))
+                .withQueryParam("expanded", equalTo("true")));
+    }
+
+    @Test
+    @DisplayName("A real page of starships with the complete data is read with the translation of starships")
+    void realExpandedPageOfStarshipsIsRead() {
+        Listing<CatalogItem> listing = source.listExpanded(STARSHIPS, new PageQuery(1, 2));
+
+        assertThat(listing).isEqualTo(new Listing.OnePage<>(List.of(
+                new StarshipDetail("2", "CR90 corvette", "CR90 corvette", "corvette",
+                        "Corellian Engineering Corporation", "3500000", "150", "30-165", "600", "950", "2.0", "60",
+                        "3000000", "1 year", List.of("1", "3", "6"), List.of()),
+                new StarshipDetail("3", "Star Destroyer", "Imperial I-class Star Destroyer", "Star Destroyer",
+                        "Kuat Drive Yards", "150000000", "1,600", "47,060", "n/a", "975", "2.0", "60",
+                        "36000000", "2 years", List.of("1", "2", "3"), List.of())), 36));
+    }
+
+    @Test
+    @DisplayName("A real page of vehicles with the complete data is read with the translation of vehicles, and its texts lose the space at the end")
+    void realExpandedPageOfVehiclesIsRead() {
+        Listing<CatalogItem> listing = source.listExpanded(VEHICLES, new PageQuery(1, 2));
+
+        // In the recording the two lengths end in a space: "36.8 " and "3.4 ".
+        assertThat(listing).isEqualTo(new Listing.OnePage<>(List.of(
+                new VehicleDetail("4", "Sand Crawler", "Digger Crawler", "wheeled", "Corellia Mining Corporation",
+                        "150000", "36.8", "46", "30", "30", "50000", "2 months", List.of("1", "5"), List.of()),
+                new VehicleDetail("7", "X-34 landspeeder", "X-34 landspeeder", "repulsorcraft", "SoroSuub Corporation",
+                        "10550", "3.4", "1", "1", "250", "5", "unknown", List.of("1"), List.of())), 39));
+    }
+
+    @Test
+    @DisplayName("A relation with an address that does not end in an identifier, in a single element, makes the whole page a failure of the data source")
+    void expandedPageWithARelationThatCannotBeReadIsAFailure() {
+        // Not a recording: the first element is good, and the second one has a film without an
+        // identifier.
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody("""
+                        {"message":"ok","total_records":82,"results":[
+                          {"uid":"1","properties":{"name":"Luke Skywalker",
+                            "films":["https://www.swapi.tech/api/films/1"]}},
+                          {"uid":"2","properties":{"name":"C-3PO",
+                            "films":["https://www.swapi.tech/api/films/1","https://www.swapi.tech/api/films/"]}}]}
+                        """)));
+
+        assertThatThrownBy(() -> source.listExpanded(PEOPLE, new PageQuery(1, 2)))
+                .isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("If SWAPI ignored expanded and answered a page of summaries, the elements have no data: it is a failure of the data source, not a page of empty elements")
+    void pageOfSummariesWhereTheCompleteDataWasAskedForIsAFailure() {
+        // The recording of the plain page: what SWAPI would answer if it stopped reading the
+        // parameter. Each element has its identifier and its name, and no properties.
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBodyFile("people-page-1-limit-2.json")));
+
+        assertThatThrownBy(() -> source.listExpanded(PEOPLE, new PageQuery(1, 2)))
+                .isInstanceOf(BadGatewayException.class);
+    }
+
+    @ParameterizedTest(name = "SWAPI answers {0}")
+    // 404 too: for a list, unlike for one element, it does not mean "it does not exist".
+    @ValueSource(ints = {400, 404, 429, 500, 503})
+    @DisplayName("An error answer of SWAPI for a list or a search with the complete data is a failure of the data source")
+    void errorAnswerForAnExpandedListIsAFailure(int status) {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(status)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"message\":\"an error\"}")));
+
+        assertThatThrownBy(() -> source.listExpanded(PEOPLE, new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class)
+                .hasMessageContaining("people?page=1&limit=10&expanded=true")
+                .hasCauseInstanceOf(Exception.class);
+        assertThatThrownBy(() -> source.searchExpanded(PEOPLE, new NameFilter("zzzz"), new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class)
+                .hasCauseInstanceOf(Exception.class);
+    }
+
+    @Test
+    @DisplayName("A body that is not the JSON of a list, where the complete data was asked for, is a failure of the data source")
+    void unreadableBodyForAnExpandedListIsAFailure() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody("{\"message\":\"ok\"}")));
+
+        assertThatThrownBy(() -> source.listExpanded(PEOPLE, new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("When SWAPI takes longer than the read timeout to answer a list with the complete data, it is a timeout of the data source")
+    void slowAnswerForAnExpandedListIsATimeout() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBodyFile("people-page-1-limit-2-expanded.json")
+                        .withFixedDelay((int) SHORT_READ_TIMEOUT.multipliedBy(4).toMillis())));
+
+        assertThatThrownBy(() -> impatientSource.listExpanded(PEOPLE, new PageQuery(1, 2)))
+                .isInstanceOf(GatewayTimeoutException.class);
+    }
+
+    @Test
+    @DisplayName("The text of a search with the complete data is not part of the error either: it comes from the client")
+    void textOfAnExpandedSearchIsNotPartOfTheError() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(500)));
+
+        assertThatThrownBy(() -> source.searchExpanded(PEOPLE, new NameFilter("a text\nwith two lines"), new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class)
+                .hasMessageContaining("expanded=true")
+                .hasMessageNotContaining("a text")
+                .hasMessageNotContaining("\n");
+    }
+
+    @Test
+    @DisplayName("An entity whose format was not declared is a mistake in the code, also in a list with the complete data: it fails before SWAPI is asked")
+    void entityWithoutAFormatFailsBeforeAskingSwapiForAnExpandedList() {
+        CatalogEntity planets = new CatalogEntity("planets", "name");
+
+        assertThatThrownBy(() -> source.listExpanded(planets, new PageQuery(1, 10)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("planets");
+        assertThatThrownBy(() -> source.searchExpanded(planets, SKY, new PageQuery(1, 10)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("planets");
 

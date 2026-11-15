@@ -4,7 +4,6 @@ import io.github.erickvaernet.starwars.catalog.CatalogEntity;
 import io.github.erickvaernet.starwars.catalog.CatalogService;
 import io.github.erickvaernet.starwars.catalog.DetailErrorResponses;
 import io.github.erickvaernet.starwars.catalog.ItemId;
-import io.github.erickvaernet.starwars.catalog.ItemSummary;
 import io.github.erickvaernet.starwars.catalog.ListErrorResponses;
 import io.github.erickvaernet.starwars.catalog.PageParameters;
 import io.github.erickvaernet.starwars.catalog.PageResult;
@@ -48,10 +47,12 @@ class PeopleController {
             description = "Each element has the identifier and the name of a character, in the order of SWAPI. "
                     + "With `id`, the list has only that character, or is empty if it does not exist. "
                     + "With `name`, it has the characters whose name contains that text. With both, it has "
-                    + "that character only if its name contains the text.")
+                    + "that character only if its name contains the text. "
+                    + "With `expanded=true`, each element is the complete data of the character, the same object "
+                    + "that its detail answers, instead of its summary.")
     @ApiResponse(responseCode = "200", description = "The page that was asked for, with the totals of the list.")
     @ListErrorResponses
-    PageResult<ItemSummary> list(@ParameterObject PageParameters parameters) {
+    PageResult<PersonListElement> list(@ParameterObject PageParameters parameters) {
         return catalog.list(PEOPLE, parameters.toQuery());
     }
 

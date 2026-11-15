@@ -7,9 +7,10 @@ import io.github.erickvaernet.starwars.catalog.Listing;
 import io.github.erickvaernet.starwars.shared.BadGatewayException;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
- * The answer of SWAPI to a list, and its translation into the model of the catalog.
+ * The answer of SWAPI to a list of summaries, and its translation into the model of the catalog.
  *
  * <p>SWAPI answers a list in one of two forms. When it cuts the list in pages, it sends the page
  * in {@code results} and the total in {@code total_records}. When it ignores the page and the
@@ -17,8 +18,10 @@ import java.util.Map;
  * data. Which form arrives is not known beforehand and can change without notice, so this record
  * reads both and tells them apart by what came.
  *
- * <p>Only the data that the application uses is read; the rest of the answer is ignored. This
- * record and its names never leave this package.
+ * <p>Only the data that the application uses is read; the rest of the answer is ignored: of the
+ * data of an element, only its name. {@link SwapiExpandedListResponse} reads the same two forms
+ * when every element is wanted with its complete data. This record and its names never leave
+ * this package.
  *
  * @param totalRecords how many elements the list has in all, when it comes in pages:
  *                     {@code total_records}
@@ -62,15 +65,34 @@ record SwapiListResponse(
      * @throws BadGatewayException if the answer has neither of the two forms, if the total is
      *     negative, or if the identifier or the name of an element are missing
      */
-    Listing toListing(String nameField) {
+    Listing<ItemSummary> toListing(String nameField) {
+        return listing(totalRecords, results, SwapiListResponse::toSummary, result, item -> toSummary(item, nameField));
+    }
+
+    /**
+     * Tells the two forms of a list of SWAPI apart by what came, and translates its elements. It
+     * is the only place that decides it, for a list of summaries and for one that brings the
+     * complete data.
+     *
+     * @param totalRecords   the total, when the list comes in pages
+     * @param results        the elements of the page, when the list comes in pages
+     * @param ofAPage        how one element of a page is translated
+     * @param result         every element, when the list comes whole
+     * @param ofTheWholeList how one element of a whole list is translated
+     * @throws BadGatewayException if the answer has neither of the two forms, if the total is
+     *     negative, or if an element cannot be translated
+     */
+    static <P, W, T> Listing<T> listing(
+            Integer totalRecords, List<P> results, Function<P, T> ofAPage,
+            List<W> result, Function<W, T> ofTheWholeList) {
         if (totalRecords != null && results != null) {
             if (totalRecords < 0) {
                 throw new BadGatewayException("SWAPI answered a list with a negative total of records", null);
             }
-            return new Listing.OnePage(results.stream().map(SwapiListResponse::toSummary).toList(), totalRecords);
+            return new Listing.OnePage<>(results.stream().map(ofAPage).toList(), totalRecords);
         }
         if (result != null) {
-            return new Listing.Complete(result.stream().map(item -> toSummary(item, nameField)).toList());
+            return new Listing.Complete<>(result.stream().map(ofTheWholeList).toList());
         }
         throw new BadGatewayException(
                 "SWAPI answered a list without a page and its total of records, and without the whole list", null);

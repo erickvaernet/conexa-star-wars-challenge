@@ -3,7 +3,8 @@ package io.github.erickvaernet.starwars.catalog;
 import java.util.Optional;
 
 /**
- * Where the data of the catalog comes from: the lists, the searches and each element.
+ * Where the data of the catalog comes from: the lists and the searches, with the summary of each
+ * element or with its complete data, and each element.
  *
  * <p>The core depends on this interface and not on SWAPI: {@code swapi} implements it, and that
  * is the only place that knows the address and the format of SWAPI.
@@ -21,7 +22,7 @@ public interface CatalogSource {
      * @throws io.github.erickvaernet.starwars.shared.GatewayTimeoutException if the source does
      *     not answer in time
      */
-    Listing list(CatalogEntity entity, PageQuery query);
+    Listing<ItemSummary> list(CatalogEntity entity, PageQuery query);
 
     /**
      * Asks the source for the elements of an entity whose name contains a text, without telling
@@ -40,7 +41,42 @@ public interface CatalogSource {
      * @throws io.github.erickvaernet.starwars.shared.GatewayTimeoutException if the source does
      *     not answer in time
      */
-    Listing search(CatalogEntity entity, NameFilter name, PageQuery query);
+    Listing<ItemSummary> search(CatalogEntity entity, NameFilter name, PageQuery query);
+
+    /**
+     * Asks the source for one page of the list of an entity, with the complete data of each
+     * element instead of its summary.
+     *
+     * <p>It is the same list as {@link #list}: the same elements, in the same order, with the
+     * same total, and answered in one of the same two forms. Each element is what {@link #find}
+     * returns for it.
+     *
+     * @param entity the entity to list
+     * @param query  the page and the size to ask for
+     * @return the page with its total, or the whole list if the source does not cut pages
+     * @throws io.github.erickvaernet.starwars.shared.BadGatewayException     if the source fails
+     *     or answers something that cannot be read, even in a single element
+     * @throws io.github.erickvaernet.starwars.shared.GatewayTimeoutException if the source does
+     *     not answer in time
+     */
+    Listing<CatalogItem> listExpanded(CatalogEntity entity, PageQuery query);
+
+    /**
+     * Asks the source for the elements of an entity whose name contains a text, with the complete
+     * data of each one instead of its summary.
+     *
+     * <p>They are the same matches as the ones of {@link #search}, in the same order.
+     *
+     * @param entity the entity to search in
+     * @param name   the text that the name must contain
+     * @param query  the page and the size to ask for
+     * @return the page of matches with its total, or every match if the source does not cut pages
+     * @throws io.github.erickvaernet.starwars.shared.BadGatewayException     if the source fails
+     *     or answers something that cannot be read, even in a single element
+     * @throws io.github.erickvaernet.starwars.shared.GatewayTimeoutException if the source does
+     *     not answer in time
+     */
+    Listing<CatalogItem> searchExpanded(CatalogEntity entity, NameFilter name, PageQuery query);
 
     /**
      * Asks the source for one element by its identifier.

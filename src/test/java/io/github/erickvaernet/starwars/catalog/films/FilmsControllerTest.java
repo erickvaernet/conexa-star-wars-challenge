@@ -89,7 +89,7 @@ class FilmsControllerTest {
     @Test
     @DisplayName("The page is answered as JSON with exactly the fields of the contract, and each film with its id and its name")
     void pageIsAnsweredWithTheFieldsOfTheContract() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(FILMS + "?page=2&size=2")
                 .exchange()
@@ -112,28 +112,28 @@ class FilmsControllerTest {
     @Test
     @DisplayName("Without parameters, the core is asked for the first page of 10 films, by the name and the search field of films")
     void withoutParametersTheFirstPageOfTenFilmsIsAskedFor() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(FILMS).exchange().expectStatus().isOk();
 
-        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(1, 10), null, null));
+        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(1, 10), null, null, false));
     }
 
     @Test
     @DisplayName("The page, the size, the id and the name of the request are passed to the core, the name in lower case")
     void parametersArePassedToTheCore() {
-        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
 
         client.get().uri(FILMS + "?page=3&size=2").exchange().expectStatus().isOk();
         client.get().uri(FILMS + "?id=1").exchange().expectStatus().isOk();
         client.get().uri(FILMS + "?name={name}", " HOPE ").exchange().expectStatus().isOk();
         client.get().uri(FILMS + "?id=1&name=jedi").exchange().expectStatus().isOk();
 
-        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(3, 2), null, null));
-        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(1, 10), new ItemId("1"), null));
-        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("hope")));
+        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(3, 2), null, null, false));
+        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(1, 10), new ItemId("1"), null, false));
+        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("hope"), false));
         verify(catalog).list(FILMS_ENTITY,
-                new ListQuery(new PageQuery(1, 10), new ItemId("1"), new NameFilter("jedi")));
+                new ListQuery(new PageQuery(1, 10), new ItemId("1"), new NameFilter("jedi"), false));
     }
 
     @ParameterizedTest(name = "?{0} is rejected for {1}")
@@ -141,7 +141,8 @@ class FilmsControllerTest {
         "page=0, page",
         "size=101, size",
         "id=abc, id",
-        "name=, name"
+        "name=, name",
+        "expanded=TRUE, expanded"
     })
     @DisplayName("An invalid parameter of the list is answered with 400 naming it, and the core is not asked")
     void invalidParameterOfTheListIsRejected(String query, String parameter) {
@@ -161,7 +162,7 @@ class FilmsControllerTest {
     }
 
     @Test
-    @DisplayName("The documentation shows the four parameters of the list, its answer and every error")
+    @DisplayName("The documentation shows the five parameters of the list, its answer and every error")
     void documentationShowsTheList() {
         String documentation = apiDocumentation();
         List<String> parameters = JsonPath.read(documentation, "$.paths['/api/v1/films'].get.parameters[*].name");
@@ -169,7 +170,7 @@ class FilmsControllerTest {
         String summary = JsonPath.read(documentation, "$.paths['/api/v1/films'].get.summary");
         String description = JsonPath.read(documentation, "$.paths['/api/v1/films'].get.description");
 
-        assertThat(parameters).containsExactlyInAnyOrder("page", "size", "id", "name");
+        assertThat(parameters).containsExactlyInAnyOrder("page", "size", "id", "name", "expanded");
         assertThat(responses).containsOnlyKeys("200", "400", "401", "502", "504");
         assertThat(summary).isNotBlank();
         // Who reads the documentation has to find out that the name of a film is its title.
@@ -180,6 +181,36 @@ class FilmsControllerTest {
                     "$.paths['/api/v1/films'].get.responses['" + error + "'].content");
             assertThat(content).containsOnlyKeys("application/problem+json");
         }
+    }
+
+    @Test
+    @DisplayName("The expanded of the request is passed to the core, next to the page, the size and the filters")
+    void expandedIsPassedToTheCore() {
+        when(catalog.<ItemSummary>list(any(), any())).thenReturn(A_PAGE);
+
+        client.get().uri(FILMS + "?expanded=true").exchange().expectStatus().isOk();
+        client.get().uri(FILMS + "?expanded=false&page=2&size=2").exchange().expectStatus().isOk();
+
+        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(1, 10), null, null, true));
+        verify(catalog).list(FILMS_ENTITY, new ListQuery(new PageQuery(2, 2), null, null, false));
+    }
+
+    @Test
+    @DisplayName("The documentation shows an element of the list as one of two: the summary or the detail of a film")
+    void documentationShowsAnElementOfTheListAsOneOfTwo() {
+        String documentation = apiDocumentation();
+        String page = JsonPath.read(documentation,
+                "$.paths['/api/v1/films'].get.responses['200'].content['application/json'].schema['$ref']");
+        String element = JsonPath.read(documentation,
+                "$.components.schemas['" + page.replace("#/components/schemas/", "") + "'].properties.content.items['$ref']");
+        Map<String, Object> oneOfTwo = JsonPath.read(documentation,
+                "$.components.schemas['" + element.replace("#/components/schemas/", "") + "']");
+
+        assertThat(oneOfTwo.get("oneOf")).isEqualTo(List.of(
+                Map.of("$ref", "#/components/schemas/ItemSummary"),
+                Map.of("$ref", "#/components/schemas/FilmDetail")));
+        // It says when each one arrives, which the two names alone do not.
+        assertThat((String) oneOfTwo.get("description")).contains("expanded");
     }
 
     @Test
