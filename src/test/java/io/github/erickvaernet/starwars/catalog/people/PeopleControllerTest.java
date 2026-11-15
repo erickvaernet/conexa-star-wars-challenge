@@ -3,6 +3,7 @@ package io.github.erickvaernet.starwars.catalog.people;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -13,17 +14,21 @@ import io.github.erickvaernet.starwars.catalog.CatalogService;
 import io.github.erickvaernet.starwars.catalog.ItemId;
 import io.github.erickvaernet.starwars.catalog.ItemSummary;
 import io.github.erickvaernet.starwars.catalog.ListQuery;
+import io.github.erickvaernet.starwars.catalog.NameFilter;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
 import io.github.erickvaernet.starwars.catalog.PageResult;
 import io.github.erickvaernet.starwars.shared.NotFoundException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.core.properties.SpringDocConfigProperties;
@@ -61,6 +66,9 @@ class PeopleControllerTest {
             List.of(new ItemSummary("1", "Luke Skywalker"), new ItemSummary("2", "C-3PO")), 1, 2, 82, 41);
 
     private static final String ID_RULE = "Parameter 'id' must be a number of 1 to 10 digits, without leading zeros.";
+
+    private static final String NAME_RULE =
+            "Parameter 'name' must have 1 to 100 characters, not counting leading and trailing spaces.";
 
     private static final PersonDetail LUKE = new PersonDetail(
             "1", "Luke Skywalker", "19BBY", "male", "172", "77", "blond", "fair", "blue",
@@ -199,7 +207,7 @@ class PeopleControllerTest {
     void documentationShowsNoOtherParameter() {
         List<String> names = JsonPath.read(apiDocumentation(), "$.paths['/api/v1/people'].get.parameters[*].name");
 
-        assertThat(names).containsExactlyInAnyOrder("page", "size", "id");
+        assertThat(names).containsExactlyInAnyOrder("page", "size", "id", "name");
     }
 
     @Test
@@ -268,6 +276,126 @@ class PeopleControllerTest {
                 .jsonPath("$.detail").isEqualTo(ID_RULE);
 
         verifyNoInteractions(catalog);
+    }
+
+    @Test
+    @DisplayName("The name of the request is passed to the core as a filter, without the spaces around it and in lower case")
+    void nameIsPassedToTheCoreAsAFilter() {
+        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+
+        client.get().uri(PEOPLE + "?name=sky").exchange().expectStatus().isOk();
+        client.get().uri(PEOPLE + "?name={name}&page=2&size=5", "  Obi-Wan Kenobi ").exchange().expectStatus().isOk();
+
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("sky")));
+        verify(catalog).list(PEOPLE_ENTITY,
+                new ListQuery(new PageQuery(2, 5), null, new NameFilter("obi-wan kenobi")));
+    }
+
+    @Test
+    @DisplayName("The id and the name of the request are passed to the core together")
+    void idAndNameArePassedToTheCoreTogether() {
+        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+
+        client.get().uri(PEOPLE + "?id=1&name=LUKE").exchange().expectStatus().isOk();
+
+        verify(catalog).list(PEOPLE_ENTITY,
+                new ListQuery(new PageQuery(1, 10), new ItemId("1"), new NameFilter("luke")));
+    }
+
+    @Test
+    @DisplayName("A name of exactly 100 characters is accepted, also between spaces")
+    void nameOfTheMaximumLengthIsAccepted() {
+        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+        String longest = "a".repeat(100);
+
+        client.get().uri(PEOPLE + "?name={name}", longest).exchange().expectStatus().isOk();
+        client.get().uri(PEOPLE + "?name={name}", "  " + longest + "  ").exchange().expectStatus().isOk();
+
+        verify(catalog, times(2))
+                .list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter(longest)));
+    }
+
+    static Stream<Arguments> invalidNames() {
+        return Stream.of(
+                Arguments.of("empty", "?name={name}", ""),
+                Arguments.of("one space", "?name={name}", " "),
+                Arguments.of("only spaces", "?name={name}", "     "),
+                Arguments.of("a tab", "?name={name}", "\t"),
+                Arguments.of("101 characters", "?name={name}", "a".repeat(101)),
+                Arguments.of("101 characters between spaces", "?name={name}", " " + "a".repeat(101) + " "),
+                Arguments.of("empty, with the other parameters valid", "?page=1&size=10&id=1&name={name}", ""));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidNames")
+    @DisplayName("An invalid name is answered with 400 naming the parameter and its rule, and the core is not asked")
+    void invalidNameIsRejected(String description, String query, String name) {
+        client.get().uri(PEOPLE + query, name)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.type").isEqualTo("about:blank")
+                .jsonPath("$.title").isEqualTo("Bad Request")
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.instance").isEqualTo(PEOPLE)
+                .jsonPath("$.detail").isEqualTo(NAME_RULE);
+
+        verifyNoInteractions(catalog);
+    }
+
+    @Test
+    @DisplayName("The answer to an invalid name does not repeat the text that was sent")
+    void answerToAnInvalidNameDoesNotRepeatTheText() {
+        String body = client.get().uri(PEOPLE + "?name={name}", "<script>".repeat(20))
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).returnResult().getResponseBody();
+
+        assertThat(body).doesNotContain("script");
+    }
+
+    @ParameterizedTest(name = "?{0} is rejected for {1}")
+    @CsvSource({
+        "page=0&size=0&id=x&name=, page",
+        "size=0&id=x&name=, size",
+        "id=x&name=, id",
+        "name=&id=x, id"
+    })
+    @DisplayName("When several parameters are invalid, the answer names the first one: page, size, id and then name")
+    void firstInvalidParameterIsTheOneNamed(String query, String parameter) {
+        client.get().uri(PEOPLE + "?" + query)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.detail").value(String.class,
+                        detail -> assertThat(detail).startsWith("Parameter '" + parameter + "' "));
+
+        verifyNoInteractions(catalog);
+    }
+
+    @Test
+    @DisplayName("A name sent twice is not rejected: the two values arrive joined by a comma, and that is the text to search")
+    void nameSentTwiceIsSearchedAsOneTextWithAComma() {
+        when(catalog.list(any(), any())).thenReturn(A_PAGE);
+
+        client.get().uri(PEOPLE + "?name=luke&name=leia").exchange().expectStatus().isOk();
+
+        // The same text as name=luke,leia. Nothing tells the two requests apart.
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, new NameFilter("luke,leia")));
+    }
+
+    @Test
+    @DisplayName("The documentation shows name as an optional text of 1 to 100 characters")
+    void documentationShowsNameAsATextWithItsLimits() {
+        Map<String, Object> name = documentedParameter("name");
+
+        assertThat(name).containsEntry("in", "query").containsEntry("required", false);
+        assertThat(schemaOf(name))
+                .containsEntry("type", "string")
+                .containsEntry("minLength", 1)
+                .containsEntry("maxLength", 100)
+                .doesNotContainKeys("pattern", "default");
+        assertThat((String) name.get("description")).isNotBlank();
     }
 
     @Test
