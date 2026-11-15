@@ -236,6 +236,52 @@ class PeopleControllerTest {
     }
 
     @Test
+    @DisplayName("The documentation describes the page, each of its fields and each field of its elements")
+    void documentationDescribesThePageAndItsElements() {
+        String documentation = apiDocumentation();
+        Map<String, Object> page = JsonPath.read(documentation, "$.components.schemas['PageResultItemSummary']");
+        Map<String, Object> element = JsonPath.read(documentation, "$.components.schemas['ItemSummary']");
+
+        assertThat((String) page.get("description")).isNotBlank();
+        assertThat((String) element.get("description")).isNotBlank();
+        for (String schema : List.of("PageResultItemSummary", "ItemSummary")) {
+            Map<String, Map<String, Object>> fields = JsonPath.read(documentation,
+                    "$.components.schemas['" + schema + "'].properties");
+            fields.forEach((name, field) ->
+                    assertThat((String) field.get("description")).as(schema + "." + name).isNotBlank());
+        }
+        // The types are still the ones of the contract: the identifier is text, the totals are integers.
+        Map<String, Map<String, Object>> pageFields = JsonPath.read(documentation,
+                "$.components.schemas['PageResultItemSummary'].properties");
+        Map<String, Map<String, Object>> elementFields = JsonPath.read(documentation,
+                "$.components.schemas['ItemSummary'].properties");
+        assertThat(pageFields.get("content")).containsEntry("type", "array");
+        for (String total : List.of("page", "size", "totalElements", "totalPages")) {
+            assertThat(pageFields.get(total)).as(total).containsEntry("type", "integer");
+        }
+        assertThat(elementFields.get("id")).containsEntry("type", "string");
+        assertThat(elementFields.get("name")).containsEntry("type", "string");
+    }
+
+    @Test
+    @DisplayName("A list that does not accept JSON as the answer is answered with 406, and the core is not asked")
+    void listThatDoesNotAcceptJsonIsRejected() {
+        client.get().uri(PEOPLE)
+                .accept(MediaType.TEXT_PLAIN)
+                .exchange()
+                .expectStatus().isEqualTo(406)
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.type").isEqualTo("about:blank")
+                .jsonPath("$.status").isEqualTo(406)
+                .jsonPath("$.title").isEqualTo("Not Acceptable")
+                .jsonPath("$.detail").isEqualTo("Acceptable representations: [application/json].")
+                .jsonPath("$.instance").isEqualTo(PEOPLE);
+
+        verifyNoInteractions(catalog);
+    }
+
+    @Test
     @DisplayName("The id of the request is passed to the core as the filter of the list, next to the page and the size")
     void idIsPassedToTheCoreAsAFilter() {
         when(catalog.list(any(), any())).thenReturn(A_PAGE);

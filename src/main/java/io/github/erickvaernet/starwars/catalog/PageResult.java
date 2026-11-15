@@ -1,5 +1,6 @@
 package io.github.erickvaernet.starwars.catalog;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /**
@@ -12,7 +13,26 @@ import java.util.List;
  * @param totalPages    {@code totalElements / size}, rounded up; 0 when there are no elements
  * @param <T>           the type of the elements
  */
-public record PageResult<T>(List<T> content, int page, int size, int totalElements, int totalPages) {
+@Schema(description = "One page of a list, with the totals of the whole list.")
+public record PageResult<T>(
+
+        @Schema(description = "The elements of the page, in the order of SWAPI. Empty if the page has none.")
+        List<T> content,
+
+        @Schema(description = "The page that was asked for. The first page is 1.", example = "1")
+        int page,
+
+        @Schema(description = "The page size that was asked for.", example = "10")
+        int size,
+
+        @Schema(description = "How many elements there are in all, with the filters applied.", example = "82")
+        int totalElements,
+
+        @Schema(
+                description = "How many pages there are in all: the total of elements divided by the page "
+                        + "size, rounded up. 0 when there are no elements.",
+                example = "9")
+        int totalPages) {
 
     /**
      * Builds the page when the source already answered with one page and the total of elements.
