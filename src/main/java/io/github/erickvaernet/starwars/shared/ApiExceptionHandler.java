@@ -42,7 +42,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, "Invalid username or password.");
     }
 
-    /** A request that needs a session and has none. */
+    /**
+     * A request that needs a session and has none: its token is missing, malformed, expired or
+     * has a signature that does not match. The answer is the same in the four cases.
+     */
     @ExceptionHandler(AuthenticationException.class)
     ProblemDetail handleNotAuthenticated(AuthenticationException error) {
         return problem(HttpStatus.UNAUTHORIZED, "Authentication is required to access this resource.");
