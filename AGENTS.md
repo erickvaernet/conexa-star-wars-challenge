@@ -36,4 +36,15 @@ Comprobar la definición de terminado de [`docs/CONVENTIONS.md`](docs/CONVENTION
 
 ## Comandos
 
-Se completan cuando exista el esqueleto del proyecto: cómo compilar, cómo correr los tests y cómo levantar el entorno local.
+Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./mvnw`). Los tests de aceptación y el entorno local necesitan Docker.
+
+| Para | Comando |
+|---|---|
+| Compilar | `./mvnw compile` |
+| Tests unitarios y de arquitectura, sin red ni Docker | `./mvnw test` |
+| Todos los tests, incluidos los de aceptación | `./mvnw verify` |
+| Ver la cobertura, después de `./mvnw verify` | Abrir `target/site/jacoco/index.html` |
+| Levantar la aplicación y la base de datos | `docker compose up --build` |
+| Apagar y borrar los datos locales | `docker compose down -v` |
+
+Los tests de aceptación son las clases que terminan en `AcceptanceTest`.
