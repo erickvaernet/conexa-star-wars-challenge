@@ -97,7 +97,7 @@ El arranque lento:
 ## Consecuencias
 
 - Quien corrige puede probar todo desde el navegador, sin instalar nada: Swagger UI, el login y las cuatro entidades.
-- **Los pasos que no se pueden automatizar los hace el autor:** crear las dos cuentas, crear la base de datos y crear el servicio a partir del archivo, pegando los tres datos de la base. Son unos 15 minutos, una sola vez. Están uno por uno en el ticket del despliegue (ISSUE_REQ_20).
+- **Los pasos que no se pueden automatizar los hace el autor:** crear las dos cuentas, crear la base de datos y crear el servicio a partir del archivo, pegando los tres datos de la base. Son unos 15 minutos, una sola vez. Están uno por uno en el ticket del despliegue ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)).
 - El código de la aplicación no cambia. Las variables propias del despliegue están en `render.yaml`, cada una con su motivo.
 - **Los usuarios de prueba y sus contraseñas son públicos, y la URL también.** Cualquiera puede iniciar sesión y, como administrador, crear usuarios ([ADR-0017](0017-role-based-access.md)). Es lo que el requisito pide. No hay datos que proteger: la base tiene solo esos usuarios.
 - La clave de firma no está en el repositorio ni la conoce nadie: la genera el servicio. Los tokens de la URL pública no sirven en otro lado.
