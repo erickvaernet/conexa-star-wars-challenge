@@ -12,8 +12,32 @@ API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/docume
 - [ ] Login seguro con autenticación y autorización para acceder a los listados (usuarios en base de datos + seed inicial)
 - [ ] Documentación de la API con Swagger / OpenAPI
 - [ ] Pruebas unitarias y de integración
-- [ ] Entorno local dockerizado
+- [x] Entorno local dockerizado
 - [ ] Despliegue en un servidor gratuito
+
+## Cómo levantarlo
+
+Hace falta tener Docker. No hay que instalar Java ni configurar nada.
+
+```bash
+docker compose up --build
+```
+
+Levanta la aplicación y su base de datos. Cuando termina de arrancar:
+
+| Qué | Dónde |
+|---|---|
+| Control de estado | <http://localhost:8080/actuator/health> |
+| Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
+
+Por ahora es el esqueleto del proyecto: el login y los listados llegan con los próximos tickets.
+
+Para correr los tests hace falta además un JDK 21 o posterior:
+
+| Para | Comando |
+|---|---|
+| Tests unitarios y de arquitectura, sin red ni Docker | `./mvnw test` |
+| Todos los tests, incluidos los de aceptación | `./mvnw verify` |
 
 ## Proceso de trabajo
 
@@ -81,6 +105,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 14/11/2026 | La especificación técnica y los ADRs 0012 y 0013 se publicaron en el [pull request #3](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/3). |
 | 14/11/2026 | Al repasar la caché se evaluó guardar solo los listados y no los recursos específicos. Se mantuvo la decisión: los recursos son pocos (163), pesan poco y son lo que más se repite; lo que no tiene límite son las búsquedas. Proteger la caché de una avalancha de búsquedas inútiles quedó como requisito nuevo del ciclo 3 (REQ-35). |
 | 14/11/2026 | Se crearon los tickets del MVP: doce historias de usuario en el [hito `v0.1.0`](https://github.com/erickvaernet/conexa-star-wars-challenge/milestone/1), cada una con sus tareas, sus dependencias y sus criterios de aceptación. Tres decisiones del reparto: la protección del acceso (REQ-10) va separada del login, para revisar por separado la emisión del token y su validación; la caché (REQ-32) va separada del listado de People, para aislar la elección de la librería; y las pruebas de integración (REQ-16) no llevan ticket, porque son parte de la definición de terminado. |
+| 14/11/2026 | Primer ticket de código ([#5](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/5)): esqueleto del proyecto y entorno local. Los tests se escribieron y se revisaron antes que el código. Se comprobó que las librerías elegidas funcionan con Spring Boot 4.1 y que `docker compose up` deja la aplicación lista, con su base de datos. |
 
 ## Documentación
 
