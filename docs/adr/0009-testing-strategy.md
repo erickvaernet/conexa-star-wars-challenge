@@ -50,3 +50,8 @@ Tres niveles de pruebas:
 Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
 
 - **14/11/2026.** Este ADR nombra JUnit 5. Al armar el esqueleto del proyecto se vio que Spring Boot 4.1 trae JUnit 6 (la 6.0.3), y esa es la versión que se usa. Los tests se escriben igual: las mismas anotaciones y la misma forma de organizarlos. La decisión no cambia: se usa la versión de JUnit que acompaña a Spring Boot, junto con Mockito y AssertJ.
+- **15/11/2026.** Precisiones que aparecieron con el primer listado (ticket #8):
+  - **Red de seguridad.** La configuración de los tests fija `SWAPI_BASE_URL` en una dirección local donde nadie atiende. Solo los tests que usan la SWAPI simulada la reemplazan. Así, un test que se olvida de simularla recibe un error y no una respuesta de la SWAPI real. Un test de aceptación lo comprueba (CA-16.1).
+  - **Las fallas no se graban.** No se puede hacer que la SWAPI real falle o demore a pedido: el error `500`, la respuesta lenta y las respuestas que no se pueden interpretar se arman en el test, sobre la SWAPI simulada, y cada test lo indica.
+  - **El cliente de SWAPI se prueba sin Docker,** contra la SWAPI simulada: qué pide, cómo lee una respuesta real y qué hace con cada tipo de falla.
+  - **Sesión en los tests de aceptación.** El login del usuario de prueba está en una pieza de apoyo compartida, para no repetirlo en los tests de cada entidad.

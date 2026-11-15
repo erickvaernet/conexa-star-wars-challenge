@@ -30,7 +30,7 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora están el esqueleto del proyecto, el login y la protección del acceso: los listados llegan con los próximos tickets.
+Por ahora están el login, la protección del acceso y el listado de People. Los filtros, el detalle, la caché y las otras tres entidades llegan con los próximos tickets.
 
 ### Iniciar sesión
 
@@ -69,7 +69,39 @@ curl http://localhost:8080/api/v1/people \
   -H "Authorization: Bearer eyJ..."
 ```
 
-Sin token, o con uno mal formado, con la firma alterada o vencido, la respuesta es `401`, siempre la misma. Como los listados todavía no existen, hoy ese pedido responde `404` con un token válido.
+Sin token, o con uno mal formado, con la firma alterada o vencido, la respuesta es `401`, siempre la misma.
+
+### Listar People
+
+El pedido de arriba devuelve la primera página de personajes, de a 10. Con `page` y `size` se elige otra página y otro tamaño:
+
+```bash
+curl "http://localhost:8080/api/v1/people?page=2&size=3" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "content": [
+    { "id": "4", "name": "Darth Vader" },
+    { "id": "5", "name": "Leia Organa" },
+    { "id": "6", "name": "Owen Lars" }
+  ],
+  "page": 2,
+  "size": 3,
+  "totalElements": 82,
+  "totalPages": 28
+}
+```
+
+| Parámetro | Por defecto | Valores aceptados |
+|---|---|---|
+| `page` | `1` | Un entero de 1 o más. La primera página es la 1 |
+| `size` | `10` | Un entero de 1 a 100 |
+
+- Una página posterior a la última devuelve `content` vacío, con los totales correctos.
+- Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
+- Los datos salen de [SWAPI](https://www.swapi.tech/documentation). Si SWAPI responde con un error, el listado responde `502`; si no responde a tiempo, `504`. El login no depende de SWAPI.
 
 ### Configuración
 
@@ -80,6 +112,11 @@ No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para
 | `JWT_SECRET` | Clave que firma los tokens, de al menos 32 caracteres | Una clave de desarrollo, pública | Obligatoria: sin ella la aplicación no arranca |
 | `JWT_TTL_MINUTES` | Minutos hasta que vence un token | `60` | `60` |
 | `SEED_ENABLED` | Cargar el usuario de prueba | `true` | `false` |
+| `SWAPI_BASE_URL` | Dirección de SWAPI | `https://www.swapi.tech/api` | `https://www.swapi.tech/api` |
+| `SWAPI_CONNECT_TIMEOUT` | Tiempo máximo para conectarse con SWAPI | `3s` | `3s` |
+| `SWAPI_READ_TIMEOUT` | Tiempo máximo de espera de una respuesta de SWAPI | `10s` | `10s` |
+
+Los tiempos se escriben como un número con su unidad: `500ms`, `3s`.
 
 Para correr los tests hace falta además un JDK 21 o posterior:
 
@@ -157,6 +194,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 14/11/2026 | Primer ticket de código ([#5](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/5)): esqueleto del proyecto y entorno local. Los tests se escribieron y se revisaron antes que el código. Se comprobó que las librerías elegidas funcionan con Spring Boot 4.1 y que `docker compose up` deja la aplicación lista, con su base de datos. |
 | 15/11/2026 | Login con usuarios de prueba ([#6](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/6)): tabla de usuarios y usuario `demo` cargados con Flyway, token firmado con HS256 y todo cerrado salvo el login, la documentación y el control de estado. Los tests de aceptación se escribieron antes que el código. Al probarlo se vio que apagar la carga de usuarios sobre una base que ya la tenía impedía arrancar, y se corrigió. |
 | 15/11/2026 | Acceso solo con sesión ([#7](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/7)): cada pedido valida la firma y el vencimiento del token, y uno ausente, mal formado, alterado o vencido recibe el mismo `401`. Como antes de este ticket todo respondía `401`, casi todos los tests de aceptación pasaban sin código; se sumó un caso provisorio, con un token válido, para tener uno que fallara por el motivo correcto. |
+| 15/11/2026 | Listado de People por páginas ([#8](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/8)), la historia de referencia: el núcleo de paginación y el cliente de SWAPI que usan las otras entidades. Los tests de aceptación se escribieron antes que el código, con respuestas reales grabadas. Al grabarlas se vio que SWAPI repite su última página cuando se le pide una posterior, así que la lista vacía de ese caso la arma la aplicación. Los errores de SWAPI responden `502` y sus demoras, `504`. |
 
 ## Documentación
 

@@ -258,7 +258,7 @@ Todas las respuestas de error tienen esta forma:
   "type": "about:blank",
   "title": "Bad Request",
   "status": 400,
-  "detail": "El parámetro 'size' debe estar entre 1 y 100.",
+  "detail": "Parameter 'size' must be an integer between 1 and 100.",
   "instance": "/api/v1/people"
 }
 ```
@@ -311,6 +311,8 @@ La caché guarda solo las respuestas correctas de SWAPI. Un "no existe" o un err
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | Conexión con PostgreSQL                     | Sí                                |
 | `SEED_ENABLED`           | Cargar los usuarios de prueba                         | No. Por defecto, apagado; encendido en `docker compose` |
 | `SWAPI_BASE_URL`         | Dirección de SWAPI                                    | No. Por defecto, `https://www.swapi.tech/api` |
+| `SWAPI_CONNECT_TIMEOUT`  | Tiempo máximo de conexión con SWAPI                   | No. Por defecto, `3s`             |
+| `SWAPI_READ_TIMEOUT`     | Tiempo máximo de lectura de SWAPI                     | No. Por defecto, `10s`            |
 
 ## 6. Criterios de aceptación
 
