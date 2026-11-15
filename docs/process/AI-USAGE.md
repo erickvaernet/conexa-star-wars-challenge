@@ -6,13 +6,14 @@ Qué se delegó en herramientas de IA en este proyecto, cómo se revisó y qué 
 
 | Campo | Valor |
 |---|---|
-| Estado | Al 15/11/2026, con los tickets #5 a #16 fusionados en `main`, la revisión final del MVP hecha y sus correcciones fusionadas |
-| Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30 |
+| Estado | Al 15/11/2026, con los tickets #5 a #16 fusionados en `main`, la revisión final del MVP hecha y sus correcciones fusionadas, y el ciclo 2 preparado: decisiones tomadas, ADRs y especificación técnica extendida |
+| Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30. La sección del ciclo 2 la redactó la sesión que preparó ese ciclo |
 
 ## En resumen
 
 - **Las herramientas de IA redactaron los documentos y escribieron el código y los tests.**
-- **Qué construir y cómo lo decidió el autor.** Los requisitos, las decisiones técnicas del RFC y las decisiones del contrato de la API se le presentaron una por una, con alternativas y una recomendación, y eligió él. En varias corrigió la recomendación.
+- **En el ciclo 1, qué construir y cómo lo decidió el autor.** Los requisitos, las decisiones técnicas del RFC y las decisiones del contrato de la API se le presentaron una por una, con alternativas y una recomendación, y eligió él. En varias corrigió la recomendación.
+- **En el ciclo 2 delegó también las decisiones,** incluidas las de contrato. Está contado [más abajo](#ciclo-2).
 - **Hasta el ticket #5, el autor aprobó cada paso.** Desde el ticket #6 delegó también la revisión: los tests y los pull requests los revisó otra sesión de la herramienta de IA, y el autor no los revisó uno por uno.
 - **Con todo fusionado, otra sesión de la herramienta hizo una revisión final del conjunto,** con la consigna de encontrar y demostrar fallas. Encontró cuatro importantes, que se corrigieron.
 - **Esas revisiones delegadas tienen límites,** y están [al final](#límites).
@@ -32,6 +33,7 @@ Una **sesión** es una conversación separada con la herramienta. No comparte me
 | Ticket #16: README final y este registro (15/11) | Igual que los anteriores: una sesión lo escribió, y la sesión supervisora revisó el pull request y lo fusionó | — |
 | Revisión final del MVP (15/11) | Una sesión aparte revisó el conjunto ya fusionado y escribió un informe con lo que encontró | La pidió |
 | Correcciones de la revisión final (15/11) | La sesión de la revisión escribió los tests y, después de que la sesión supervisora los revisó, el código y la documentación. La sesión supervisora abrió el pull request y lo fusionó | Pidió corregir los cuatro hallazgos importantes |
+| Preparación del ciclo 2 (15/11) | Una sesión aparte relevó lo que hacía falta decidir y redactó los ADRs y la extensión de la especificación técnica. La sesión supervisora tomó las decisiones | Pidió el ciclo, fijó su alcance y delegó las decisiones. Ver [Ciclo 2](#ciclo-2) |
 
 En GitHub, los commits, los pull requests y las fusiones figuran a nombre del autor: las herramientas trabajaron con su cuenta y no firman.
 
@@ -120,6 +122,36 @@ Al implementar aparecieron decisiones que ni la especificación ni los ADRs cubr
 - En Swagger UI, el login trae de ejemplo al usuario de prueba, con su contraseña ([ADR-0008](../adr/0008-api-documentation.md)).
 
 La especificación técnica, que el autor aprobó el 14/11/2026, recibió después dos cambios autorizados por la sesión supervisora y no por él: el ejemplo de error pasó a llevar el texto real en inglés, y la tabla de configuración sumó cuatro variables (pull requests [#21](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/21) y [#22](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/22)).
+
+## Ciclo 2
+
+Lo que pasó hasta tener el ciclo 2 listo para empezar a programar. Lo que venga después se suma acá cuando ocurra.
+
+**Qué pidió el autor.**
+
+- Hacer el ciclo 2 con el mismo esquema delegado con el que se terminó el MVP: una sesión supervisora que reparte el trabajo, lo revisa y lo fusiona.
+- El alcance: los siete requisitos "Debería" (REQ-20 a REQ-26). Lo que no entre pasa al ciclo 3.
+- **Delegó también las decisiones, incluidas las de contrato.** En el ciclo 1 las había tomado él, una por una. En este no revisó ninguna antes de que quedara escrita.
+
+**Cómo se tomaron.**
+
+| Paso | Quién | Qué hizo |
+|---|---|---|
+| Relevamiento | Una sesión aparte de la herramienta de IA | Leyó los documentos y el código para separar lo que el MVP ya había dejado hecho de lo que faltaba decidir. Comprobó contra la SWAPI real, con once pedidos, cómo responde cuando se le piden los datos completos. Midió el arranque de la aplicación con la memoria y el procesador de un plan gratuito. Relevó, con sus fuentes, los planes gratuitos vigentes y las opciones de reintentos |
+| Propuesta | La misma sesión | Presentó nueve decisiones que cambian lo que ve quien usa la API o lo que tiene que hacer el autor, cada una con alternativas y una recomendación, y aparte una lista de decisiones técnicas. Redactó los borradores de los ADRs, de la extensión de la especificación técnica y de los tickets |
+| Decisión | La sesión supervisora | Leyó el informe, las decisiones y la extensión completa, y eligió. Aprobó las decisiones técnicas como estaban |
+| Lo que queda para el autor | El autor | Crear las cuentas del despliegue público y cargar ahí los datos de la base. Nadie más puede hacerlo |
+
+**Qué cambió la sesión supervisora respecto de lo propuesto.** De las nueve decisiones, siguió la recomendación en ocho y la cambió en una: la propuesta era mantener despierto el servicio gratuito con un pedido cada diez minutos, y decidió no hacerlo, porque no se pudo comprobar que las condiciones del servicio lo permitan ([ADR-0015](../adr/0015-public-deployment.md)).
+
+**Dónde quedó.** En siete ADRs, del [ADR-0014](../adr/0014-continuous-verification.md) al [ADR-0020](../adr/0020-swapi-failure-tolerance.md); en la [especificación técnica](../spec/SPEC.md), que lleva una nota que lo dice; y en el historial de cambios del [PRD](../requirements/PRD.md#historial-de-cambios), con el orden del ciclo.
+
+**Qué hay que saber al leerlo.**
+
+- **Estas decisiones no pasaron por el autor.** Están escritas con sus alternativas para que se puedan revisar después, una por una. Entre ellas hay reglas que quedan a la vista de quien usa la API: el nombre de un parámetro, la política de contraseñas y el formato del detalle de los errores.
+- **Quien propuso y quien decidió son la misma herramienta,** en dos sesiones. Vale el mismo límite que para las revisiones delegadas: no es una mirada independiente.
+- **Dos concesiones están dichas en su ADR:** el mínimo de la contraseña queda por debajo de la guía de referencia vigente ([ADR-0018](../adr/0018-user-creation.md)), y una parte de la historia del REQ-21, entender que una sesión venció, queda sin cubrir ([ADR-0016](../adr/0016-validation-error-detail.md)).
+- **Lo relevado sobre los planes gratuitos no se pudo leer todo de primera mano:** las páginas de uno de los servicios no abrieron desde el entorno de trabajo, y sus datos se tomaron a través de un lector intermedio y de una búsqueda. El archivo del despliegue que se propone todavía no se probó contra el servicio.
 
 ## Límites
 
