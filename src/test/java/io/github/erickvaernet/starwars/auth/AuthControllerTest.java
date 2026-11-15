@@ -351,6 +351,14 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("The documentation of the login names the test administrator, which is the user that can create users")
+    void documentationOfTheLoginNamesTheTestAdministrator() {
+        String description = JsonPath.read(apiDocumentation(), "$.paths['/api/v1/auth/login'].post.description");
+
+        assertThat(description).contains("`admin`", "`admin1234`", "create users");
+    }
+
+    @Test
     @DisplayName("The documentation shows the body of the login, with the test user as its example")
     void documentationShowsTheBodyWithTheTestUserAsExample() {
         String documentation = apiDocumentation();
