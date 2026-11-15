@@ -12,6 +12,11 @@ import jakarta.validation.constraints.Size;
  * rejected before any credential is checked. So is a value that cannot belong to any user: the
  * login is public, and what it receives goes to the database and to BCrypt.
  *
+ * <p>Every rule of a field carries the same text, the one of that field: it is what the answer
+ * to an invalid body says about the field, whichever of its rules failed. A text is written as
+ * it is sent, so it cannot have braces nor a dollar sign, which the validation would read as
+ * placeholders.
+ *
  * <p>The examples of the API documentation are the test user, so that the login can be tried
  * from Swagger UI without typing anything. Its password is public on purpose: the README
  * publishes it, and the user exists only where the seed is switched on.
@@ -26,17 +31,17 @@ public record LoginRequest(
                 description = "The user name. The example is the test user, which exists only where the seed "
                         + "is on, as in `docker compose`.",
                 example = "demo")
-        @NotBlank
-        @Size(max = LoginRequest.MAX_USERNAME_LENGTH)
-        @Pattern(regexp = LoginRequest.NO_CONTROL_CHARACTERS)
+        @NotBlank(message = LoginRequest.USERNAME_RULE)
+        @Size(max = LoginRequest.MAX_USERNAME_LENGTH, message = LoginRequest.USERNAME_RULE)
+        @Pattern(regexp = LoginRequest.NO_CONTROL_CHARACTERS, message = LoginRequest.USERNAME_RULE)
         String username,
 
         @Schema(
                 description = "The password. The example is the one of the test user, which exists only where "
                         + "the seed is on, as in `docker compose`.",
                 example = "demo1234")
-        @NotBlank
-        @Size(max = LoginRequest.MAX_PASSWORD_LENGTH)
+        @NotBlank(message = LoginRequest.PASSWORD_RULE)
+        @Size(max = LoginRequest.MAX_PASSWORD_LENGTH, message = LoginRequest.PASSWORD_RULE)
         String password) {
 
     /** The length of the column that stores the user name: a longer one cannot exist. */
@@ -51,5 +56,13 @@ public record LoginRequest(
      * null character.
      */
     static final String NO_CONTROL_CHARACTERS = "\\P{Cc}*";
+
+    /** What an invalid user name is told, whichever of its three rules it breaks. */
+    static final String USERNAME_RULE = "must not be blank, and must have at most " + MAX_USERNAME_LENGTH
+            + " characters and no control characters";
+
+    /** What an invalid password is told, whichever of its two rules it breaks. */
+    static final String PASSWORD_RULE = "must not be blank, and must have at most " + MAX_PASSWORD_LENGTH
+            + " characters";
 
 }

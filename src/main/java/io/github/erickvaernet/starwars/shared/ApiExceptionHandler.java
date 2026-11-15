@@ -1,6 +1,9 @@
 package io.github.erickvaernet.starwars.shared;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -10,6 +13,9 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -25,6 +31,9 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  *
  * <p>No answer shows internal details. The texts are fixed here; the message of the exception
  * never reaches the client.
+ *
+ * <p>A 400 that comes from a field of the body or from a parameter also says which one, in a list
+ * called {@code errors}: {@link InvalidField} is each of its elements.
  */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
@@ -39,6 +48,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     /** The text of every 500. What failed goes to the log. */
     static final String UNEXPECTED = "An unexpected error occurred.";
+
+    /** The text of a body with invalid fields. Which ones, and their rules, go in the list. */
+    static final String INVALID_BODY = "Invalid request content.";
+
+    /** The text of every 415. The one of Spring repeats the content type that the client sent. */
+    static final String UNSUPPORTED_MEDIA_TYPE = "The content type of the request is not supported.";
+
+    /** The name of the list that says which fields or parameters are invalid. */
+    private static final String ERRORS = "errors";
 
     /**
      * A login with wrong credentials. The answer does not say whether the user name or the
@@ -61,11 +79,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /**
      * A parameter with a value that is not accepted. The answer names the parameter and the rule
      * it must follow, and never repeats the value that was received.
+     *
+     * <p>The list has one element, that parameter: the validation stops at the first invalid one.
      */
     @ExceptionHandler(InvalidParameterException.class)
     ProblemDetail handleInvalidParameter(InvalidParameterException error) {
-        return problem(HttpStatus.BAD_REQUEST,
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST,
                 "Parameter '" + error.parameter() + "' " + error.requirement() + ".");
+        problem.setProperty(ERRORS, List.of(new InvalidField(error.parameter(), error.requirement())));
+        return problem;
     }
 
     /**
@@ -114,6 +136,34 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * A body that was read and has fields that do not follow their rules. The detail is the same
+     * for all of them; the list says which fields, each with the rule it must follow.
+     *
+     * <p>The text of a field is the {@code message} of its validation annotations, which the body
+     * declares: the same text in every rule of a field, so that it does not depend on which rule
+     * failed. The value that was received is never read here.
+     */
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, INVALID_BODY);
+        problem.setProperty(ERRORS, invalidFields(error.getFieldErrors()));
+        return handleExceptionInternal(error, problem, headers, status, request);
+    }
+
+    /**
+     * A body sent as something other than JSON. The text of Spring names the content type that
+     * the client sent, so it is replaced. The headers are kept: they are written by the server,
+     * and name the content types that the request accepts.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHttpMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return handleExceptionInternal(
+                error, problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE, UNSUPPORTED_MEDIA_TYPE), headers, status, request);
+    }
+
+    /**
      * A route that does not exist. Spring looks for a static file when no controller answers a
      * route, and its own text says so ("No static resource ..."): that is an internal detail,
      * so the text is replaced.
@@ -151,6 +201,23 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
                 .body(problem(HttpStatus.UNAUTHORIZED, detail));
+    }
+
+    /**
+     * Turns the errors of the fields of a body into the list of the answer: each field once,
+     * sorted by its name, so that the same body always gets the same answer.
+     *
+     * <p>A field that breaks several rules has one error for each. They all carry the same text,
+     * so the first one is kept.
+     */
+    private static List<InvalidField> invalidFields(List<FieldError> errors) {
+        Map<String, String> ruleOfEachField = new TreeMap<>();
+        for (FieldError error : errors) {
+            ruleOfEachField.putIfAbsent(error.getField(), error.getDefaultMessage());
+        }
+        return ruleOfEachField.entrySet().stream()
+                .map(entry -> new InvalidField(entry.getKey(), entry.getValue()))
+                .toList();
     }
 
     static ProblemDetail notFound() {

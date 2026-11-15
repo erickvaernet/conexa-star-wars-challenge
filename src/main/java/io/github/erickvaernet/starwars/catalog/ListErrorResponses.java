@@ -1,5 +1,6 @@
 package io.github.erickvaernet.starwars.catalog;
 
+import io.github.erickvaernet.starwars.shared.ValidationProblemDetail;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -20,10 +21,11 @@ import org.springframework.http.ProblemDetail;
 @Retention(RetentionPolicy.RUNTIME)
 @ApiResponse(
         responseCode = "400",
-        description = "A parameter is invalid. The detail names it.",
+        description = "A parameter is invalid. The detail names it, and `errors` has it with the rule that it "
+                + "must follow. If several are invalid, it is the first one.",
         content = @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = ProblemDetail.class)))
+                schema = @Schema(implementation = ValidationProblemDetail.class)))
 @ApiResponse(
         responseCode = "401",
         description = "The token is missing, malformed, expired or has an invalid signature.",

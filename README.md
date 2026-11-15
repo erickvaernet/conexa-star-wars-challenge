@@ -107,6 +107,37 @@ La respuesta trae el token, que vence a los 60 minutos:
 
 Un usuario o una contraseña incorrectos responden `401`, y un pedido al que le falta alguno de los dos, `400`. También responde `400` un usuario de más de 50 caracteres o con caracteres de control, y una contraseña de más de 72. Los errores usan el formato Problem Details.
 
+Un `400` por un campo inválido dice cuál y qué regla tiene que cumplir, en la lista `errors`:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "", "password": "demo1234"}'
+```
+
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Invalid request content.",
+  "instance": "/api/v1/auth/login",
+  "errors": [
+    {
+      "field": "username",
+      "message": "must not be blank, and must have at most 50 characters and no control characters"
+    }
+  ]
+}
+```
+
+- Si los dos campos son inválidos, `errors` trae los dos, ordenados por nombre: primero `password` y después `username`.
+- Cada campo aparece una sola vez y su texto es fijo: dice la regla completa, falle la parte que falle, y nunca repite lo que se envió.
+- Un cuerpo que no es JSON también responde `400`, sin `errors`: no hay un campo al que culpar.
+- Un cuerpo que no se envía como JSON (otro `Content-Type`) responde `415`: `The content type of the request is not supported.`
+
+El porqué de esta forma está en el [ADR-0016](docs/adr/0016-validation-error-detail.md).
+
 ### Usar el token
 
 Todos los pedidos necesitan el token, salvo el login, la documentación y el control de estado. Se envía en la cabecera `Authorization`:
@@ -248,6 +279,7 @@ curl "http://localhost:8080/api/v1/people?id=1&name=luke" \
 
 - Una página posterior a la última devuelve `content` vacío, con los totales correctos.
 - Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
+- Ese `400` trae además la lista `errors`, igual que el del login, con un elemento: `{ "field": "size", "message": "must be an integer between 1 and 100" }`. Si hay varios parámetros inválidos, nombra el primero, en el orden `page`, `size`, `id`, `name`. Vale también para el `id` de la ruta del detalle.
 - Un ID con otro formato (`0`, `01`, `abc`) responde `400`, en el filtro y en el detalle, sin consultar a SWAPI: `Parameter 'id' must be a number of 1 to 10 digits, without leading zeros.`
 - Un `name` vacío, solo de espacios o de más de 100 caracteres responde `400`, sin consultar a SWAPI: `Parameter 'name' must have 1 to 100 characters, not counting leading and trailing spaces.`
 - Un parámetro mal codificado, como `name=100%` (un `%` suelto se escribe `%25`), responde `400`: `The request has a parameter that is not correctly encoded.`
@@ -482,7 +514,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 793 tests: 648 corren con `./mvnw test` y 145 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Son 852 tests: 698 corren con `./mvnw test` y 154 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -583,6 +615,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Revisión final del MVP y sus correcciones ([pull request #30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30)). Con los doce tickets fusionados, una sesión aparte de una herramienta de IA revisó el conjunto sobre un clon limpio, con la consigna de encontrar y demostrar fallas y sin conocer las revisiones anteriores. No encontró nada crítico. Encontró cuatro fallas importantes: un parámetro mal codificado (`name=100%`) respondía `500`; el login respondía `500` a un usuario con un carácter nulo y no limitaba el largo de sus campos; una dirección o un método que el servidor rechaza respondían `401` aun con un token válido; y nueve roturas hechas a propósito en el código no hacían fallar ninguno de los 715 tests. Se corrigieron con los tests antes que el código, junto con cuatro hallazgos menores: ahora las tres primeras responden `400` o `405`, y ocho de las nueve roturas hacen fallar un test. La que queda es el tiempo máximo de conexión con SWAPI, que sigue sin test propio. Las decisiones quedaron en notas de los ADR 0003, 0005, 0007, 0008 y 0013. |
 | 15/11/2026 | Cierre del ciclo 1: versión `v0.1.0`. Los doce tickets del hito están cerrados, la revisión final está hecha y sus correcciones están fusionadas, y los 793 tests pasan. El `pom.xml` pasó de `0.1.0-SNAPSHOT` a `0.1.0`, que es la versión que muestra la documentación de la API. |
 | 15/11/2026 | Verificación automática en cada cambio ([#33](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/33)), el primer ticket del ciclo 2: cada pull request y cada cambio en `main` corren en GitHub Actions todos los tests sobre un JDK 21 y, a la vez, levantan la aplicación con `docker compose` y le hacen tres pedidos. Hasta acá los tests se habían corrido siempre con un JDK más nuevo y `docker compose` se comprobaba a mano. La primera ejecución pasó sin correcciones, con los 793 tests, en menos de dos minutos. Se comprobó una vez que un test roto se ve: un commit que rompía una regla a propósito dejó la ejecución en rojo, y se revirtió. El README muestra el distintivo con el estado de `main`. |
+| 15/11/2026 | Errores de validación campo por campo ([#35](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/35)): un `400` que sale de un campo del cuerpo o de un parámetro trae la lista `errors`, con el nombre de cada campo inválido y la regla que tiene que cumplir. En el login cada campo tiene un solo texto fijo, el mismo para todas sus reglas, así que aparece una sola vez; en los listados y el detalle la lista trae el primer parámetro inválido, sin cambiar su validación. El `415` pasó a tener un texto fijo, porque el de Spring repetía el `Content-Type` recibido. La documentación de la API muestra `errors` en el `400` de los nueve pedidos. Los tests de aceptación se escribieron antes que el código; ningún test anterior se tocó. Queda hecho el mecanismo que usa el alta de usuarios: un pedido nuevo con cuerpo solo declara el texto de cada campo. |
 
 ## Documentación
 

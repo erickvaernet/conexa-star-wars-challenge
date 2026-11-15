@@ -153,6 +153,10 @@ Lo que pasó hasta tener el ciclo 2 listo para empezar a programar. Lo que venga
 - **Dos concesiones están dichas en su ADR:** el mínimo de la contraseña queda por debajo de la guía de referencia vigente ([ADR-0018](../adr/0018-user-creation.md)), y una parte de la historia del REQ-21, entender que una sesión venció, queda sin cubrir ([ADR-0016](../adr/0016-validation-error-detail.md)).
 - **Lo relevado sobre los planes gratuitos no se pudo leer todo de primera mano:** las páginas de uno de los servicios no abrieron desde el entorno de trabajo, y sus datos se tomaron a través de un lector intermedio y de una búsqueda. El archivo del despliegue que se propone todavía no se probó contra el servicio.
 
+**Lo que pasó al implementarlo.**
+
+- **Ticket #35, el detalle de los errores de validación.** Los tests de aceptación los aprobó el autor directamente, antes del código, desde la sesión del ticket y sin comentarios. El pull request lo revisó la sesión supervisora.
+
 ## Límites
 
 **Qué cubre una revisión hecha por otra sesión de la herramienta de IA.** Lo que se puede comprobar: que la verificación completa pasa cuando la corre otro, que los tests aprobados no se tocaron, que cada criterio tiene su test, que la aplicación levanta y responde contra la SWAPI real, y que la descripción del pull request coincide con el cambio.
