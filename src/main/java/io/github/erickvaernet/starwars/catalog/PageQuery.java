@@ -19,7 +19,7 @@ public record PageQuery(int page, int size) {
     /** The same page size that SWAPI uses when it is not told one. */
     static final int DEFAULT_SIZE = 10;
 
-    static final int MAX_SIZE = 100;
+    static final int MAX_SIZE = 99;
 
     private static final String PAGE_RULE = "must be an integer greater than or equal to 1";
 
