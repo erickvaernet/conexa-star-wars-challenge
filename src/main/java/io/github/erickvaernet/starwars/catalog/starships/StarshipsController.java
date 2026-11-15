@@ -43,6 +43,7 @@ class StarshipsController {
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "listStarships",
             summary = "List starships, one page at a time",
             description = "Each element has the identifier of a starship and its name, in the order of SWAPI, "
                     + "which is not the one of the identifiers. "
@@ -57,6 +58,7 @@ class StarshipsController {
 
     @GetMapping(path = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "getStarship",
             summary = "Get the complete data of a starship",
             description = "Every value is text, as SWAPI gives it, the quantities too: some are not plain "
                     + "numbers, like \"342,953\", \"n/a\" or \"3 years\". "

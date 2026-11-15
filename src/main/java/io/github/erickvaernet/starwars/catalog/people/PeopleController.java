@@ -43,6 +43,7 @@ class PeopleController {
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "listPeople",
             summary = "List people, one page at a time",
             description = "Each element has the identifier and the name of a character, in the order of SWAPI. "
                     + "With `id`, the list has only that character, or is empty if it does not exist. "
@@ -56,6 +57,7 @@ class PeopleController {
 
     @GetMapping(path = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "getPerson",
             summary = "Get the complete data of a character",
             description = "Every value is text, as SWAPI gives it. The relations are lists of identifiers "
                     + "of films, starships and vehicles, which can be asked for in this API.")
