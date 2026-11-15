@@ -93,3 +93,16 @@ Parámetros de los listados:
 - **Una parte de la historia del REQ-21 queda sin cubrir: la sesión vencida.** La historia la nombra entre lo que quien consume quiere entender. Un token vencido sigue recibiendo exactamente el mismo `401` que un pedido sin token o con un token inválido: la respuesta dice que hay que autenticarse, no que la sesión venció.
   - Es así por una decisión ya tomada, que no se reabre ([ADR-0005](0005-authentication.md), nota del 15/11/2026): quien consume tiene que hacer lo mismo en todos los casos, iniciar sesión de nuevo, y una sola respuesta no le cuenta nada a quien prueba tokens.
   - Distinguirlo es posible y de bajo riesgo: solo se le diría a un token que la aplicación emitió. Pero cambia esa decisión, y haría falta un ADR nuevo. Queda anotado como mejora posible.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al implementarlo (ticket #35):
+  - **Cómo declara un pedido el texto de cada campo.** Con el atributo `message` de sus anotaciones de validación, que es lo que la librería ya ofrece: una constante por campo, puesta en todas las reglas de ese campo. Como todas llevan el mismo texto, un campo que rompe dos reglas a la vez aparece una sola vez. Un pedido nuevo con cuerpo, como el alta de usuarios, solo tiene que declarar sus textos así; el lugar que arma los errores no se toca.
+  - **Alternativas descartadas para eso.** Una anotación propia por campo, que junte sus reglas y dé un solo error: evita repetir la constante, pero pide un tipo de anotación nuevo por cada campo. Y que cada pedido entregue una tabla de campo y texto: el texto se escribe una vez, pero es un mecanismo propio que hay que explicar, y un campo que falte en la tabla queda sin texto.
+  - **Tres límites de la forma elegida.** La regla tiene que estar sobre un campo: una regla sobre el pedido entero no tiene campo y no aparece en `errors`. El texto no puede llevar llaves ni el signo `$`, que la librería de validación interpreta. Y una regla sin `message` dejaría salir el texto por defecto de la librería, que cambia con el idioma de la máquina: lo impiden los tests, que comprueban el texto de cada regla de cada campo, letra por letra.
+  - **Dónde va `errors` en la respuesta.** Como un campo adicional de Problem Details, al mismo nivel que `detail` y después de los campos de siempre.
+  - **El esquema de la documentación.** Se llama `ValidationProblemDetail`: el de Problem Details más `errors`, una lista de `InvalidField` (`field` y `message`). Está en `shared`, porque lo usan el login y los listados, que no pueden depender uno del otro ([ADR-0002](0002-code-organization.md)). Solo describe: la respuesta la arma el lugar que da formato a los errores.
+  - **Dónde se usa.** En el `400` del login, de los cuatro listados y de los cuatro detalles. El criterio de aceptación nombra el login y los listados; los detalles se sumaron porque su `400` también lleva `errors`. Cada pedido documenta un solo `400`, que cubre también los casos sin `errors`; por eso en el esquema `errors` no es obligatorio, y su descripción dice cuándo falta.
+  - **El `415`.** Su texto fijo y lo que se conserva de la respuesta están en el [ADR-0007](0007-error-format.md), nota de esta fecha.
