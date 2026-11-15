@@ -82,7 +82,7 @@ El trabajo se organiza en **ciclos cortos**. Cada ciclo termina con una versión
 |----------------|------------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------|
 | **1. MVP**     | 14/11/2026                   | PRD, RFC y especificación técnica completos. Todos los requisitos **Debe** (REQ-01 a REQ-19 y REQ-32)             | Versión `v0.1.0`, que ya cumple la consigna  |
 | **2. Mejoras** | 15/11/2026                   | Requisitos **Debería** (REQ-20 a REQ-26), empezando por el despliegue público                    | Versión `v0.2.0`                             |
-| **3. Extras**  | 15/11/2026, si sobra tiempo  | Requisitos **Podría** (REQ-27 a REQ-34, salvo REQ-32)                                                          | Versión `v0.3.0`                             |
+| **3. Extras**  | 15/11/2026, si sobra tiempo  | Requisitos **Podría** (REQ-27 a REQ-35, salvo REQ-32)                                                          | Versión `v0.3.0`                             |
 | **Entrega**    | 16/11/2026 como fecha límite | Envío del link al repositorio público                                                            | —                                            |
 
 Reglas de los ciclos:
@@ -140,6 +140,7 @@ En los ciclos 2 y 3, los requisitos se hacen en el orden de la tabla: primero lo
 | REQ-31 | **Límite de pedidos por usuario** | Como dueño de la aplicación, quiero limitar cuántos pedidos puede hacer cada usuario por minuto y por hora, para evitar abusos y no sobrecargar a SWAPI. | Podría | 3 | Por crear | Si se supera el límite, la respuesta avisa que hay que esperar. Complementa al límite de intentos de login (REQ-29). |
 | REQ-33 | **Cerrar sesión** | Como consumidor, quiero cerrar mi sesión cuando termino, sin esperar a que venza sola. | Podría | 3 | Por crear | Después de cerrarla, esa sesión ya no sirve para acceder a los listados. |
 | REQ-34 | **Registro público de usuarios** | Como visitante, quiero crearme una cuenta sin depender de un administrador. | Podría | 3 | Por crear | Las cuentas creadas así son siempre de usuario común. Decidido en la pregunta 3. |
+| REQ-35 | **Caché resistente al abuso** | Como dueño de la aplicación, quiero que una avalancha de búsquedas inútiles no desplace de la caché los datos más pedidos, para que la aplicación siga respondiendo rápido. | Podría | 3 | Por crear | Idea: guardar por separado los recursos específicos y los listados, cada grupo con su tope. Complementa al límite de pedidos por usuario (REQ-31). Agregado el 14/11/2026: ver el historial de cambios. |
 
 ## Fuera del alcance
 
@@ -178,6 +179,7 @@ No quedan preguntas pendientes. Las que respondió el autor son decisiones propi
 | Fecha      | Cambio                                                              | Motivo                                                                 |
 |------------|---------------------------------------------------------------------|------------------------------------------------------------------------|
 | 14/11/2026 | REQ-32, "Respuestas rápidas", pasa de "Podría" (ciclo 3) a "Debe" (ciclo 1) | Al preparar el RFC se midió que SWAPI demora cada vez más a quien le hace muchos pedidos. Sin guardar sus respuestas, quien pruebe la aplicación un rato la vería cada vez más lenta. Decisión D-15 del [RFC-001](../rfc/RFC-001-architecture.md) |
+| 14/11/2026 | Se agrega REQ-35, "Caché resistente al abuso", como "Podría" (ciclo 3) | Al revisar la caché después de aprobar la especificación técnica se vio que las búsquedas por nombre y los números de página no tienen un límite de combinaciones, y que muchas búsquedas inútiles podrían desplazar de la caché los datos más pedidos. Con un uso normal no ocurre, por eso no entra en el MVP. El análisis está en una nota del [ADR-0011](../adr/0011-swapi-response-cache.md) |
 
 ## Enlaces de referencia
 
