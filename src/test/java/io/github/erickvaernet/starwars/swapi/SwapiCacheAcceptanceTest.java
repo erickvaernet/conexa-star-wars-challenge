@@ -1,6 +1,7 @@
 package io.github.erickvaernet.starwars.swapi;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.absent;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
@@ -235,6 +236,76 @@ class SwapiCacheAcceptanceTest {
         assertThat(second).isEqualTo(first);
         swapi.verify(1, searchOfPeopleFor("zzzz"));
         swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
+    }
+
+    @Test
+    @DisplayName("CA-24.11: with the cache empty, asking twice for the same page of people with expanded=true sends SWAPI a single request, and that request carries expanded=true")
+    void repeatedExpandedRequestDoesNotGoBackToSwapi() {
+        String first = listOfPeople("?expanded=true&size=2");
+        String second = listOfPeople("?expanded=true&size=2");
+
+        // The stored answer is the page with the complete data: "birthYear" is not in a summary.
+        assertThat(first).contains("Luke Skywalker", "\"birthYear\":\"19BBY\"");
+        assertThat(second).isEqualTo(first);
+        swapi.verify(1, pageOfTwoPeople().withQueryParam("expanded", equalTo("true")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("CA-24.12: with the cache empty, asking for a page of people with expanded=true and then for the detail of character 1 sends SWAPI a single request: the detail comes from what the list brought")
+    void expandedListFillsTheDetailOfEachOfItsElements() {
+        listOfPeople("?expanded=true&size=2");
+
+        // The detail is the complete one, relations included.
+        client.get().uri(PEOPLE + "/1")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.id").isEqualTo("1")
+                .jsonPath("$.name").isEqualTo("Luke Skywalker")
+                .jsonPath("$.birthYear").isEqualTo("19BBY")
+                .jsonPath("$.filmIds.length()").isEqualTo(4);
+        // The second element of the page was stored too, not only the first one.
+        client.get().uri(PEOPLE + "/2")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("C-3PO");
+
+        // One request in all, the one of the list. Neither character was asked to SWAPI.
+        swapi.verify(1, pageOfTwoPeople().withQueryParam("expanded", equalTo("true")));
+        swapi.verify(0, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/1")));
+        swapi.verify(0, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE + "/2")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("CA-24.13: with the cache empty, asking for the same page of people with expanded=true and then without it sends SWAPI two requests, one with expanded=true and one without it")
+    void expandedAndPlainListsAreStoredApart() {
+        String expanded = listOfPeople("?expanded=true&size=2");
+        String plain = listOfPeople("?size=2");
+
+        // Each answer has its own form: the stored page with the complete data is not used to
+        // answer the plain list, nor the other way round.
+        assertThat(expanded).contains("\"birthYear\":\"19BBY\"");
+        assertThat(plain)
+                .contains("{\"id\":\"1\",\"name\":\"Luke Skywalker\"}", "{\"id\":\"2\",\"name\":\"C-3PO\"}")
+                .doesNotContain("birthYear");
+        swapi.verify(1, pageOfTwoPeople().withQueryParam("expanded", equalTo("true")));
+        swapi.verify(1, pageOfTwoPeople().withQueryParam("expanded", absent()));
+        swapi.verify(2, anyRequestedFor(anyUrl()));
+
+        // Both are stored: repeating either one does not go back to SWAPI.
+        assertThat(listOfPeople("?expanded=true&size=2")).isEqualTo(expanded);
+        assertThat(listOfPeople("?size=2")).isEqualTo(plain);
+        swapi.verify(2, anyRequestedFor(anyUrl()));
+    }
+
+    /** A request to SWAPI for the first page of two people, with or without any other parameter. */
+    private static RequestPatternBuilder pageOfTwoPeople() {
+        return getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE))
+                .withQueryParam("page", equalTo("1"))
+                .withQueryParam("limit", equalTo("2"));
     }
 
     /** A request to SWAPI that searches the people whose name contains that text. */

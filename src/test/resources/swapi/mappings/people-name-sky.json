@@ -4,7 +4,8 @@
     "method": "GET",
     "urlPath": "/api/people",
     "queryParameters": {
-      "name": { "equalTo": "sky" }
+      "name": { "equalTo": "sky" },
+      "expanded": { "absent": true }
     }
   },
   "response": {
