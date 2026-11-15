@@ -2,7 +2,7 @@
 
 API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/documentation) para listar **People, Films, Starships y Vehicles** de forma paginada, con filtrado por ID y/o nombre y autenticación segura.
 
-> 🚧 **Estado:** en desarrollo. Este README se irá completando con instrucciones de instalación, uso y decisiones de diseño.
+> **Estado:** la funcionalidad del ciclo 1 (MVP) está completa en `main`, con 715 tests. La versión `v0.1.0` todavía no está etiquetada.
 
 ## Alcance
 
@@ -11,28 +11,60 @@ API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/docume
 - [x] Filtrado por ID y/o nombre
 - [x] Login seguro con autenticación y autorización para acceder a los listados (usuarios en base de datos + seed inicial)
 - [x] Documentación de la API con Swagger / OpenAPI
-- [ ] Pruebas unitarias y de integración
+- [x] Pruebas unitarias y de integración
 - [x] Entorno local dockerizado
 - [ ] Despliegue en un servidor gratuito
 
-## Cómo levantarlo
+## Inicio rápido
 
 Hace falta tener Docker. No hay que instalar Java ni configurar nada.
+
+**1. Levantar la aplicación y su base de datos**
 
 ```bash
 docker compose up --build
 ```
 
-Levanta la aplicación y su base de datos. Cuando termina de arrancar:
+Cuando termina de arrancar:
 
 | Qué | Dónde |
 |---|---|
-| Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
+| La misma documentación, en formato OpenAPI | <http://localhost:8080/v3/api-docs> |
+| Control de estado | <http://localhost:8080/actuator/health> |
 
-Por ahora están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Todo se puede probar desde la documentación interactiva.
+**2. Iniciar sesión con el usuario de prueba**
 
-### Probar desde Swagger UI
+`docker compose up` lo carga solo:
+
+| Usuario | Contraseña |
+|---|---|
+| `demo` | `demo1234` |
+
+Es una credencial de prueba, pensada para quien corrige: en la base de datos solo está su *hash* BCrypt.
+
+**3. Probar**
+
+Desde el navegador, con [Swagger UI](#probar-desde-swagger-ui), o desde la terminal, con [`curl`](#probar-con-curl). Están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Todo se puede probar desde la documentación interactiva.
+
+**4. Correr los tests**
+
+Hace falta además un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./mvnw`).
+
+| Para | Comando | Necesita |
+|---|---|---|
+| Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
+| Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
+
+Más detalle, en [Tests](#tests).
+
+**Para apagar** y borrar los datos locales:
+
+```bash
+docker compose down -v
+```
+
+## Probar desde Swagger UI
 
 No hace falta ninguna otra herramienta: alcanza con el navegador.
 
@@ -45,17 +77,15 @@ No hace falta ninguna otra herramienta: alcanza con el navegador.
 - Los pedidos con candado son los que exigen el token: los cuatro listados y los cuatro detalles. El login no lo lleva.
 - El token vence a los 60 minutos. Desde ese momento los pedidos responden `401`: se repite el login y se carga el token nuevo. El login no envía el token cargado, así que se puede repetir aunque ese token ya no sirva.
 - **Logout**, en el mismo diálogo de **Authorize**, quita el token de la página.
-- Cada pedido muestra sus parámetros, su respuesta y sus errores. La misma documentación, en formato OpenAPI, está en <http://localhost:8080/v3/api-docs>.
+- Cada pedido muestra sus parámetros, su respuesta y sus errores.
 
 Las secciones que siguen muestran los mismos pedidos con `curl`.
 
+## Probar con `curl`
+
 ### Iniciar sesión
 
-`docker compose up` carga un usuario de prueba:
-
-| Usuario | Contraseña |
-|---|---|
-| `demo` | `demo1234` |
+Con el usuario de prueba del [inicio rápido](#inicio-rápido):
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
@@ -75,8 +105,6 @@ La respuesta trae el token, que vence a los 60 minutos:
 
 Un usuario o una contraseña incorrectos responden `401`, y un pedido al que le falta alguno de los dos, `400`. Los errores usan el formato Problem Details.
 
-Es una credencial de prueba, pensada para quien corrige: en la base de datos solo está su *hash* BCrypt.
-
 ### Usar el token
 
 Todos los pedidos necesitan el token, salvo el login, la documentación y el control de estado. Se envía en la cabecera `Authorization`:
@@ -88,9 +116,27 @@ curl http://localhost:8080/api/v1/people \
 
 Sin token, o con uno mal formado, con la firma alterada o vencido, la respuesta es `401`, siempre la misma.
 
-### Listar People
+## La API
 
-El pedido de arriba devuelve la primera página de personajes, de a 10. Con `page` y `size` se elige otra página y otro tamaño:
+### Pedidos
+
+| Pedido | Qué devuelve | Exige token |
+|---|---|---|
+| `POST /api/v1/auth/login` | El token de la sesión | No |
+| `GET /api/v1/people` | El listado de personajes | Sí |
+| `GET /api/v1/people/{id}` | Todos los datos de un personaje | Sí |
+| `GET /api/v1/films` | El listado de películas | Sí |
+| `GET /api/v1/films/{id}` | Todos los datos de una película | Sí |
+| `GET /api/v1/starships` | El listado de naves | Sí |
+| `GET /api/v1/starships/{id}` | Todos los datos de una nave | Sí |
+| `GET /api/v1/vehicles` | El listado de vehículos | Sí |
+| `GET /api/v1/vehicles/{id}` | Todos los datos de un vehículo | Sí |
+
+Las cuatro entidades se piden igual: los mismos parámetros, la misma forma de respuesta y los mismos errores. Los ejemplos que siguen usan People. Las reglas que valen para las cuatro están [más abajo](#reglas-que-valen-para-las-cuatro-entidades), y lo que cambia en cada una, en [Lo particular de cada entidad](#lo-particular-de-cada-entidad).
+
+### Listar
+
+El pedido de "Usar el token" devuelve la primera página de personajes, de a 10. Con `page` y `size` se elige otra página y otro tamaño:
 
 ```bash
 curl "http://localhost:8080/api/v1/people?page=2&size=3" \
@@ -111,17 +157,14 @@ curl "http://localhost:8080/api/v1/people?page=2&size=3" \
 }
 ```
 
+Los cuatro listados aceptan los mismos parámetros:
+
 | Parámetro | Por defecto | Valores aceptados |
 |---|---|---|
 | `page` | `1` | Un entero de 1 o más. La primera página es la 1 |
 | `size` | `10` | Un entero de 1 a 100 |
 | `id` | — | Solo dígitos: de 1 a 10, sin ceros a la izquierda |
 | `name` | — | Un texto de 1 a 100 caracteres, sin contar los espacios del inicio y del final |
-
-- Una página posterior a la última devuelve `content` vacío, con los totales correctos.
-- Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
-- Los datos salen de [SWAPI](https://www.swapi.tech/documentation). Si SWAPI responde con un error, el listado responde `502`; si no responde a tiempo, `504`. El login no depende de SWAPI.
-- Las respuestas de SWAPI se guardan en memoria durante una hora: un pedido repetido responde sin volver a SWAPI, que demora cada vez más a quien le hace muchos pedidos. Un error no se guarda. El porqué y los detalles están en el [ADR-0011](docs/adr/0011-swapi-response-cache.md).
 
 ### Filtrar por ID y ver el detalle
 
@@ -168,12 +211,6 @@ curl http://localhost:8080/api/v1/people/1 \
 }
 ```
 
-- Un ID que no existe responde distinto según cómo se pida: el filtro devuelve `200` con `content` vacío, como cualquier búsqueda sin resultados, y el detalle responde `404`.
-- Un ID con otro formato (`0`, `01`, `abc`) responde `400`, en el filtro y en el detalle, sin consultar a SWAPI: `Parameter 'id' must be a number of 1 to 10 digits, without leading zeros.`
-- Los valores son texto, como los entrega SWAPI, porque algunos no son números: una altura puede ser `"unknown"`. Si SWAPI no envía un valor, llega como `null`.
-- Las relaciones son listas de identificadores, que se pueden pedir en esta misma API. El planeta de origen no se devuelve, porque la API no expone planetas. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
-- El filtro y el detalle del mismo personaje comparten la respuesta guardada: son un solo pedido a SWAPI. Un "no existe" no se guarda.
-
 ### Filtrar por nombre
 
 Con `name`, el listado devuelve los personajes cuyo nombre contiene ese texto, en cualquier parte y sin distinguir mayúsculas de minúsculas. Se pagina igual que el listado completo:
@@ -203,20 +240,49 @@ curl "http://localhost:8080/api/v1/people?id=1&name=luke" \
   -H "Authorization: Bearer eyJ..."
 ```
 
-- `name=SKY`, `name=sky` y `name=%20sky%20` son la misma búsqueda: no se distinguen mayúsculas y los espacios del inicio y del final se ignoran.
-- Una búsqueda sin coincidencias responde `200` con `content` vacío y los totales en 0. Lo mismo si el personaje del `id` existe pero su nombre no contiene el texto.
+### Reglas que valen para las cuatro entidades
+
+**Páginas y parámetros**
+
+- Una página posterior a la última devuelve `content` vacío, con los totales correctos.
+- Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
+- Un ID con otro formato (`0`, `01`, `abc`) responde `400`, en el filtro y en el detalle, sin consultar a SWAPI: `Parameter 'id' must be a number of 1 to 10 digits, without leading zeros.`
 - Un `name` vacío, solo de espacios o de más de 100 caracteres responde `400`, sin consultar a SWAPI: `Parameter 'name' must have 1 to 100 characters, not counting leading and trailing spaces.`
+
+**Filtros**
+
+- Un ID que no existe responde distinto según cómo se pida: el filtro devuelve `200` con `content` vacío, como cualquier búsqueda sin resultados, y el detalle responde `404`.
+- `name=SKY`, `name=sky` y `name=%20sky%20` son la misma búsqueda: no se distinguen mayúsculas y los espacios del inicio y del final se ignoran.
+- Una búsqueda sin coincidencias responde `200` con `content` vacío y los totales en 0. Lo mismo si el elemento del `id` existe pero su nombre no contiene el texto.
 - El texto se busca tal cual: un punto es un punto y un paréntesis es un paréntesis. SWAPI los interpreta como parte de un patrón, así que la aplicación los escapa antes de consultarla. El porqué está en el [ADR-0004](docs/adr/0004-pagination-and-filters.md).
+
+**Datos del detalle**
+
+- Los valores son texto, como los entrega SWAPI, también las cantidades, porque muchos no se pueden leer como número sin interpretarlos: una altura puede ser `"unknown"`, y una nave trae `"342,953"`, `"4.0"`, `"3 years"` o `"n/a"`. No se convierten. La única excepción es el episodio de una película. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
+- A los textos solo se les quitan los espacios del inicio y del final.
+- Si SWAPI no envía un valor, llega como `null`.
+- Las relaciones son listas de identificadores, que se pueden pedir en esta misma API. Las relaciones con planetas y especies no se devuelven, porque la API no expone esas entidades: el planeta de origen de un personaje, y los planetas y las especies de una película.
+
+**SWAPI y la caché**
+
+- Los datos salen de [SWAPI](https://www.swapi.tech/documentation). Si SWAPI responde con un error, el pedido responde `502`; si no responde a tiempo, `504`. El login no depende de SWAPI.
+- Las respuestas de SWAPI se guardan en memoria durante una hora: un pedido repetido responde sin volver a SWAPI, que demora cada vez más a quien le hace muchos pedidos. Un error no se guarda. El porqué y los detalles están en el [ADR-0011](docs/adr/0011-swapi-response-cache.md).
+- El filtro por ID y el detalle del mismo elemento comparten la respuesta guardada: son un solo pedido a SWAPI. Un "no existe" no se guarda.
 - SWAPI responde una búsqueda con todas las coincidencias juntas. La aplicación recorta la página pedida y guarda la respuesta completa: recorrer las páginas de una búsqueda es un solo pedido a SWAPI.
+- El orden de un listado es el de SWAPI, que no siempre es el de los identificadores, y los identificadores tienen huecos. Hay un ejemplo en cada entidad.
 
-### Films
+### Lo particular de cada entidad
 
-Las películas se piden igual que los personajes: los mismos parámetros, la misma forma de respuesta y los mismos errores.
+| Entidad | Elementos | SWAPI pagina su listado | El filtro `name` busca en | Un ejemplo de búsqueda |
+|---|---|---|---|---|
+| People | 82 | Sí | El nombre | `people?name=sky`: tres personajes |
+| Films | 6 | No: devuelve las seis juntas | El título | `films?name=hope`: "A New Hope" |
+| Starships | 36 | Sí | El nombre | `starships?name=wing`: cinco naves, Y-wing, X-wing, A-wing, B-wing y V-wing |
+| Vehicles | 39 | Sí | El nombre | `vehicles?name=speeder`: ocho vehículos, entre ellos X-34 landspeeder, Snowspeeder y Sith speeder |
 
-| Pedido | Qué devuelve |
-|---|---|
-| `GET /api/v1/films` | El listado, con `page`, `size`, `id` y `name` |
-| `GET /api/v1/films/{id}` | Todos los datos de una película |
+Cuando SWAPI pagina un listado, como en People, Starships y Vehicles, cada página es un pedido a SWAPI y se guarda por separado.
+
+#### Films
 
 ```bash
 curl "http://localhost:8080/api/v1/films?page=2&size=2" \
@@ -271,37 +337,9 @@ curl http://localhost:8080/api/v1/films/1 \
 - `openingCrawl` conserva sus saltos de línea (`\r\n`): a los textos solo se les quitan los espacios del inicio y del final.
 - Los planetas y las especies de una película no se devuelven, porque la API no expone esas entidades.
 
-### Starships
+#### Starships
 
-Las naves se piden igual que los personajes y las películas: los mismos parámetros, la misma forma de respuesta y los mismos errores.
-
-| Pedido | Qué devuelve |
-|---|---|
-| `GET /api/v1/starships` | El listado, con `page`, `size`, `id` y `name` |
-| `GET /api/v1/starships/{id}` | Todos los datos de una nave |
-
-```bash
-curl "http://localhost:8080/api/v1/starships?page=1&size=5" \
-  -H "Authorization: Bearer eyJ..."
-```
-
-```json
-{
-  "content": [
-    { "id": "2", "name": "CR90 corvette" },
-    { "id": "3", "name": "Star Destroyer" },
-    { "id": "5", "name": "Sentinel-class landing craft" },
-    { "id": "9", "name": "Death Star" },
-    { "id": "11", "name": "Y-wing" }
-  ],
-  "page": 1,
-  "size": 5,
-  "totalElements": 36,
-  "totalPages": 8
-}
-```
-
-El filtro `name` busca en el nombre de la nave. Este pedido devuelve las cinco naves cuyo nombre contiene "wing": Y-wing, X-wing, A-wing, B-wing y V-wing.
+El filtro `name` busca en el nombre de la nave. Este pedido devuelve las cinco naves cuyo nombre contiene "wing":
 
 ```bash
 curl "http://localhost:8080/api/v1/starships?name=wing" \
@@ -337,18 +375,10 @@ curl http://localhost:8080/api/v1/starships/9 \
 ```
 
 - El orden del listado es el de SWAPI, que no es el de los identificadores: después de la nave `11` viene la `10`. Los identificadores además tienen huecos: no hay nave `1`.
-- SWAPI pagina las naves, como los personajes: cada página del listado es un pedido a SWAPI, y se guarda por separado.
-- Todos los valores son texto, también las cantidades, porque muchos no se pueden leer como número sin interpretarlos: `"342,953"`, `"4.0"`, `"3 years"` o `"n/a"`. Se devuelven como los entrega SWAPI. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
+- Todos los valores son texto, también las cantidades: `"342,953"`, `"4.0"`, `"3 years"` o `"n/a"`. Se devuelven como los entrega SWAPI.
 - `filmIds` y `pilotIds` son identificadores de películas y de personajes, que se pueden pedir en esta misma API. Una nave sin pilotos conocidos, como esta, trae `pilotIds` vacío; la nave `10`, el Millennium Falcon, trae `["13", "14", "25", "31"]`.
 
-### Vehicles
-
-Los vehículos se piden igual que las otras tres entidades: los mismos parámetros, la misma forma de respuesta y los mismos errores.
-
-| Pedido | Qué devuelve |
-|---|---|
-| `GET /api/v1/vehicles` | El listado, con `page`, `size`, `id` y `name` |
-| `GET /api/v1/vehicles/{id}` | Todos los datos de un vehículo |
+#### Vehicles
 
 Sin parámetros, el listado devuelve la primera página, de 10 elementos:
 
@@ -378,7 +408,7 @@ curl http://localhost:8080/api/v1/vehicles \
 }
 ```
 
-El filtro `name` busca en el nombre del vehículo. Este pedido devuelve los ocho vehículos cuyo nombre contiene "speeder", entre ellos X-34 landspeeder, Snowspeeder y Sith speeder.
+El filtro `name` busca en el nombre del vehículo. Este pedido devuelve los ocho vehículos cuyo nombre contiene "speeder":
 
 ```bash
 curl "http://localhost:8080/api/v1/vehicles?name=speeder" \
@@ -412,18 +442,20 @@ curl http://localhost:8080/api/v1/vehicles/4 \
 ```
 
 - El orden del listado es el de SWAPI, que no es el de los identificadores: después del vehículo `7` viene el `6`. Los identificadores además tienen huecos: el primer vehículo es el `4`.
-- SWAPI pagina los vehículos, como los personajes y las naves: cada página del listado es un pedido a SWAPI, y se guarda por separado.
-- Todos los valores son texto, también las cantidades, porque algunos no se pueden leer como número sin interpretarlos: `"2 months"` o `"unknown"`. Se devuelven como los entrega SWAPI. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
+- Todos los valores son texto, también las cantidades: `"2 months"` o `"unknown"`. Se devuelven como los entrega SWAPI.
 - A los textos solo se les quitan los espacios del inicio y del final: SWAPI entrega el largo de este vehículo como `"36.8 "`, con un espacio al final, y la API lo devuelve como `"36.8"`.
 - `filmIds` y `pilotIds` son identificadores de películas y de personajes, que se pueden pedir en esta misma API. Un vehículo sin pilotos conocidos, como este, trae `pilotIds` vacío; el vehículo `14`, el Snowspeeder, trae `["1", "18"]`.
 - Un vehículo tiene los mismos datos que una nave, salvo `hyperdriveRating` y `mglt`, y su clase se llama `vehicleClass`.
 
-### Configuración
+## Configuración
 
 No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para cambiarlos, copiar `.env.example` a `.env`.
 
 | Variable | Para qué | En `docker compose` | Sin `docker compose` |
 |---|---|---|---|
+| `DB_URL` | Dirección de la base de datos PostgreSQL | Fija: la base que levanta `docker compose` | Obligatoria |
+| `DB_USER` | Usuario de la base de datos | `starwars` | Obligatoria |
+| `DB_PASSWORD` | Contraseña de la base de datos | `starwars` | Obligatoria |
 | `JWT_SECRET` | Clave que firma los tokens, de al menos 32 caracteres | Una clave de desarrollo, pública | Obligatoria: sin ella la aplicación no arranca |
 | `JWT_TTL_MINUTES` | Minutos hasta que vence un token | `60` | `60` |
 | `SEED_ENABLED` | Cargar el usuario de prueba | `true` | `false` |
@@ -432,15 +464,36 @@ No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para
 | `SWAPI_READ_TIMEOUT` | Tiempo máximo de espera de una respuesta de SWAPI | `10s` | `10s` |
 | `SWAPI_CACHE_TTL` | Tiempo que se guarda una respuesta de SWAPI | `1h` | `1h` |
 | `SWAPI_CACHE_MAX_SIZE` | Cantidad máxima de respuestas de SWAPI guardadas | `500` | `500` |
+| `APP_PORT` | Puerto de esta máquina donde se publica la aplicación. La usa `docker compose`, no la aplicación | `8080` | No se usa |
 
 Los tiempos se escriben como un número con su unidad: `500ms`, `3s`, `1h`.
 
-Para correr los tests hace falta además un JDK 21 o posterior:
+## Tests
 
-| Para | Comando |
-|---|---|
-| Tests unitarios y de arquitectura, sin red ni Docker | `./mvnw test` |
-| Todos los tests, incluidos los de aceptación | `./mvnw verify` |
+Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./mvnw`).
+
+| Para | Comando | Necesita |
+|---|---|---|
+| Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
+| Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
+
+- Son 715 tests: 606 corren con `./mvnw test` y 109 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y se escribieron antes que el código.
+- Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
+- Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- Para ver la cobertura, después de `./mvnw verify`, abrir `target/site/jacoco/index.html`.
+
+El porqué de esta estrategia está en el [ADR-0009](docs/adr/0009-testing-strategy.md).
+
+## Uso de herramientas de IA
+
+El equipo técnico de Conexa permitió usar herramientas de IA y pidió documentar el flujo. En pocas líneas:
+
+- **Qué se delegó:** la redacción de los documentos, el código y los tests.
+- **Qué decidió el autor:** los requisitos y sus prioridades, las decisiones técnicas del RFC y las del contrato de la API, una por una y con las alternativas a la vista. En varias corrigió la recomendación de la herramienta.
+- **Cómo se revisó:** hasta el ticket #5, el autor aprobó cada paso. Desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA, por encargo del autor, que no los revisó uno por uno.
+
+El detalle, con las correcciones y los límites de esa revisión, está en [`docs/process/AI-USAGE.md`](docs/process/AI-USAGE.md).
 
 ## Proceso de trabajo
 
@@ -450,7 +503,7 @@ El desafío se trabaja en **ciclos cortos** y con la **documentación primero**.
 
 | Ciclo          | Fecha                       | Alcance                                                                                                          | Versión  | Estado    |
 |----------------|-----------------------------|------------------------------------------------------------------------------------------------------------------|----------|-----------|
-| **1. MVP**     | 14/11/2026                  | Todo lo que pide la consigna: los requisitos "Debe" del PRD, incluida la caché de las respuestas de SWAPI                                                      | `v0.1.0` | En curso  |
+| **1. MVP**     | 14/11/2026                  | Todo lo que pide la consigna: los requisitos "Debe" del PRD, incluida la caché de las respuestas de SWAPI                                                      | `v0.1.0` | En curso: funcionalidad completa, versión sin etiquetar |
 | **2. Mejoras** | 15/11/2026                  | Los requisitos "Debería": despliegue público, errores claros, tolerancia a fallas de SWAPI, verificación automática, datos completos a pedido en los listados y rol de administrador con alta de usuarios | `v0.2.0` | Pendiente |
 | **3. Extras**  | 15/11/2026, si sobra tiempo | Los requisitos "Podría": cobertura de tests visible, colección de pedidos lista para usar, límite de intentos de login, consulta flexible con GraphQL, límite de pedidos por usuario, cierre de sesión, registro público de usuarios y caché resistente al abuso | `v0.3.0` | Pendiente |
 
@@ -467,7 +520,7 @@ Cada etapa empieza recién cuando la anterior está revisada y aprobada.
 | 1 | **PRD**            | **Qué** y **por qué**: problema, usuarios, requisitos, prioridades y métricas de éxito                     | [`docs/requirements/PRD.md`](docs/requirements/PRD.md) | Aprobado             |
 | 2 | **RFC y ADRs**     | **Cómo**, a nivel macro: arquitectura, tecnologías y seguridad, con las alternativas evaluadas. Cada decisión tomada se registra como un ADR | [`docs/rfc/RFC-001-architecture.md`](docs/rfc/RFC-001-architecture.md) y [`docs/adr/`](docs/adr/README.md) | Aceptado: RFC y 13 ADRs |
 | 3 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación   | [`docs/spec/SPEC.md`](docs/spec/SPEC.md) | Aprobada |
-| 4 | **Implementación** | Tests primero y después el código, historia por historia                                                                   | —                                                       | Pendiente            |
+| 4 | **Implementación** | Tests primero y después el código, historia por historia                                                                   | —                                                       | Hecha: doce tickets, 715 tests |
 | 5 | **Cierre**         | Rama principal estable, versión etiquetada y documentación al día                                         | —                                                       | Pendiente            |
 
 En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguientes no se rehacen: se revisan las prioridades del PRD, se registra un ADR por cada decisión nueva y se extiende la especificación técnica con lo que entra.
@@ -476,7 +529,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 
 - **Cada documento se apoya en el anterior ya cerrado.** No se eligen tecnologías sin tener los requisitos fijos, ni se detalla un contrato sin haber tomado las decisiones de arquitectura.
 - **Todo queda trazable.** Un requisito del PRD lleva a una decisión (ADR), esa decisión a una regla de la especificación técnica, y esa regla a un test.
-- **Es la base para trabajar con herramientas de IA.** La especificación técnica es la entrada con la que se genera código asistido: cuanto más precisa es, menos margen queda para que la herramienta invente. Cada etapa pasa por una revisión humana antes de avanzar.
+- **Es la base para trabajar con herramientas de IA.** La especificación técnica es la entrada con la que se genera código asistido: cuanto más precisa es, menos margen queda para que la herramienta invente. El flujo prevé una revisión humana de cada etapa antes de avanzar. En el ciclo 1 se cumplió hasta la especificación, los tickets y los tests del primero; después, la revisión también se delegó. Está contado en [Uso de herramientas de IA](#uso-de-herramientas-de-ia).
 - **Los ciclos reducen el riesgo del plazo.** Primero se asegura lo que pide la consigna y después se suman las mejoras, siempre sobre una versión que ya funciona.
 
 ### Bitácora
@@ -519,6 +572,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Starships, la tercera entidad ([#13](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/13)): listado paginado, filtros por ID y por nombre, y detalle, con los mismos pasos que Films y sin tocar el núcleo, la validación, los errores ni la caché. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que pagina las naves como los personajes: son 36. Al grabarlas se vio que el orden del listado no es el de los identificadores. Todos los valores de una nave son texto y ninguno se convierte. La nave grabada no tiene pilotos y repite el mismo valor en dos campos, así que la traducción se prueba además con una nave armada en el test, con todos los valores distintos. |
 | 15/11/2026 | Vehicles, la cuarta y última entidad ([#14](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/14)): listado paginado, filtros por ID y por nombre, y detalle, con los mismos pasos que Films y Starships y sin tocar el núcleo, la validación, los errores ni la caché. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que pagina los vehículos como los personajes y las naves: son 39, y tampoco llegan en el orden de los identificadores. SWAPI entrega el largo del vehículo grabado como `"36.8 "`, con un espacio al final, y la API lo devuelve sin el espacio; el test comprueba primero que la grabación lo sigue trayendo. Ese vehículo no tiene pilotos y repite el mismo valor en dos campos, así que la traducción se prueba además con un vehículo armado en el test. Con esto las cuatro entidades tienen listado, filtros y detalle. |
 | 15/11/2026 | Documentación interactiva ([#15](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/15)): Swagger UI ya tiene el botón "Authorize" para cargar el token, y con eso se prueba todo desde el navegador. La documentación ya listaba los nueve pedidos; faltaban la información general, el esquema de seguridad y casi toda la del login, que no decía qué devuelve ni con qué errores responde. El token se exige por defecto en todos los pedidos y el login se exceptúa, con el mismo criterio que las reglas de acceso: una entidad nueva queda con candado sin declarar nada. El login pasó a ser el primer grupo de la página y su cuerpo trae de ejemplo al usuario de prueba. Los tests de aceptación se escribieron antes que el código; dos ya pasaban y se dejaron igual, porque protegen lo que no tiene que cambiar. |
+| 15/11/2026 | Cierre de la documentación ([#16](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/16)): el README se reordenó para quien llega por primera vez, con los pasos para levantar, probar y correr los tests al principio, y se escribió el [registro de uso de herramientas de IA](docs/process/AI-USAGE.md). Al escribirlo quedó asentado que, desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA y no una persona, como pide el flujo de trabajo: el flujo y las convenciones llevan una nota que lo dice. |
 
 ## Documentación
 
@@ -531,8 +585,8 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 - Instrucciones para agentes de IA: [`AGENTS.md`](AGENTS.md)
 - Especificación técnica: [`docs/spec/SPEC.md`](docs/spec/SPEC.md)
 - Tickets del ciclo 1: [hito `v0.1.0`](https://github.com/erickvaernet/conexa-star-wars-challenge/milestone/1)
-- Instrucciones de configuración y uso: _próximamente_
-- Registro de uso de herramientas de IA: _próximamente_ en `docs/process/AI-USAGE.md`
+- Instrucciones de configuración y uso: en este README, desde el [inicio rápido](#inicio-rápido)
+- Registro de uso de herramientas de IA: [`docs/process/AI-USAGE.md`](docs/process/AI-USAGE.md)
 
 ## Autor
 
