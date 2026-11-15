@@ -30,7 +30,7 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora están el esqueleto del proyecto y el login: los listados llegan con los próximos tickets.
+Por ahora están el esqueleto del proyecto, el login y la protección del acceso: los listados llegan con los próximos tickets.
 
 ### Iniciar sesión
 
@@ -59,6 +59,17 @@ La respuesta trae el token, que vence a los 60 minutos:
 Un usuario o una contraseña incorrectos responden `401`, y un pedido al que le falta alguno de los dos, `400`. Los errores usan el formato Problem Details.
 
 Es una credencial de prueba, pensada para quien corrige: en la base de datos solo está su *hash* BCrypt.
+
+### Usar el token
+
+Todos los pedidos necesitan el token, salvo el login, la documentación y el control de estado. Se envía en la cabecera `Authorization`:
+
+```bash
+curl http://localhost:8080/api/v1/people \
+  -H "Authorization: Bearer eyJ..."
+```
+
+Sin token, o con uno mal formado, con la firma alterada o vencido, la respuesta es `401`, siempre la misma. Como los listados todavía no existen, hoy ese pedido responde `404` con un token válido.
 
 ### Configuración
 
@@ -145,6 +156,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 14/11/2026 | Se crearon los tickets del MVP: doce historias de usuario en el [hito `v0.1.0`](https://github.com/erickvaernet/conexa-star-wars-challenge/milestone/1), cada una con sus tareas, sus dependencias y sus criterios de aceptación. Tres decisiones del reparto: la protección del acceso (REQ-10) va separada del login, para revisar por separado la emisión del token y su validación; la caché (REQ-32) va separada del listado de People, para aislar la elección de la librería; y las pruebas de integración (REQ-16) no llevan ticket, porque son parte de la definición de terminado. |
 | 14/11/2026 | Primer ticket de código ([#5](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/5)): esqueleto del proyecto y entorno local. Los tests se escribieron y se revisaron antes que el código. Se comprobó que las librerías elegidas funcionan con Spring Boot 4.1 y que `docker compose up` deja la aplicación lista, con su base de datos. |
 | 15/11/2026 | Login con usuarios de prueba ([#6](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/6)): tabla de usuarios y usuario `demo` cargados con Flyway, token firmado con HS256 y todo cerrado salvo el login, la documentación y el control de estado. Los tests de aceptación se escribieron antes que el código. Al probarlo se vio que apagar la carga de usuarios sobre una base que ya la tenía impedía arrancar, y se corrigió. |
+| 15/11/2026 | Acceso solo con sesión ([#7](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/7)): cada pedido valida la firma y el vencimiento del token, y uno ausente, mal formado, alterado o vencido recibe el mismo `401`. Como antes de este ticket todo respondía `401`, casi todos los tests de aceptación pasaban sin código; se sumó un caso provisorio, con un token válido, para tener uno que fallara por el motivo correcto. |
 
 ## Documentación
 
