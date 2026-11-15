@@ -574,7 +574,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 976 tests: 798 corren con `./mvnw test` y 178 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Son 977 tests: 799 corren con `./mvnw test` y 178 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).

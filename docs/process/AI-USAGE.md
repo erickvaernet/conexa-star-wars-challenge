@@ -156,6 +156,7 @@ Lo que pasó hasta tener el ciclo 2 listo para empezar a programar. Lo que venga
 **Lo que pasó al implementarlo.**
 
 - **Ticket #35, el detalle de los errores de validación.** Los tests de aceptación los aprobó el autor directamente, antes del código, desde la sesión del ticket y sin comentarios. El pull request lo revisó la sesión supervisora.
+- **Ticket #37, los datos completos a pedido en los listados.** Los tests de aceptación y el diseño los aprobó la sesión supervisora, antes del código; el autor no los revisó. La sesión del ticket le presentó tres decisiones, con sus alternativas, y la sesión supervisora eligió: documentar un elemento como "uno de dos" con un tipo por entidad que nada implementa y una conversión que el compilador no puede comprobar; sumar una línea a una grabación de SWAPI que ya existía; y cambiar lo que esperaban cinco tests unitarios de la documentación. Están contadas en el [ADR-0019](../adr/0019-expanded-listings.md), nota del 15/11/2026. El pull request lo revisa la sesión supervisora.
 
 ## Límites
 
