@@ -213,7 +213,7 @@ La estructura de `docs/`, el orden de lectura y los identificadores están en el
 - El [índice](adr/README.md) lista todas las decisiones.
 - Se parte de la [plantilla](adr/0000-template.md).
 - Cada ADR registra **una** decisión e indica qué requisitos resuelve.
-- Un ADR aceptado no se modifica. Si la decisión cambia, se escribe un ADR nuevo y el anterior pasa a "Reemplazado por ADR-NNNN".
+- Un ADR aceptado no se modifica. Si la decisión cambia, se escribe un ADR nuevo y el anterior pasa a "Reemplazado por ADR-NNNN". Sí admite notas fechadas que no cambian la decisión, en una sección "Notas posteriores" al final.
 
 **Contenido de la especificación técnica**
 
@@ -227,7 +227,7 @@ Es un documento corto, con cuatro partes y nada más:
 | Criterios de aceptación | Por cada requisito, las condiciones verificables que debe cumplir para darse por hecho |
 
 - No repite las decisiones ni sus motivos: esos están en los ADRs y se enlazan.
-- Cada regla indica de qué requisito sale.
+- Cada criterio de aceptación se identifica como `CA-NN.M`, donde `NN` es el número del requisito que verifica.
 - Los tickets enlazan a sus criterios de aceptación; no los copian.
 
 **Documentos vivos**

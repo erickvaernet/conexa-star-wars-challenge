@@ -57,3 +57,9 @@ Reglas de dependencia:
 - De la arquitectura hexagonal se toma solo la idea que aporta acá: depender de una interfaz propia y no del servicio externo. La base de datos y la seguridad usan Spring de forma directa.
 - Las reglas de dependencia se comprueban con tests (ver [ADR-0009](0009-testing-strategy.md)) y están descriptas para el día a día en [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 - Si la aplicación sumara lógica de negocio propia, habría que reconsiderar una separación más estricta.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **14/11/2026.** La frontera hacia SWAPI que define este ADR es el patrón conocido como **capa anticorrupción** (*anti-corruption layer*): un único punto que traduce el modelo de un sistema externo al propio, para que su formato y sus cambios no se propaguen al resto del código. El texto original no usaba ese nombre. Las decisiones sobre a qué se traducen los datos de SWAPI están en el [ADR-0012](0012-response-data-shape.md).
