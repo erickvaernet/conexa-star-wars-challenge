@@ -596,6 +596,52 @@ class PeopleControllerTest {
         }
     }
 
+    @ParameterizedTest(name = "GET /api/v1/people{0} says that {1} is invalid")
+    @CsvSource(delimiter = '|', value = {
+        "?page=0             | page | must be an integer greater than or equal to 1",
+        "?size=101           | size | must be an integer between 1 and 100",
+        "?id=abc             | id   | must be a number of 1 to 10 digits, without leading zeros",
+        "?name=              | name | must have 1 to 100 characters, not counting leading and trailing spaces",
+        "/abc                | id   | must be a number of 1 to 10 digits, without leading zeros",
+        // With several invalid parameters, only the first one in the order page, size, id, name.
+        "?name=&id=0&size=0&page=0 | page | must be an integer greater than or equal to 1",
+        "?name=&id=0&size=0  | size | must be an integer between 1 and 100",
+        "?name=&id=0         | id   | must be a number of 1 to 10 digits, without leading zeros"
+    })
+    @DisplayName("An invalid parameter is the only element of errors, with the rule that the detail says")
+    void invalidParameterIsTheOnlyElementOfErrors(String request, String parameter, String rule) {
+        client.get().uri(PEOPLE + request)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.detail").isEqualTo("Parameter '" + parameter + "' " + rule + ".")
+                .jsonPath("$.errors").value(List.class, errors -> assertThat(errors)
+                        .containsExactly(Map.of("field", parameter, "message", rule)));
+
+        verifyNoInteractions(catalog);
+    }
+
+    @ParameterizedTest(name = "GET {0}")
+    @ValueSource(strings = {"/api/v1/people", "/api/v1/people/{id}"})
+    @DisplayName("The documentation shows that the 400 can say which parameter is invalid, and that no other error can")
+    void documentationShowsTheListOfErrorsInTheBadRequestOnly(String path) {
+        Map<String, Map<String, Object>> responses = JsonPath.read(apiDocumentation(),
+                "$.paths['" + path + "'].get.responses");
+
+        for (Map.Entry<String, Map<String, Object>> response : responses.entrySet()) {
+            String code = response.getKey();
+            if (code.equals("200")) {
+                continue;
+            }
+            String schema = JsonPath.read(response.getValue(), "$.content['application/problem+json'].schema['$ref']");
+            assertThat(schema).as("the schema of the " + code).isEqualTo(code.equals("400")
+                    ? "#/components/schemas/ValidationProblemDetail"
+                    : "#/components/schemas/ProblemDetail");
+        }
+        // It tells where to look for the parameter that failed.
+        assertThat((String) responses.get("400").get("description")).contains("errors");
+    }
+
     private Map<String, Object> documentedParameter(String name) {
         List<Map<String, Object>> found = JsonPath.read(apiDocumentation(),
                 "$.paths['/api/v1/people'].get.parameters[?(@.name=='" + name + "')]");
