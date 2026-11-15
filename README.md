@@ -591,6 +591,18 @@ No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para
 
 Los tiempos se escriben como un número con su unidad: `500ms`, `3s`, `1h`.
 
+## Despliegue público
+
+**Estado:** el despliegue está descripto en el repositorio y probado en desarrollo. Falta crear el servicio, que es un paso que hace el autor en persona ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)).
+
+- **Dónde:** la aplicación va en [Render](https://render.com), y la base de datos, en [Neon](https://neon.com), los dos en su plan gratuito.
+- **Por qué esos servicios.** La consigna nombra Heroku y Vercel como ejemplos, pero Heroku ya no tiene plan gratuito y Vercel no ejecuta Java. Render no pide tarjeta, construye la imagen desde el `Dockerfile` del repositorio, da los 512 MB de memoria que la aplicación necesita y se describe entero en un archivo. Su base de datos gratuita vence a los 30 días; la de Neon no vence.
+- **Cómo está descripto:** en [`render.yaml`](render.yaml), con el motivo de cada variable. No tiene ningún secreto: los tres datos de la base se cargan a mano al crear el servicio, y la clave que firma los tokens la genera Render.
+- **Qué se despliega:** la misma imagen que levanta `docker compose`, sin cambios en el código. El archivo pide que cada cambio de `main` se despliegue solo, después de pasar la [verificación automática](#tests).
+- **La primera visita puede tardar entre uno y tres minutos.** El plan gratuito duerme la aplicación tras 15 minutos sin uso, y despertarla es arrancarla de nuevo con una décima de procesador: medido en desarrollo con esos límites, un minuto y medio. Después de esa espera responde con normalidad. No se la mantiene despierta: es el funcionamiento previsto del plan gratuito.
+
+Las alternativas evaluadas y lo medido están en el [ADR-0015](docs/adr/0015-public-deployment.md).
+
 ## Tests
 
 Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./mvnw`).
@@ -600,7 +612,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 852 tests: 698 corren con `./mvnw test` y 154 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Son 1002 tests: 808 corren con `./mvnw test` y 194 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -702,6 +714,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Cierre del ciclo 1: versión `v0.1.0`. Los doce tickets del hito están cerrados, la revisión final está hecha y sus correcciones están fusionadas, y los 793 tests pasan. El `pom.xml` pasó de `0.1.0-SNAPSHOT` a `0.1.0`, que es la versión que muestra la documentación de la API. |
 | 15/11/2026 | Verificación automática en cada cambio ([#33](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/33)), el primer ticket del ciclo 2: cada pull request y cada cambio en `main` corren en GitHub Actions todos los tests sobre un JDK 21 y, a la vez, levantan la aplicación con `docker compose` y le hacen tres pedidos. Hasta acá los tests se habían corrido siempre con un JDK más nuevo y `docker compose` se comprobaba a mano. La primera ejecución pasó sin correcciones, con los 793 tests, en menos de dos minutos. Se comprobó una vez que un test roto se ve: un commit que rompía una regla a propósito dejó la ejecución en rojo, y se revirtió. El README muestra el distintivo con el estado de `main`. |
 | 15/11/2026 | Errores de validación campo por campo ([#35](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/35)): un `400` que sale de un campo del cuerpo o de un parámetro trae la lista `errors`, con el nombre de cada campo inválido y la regla que tiene que cumplir. En el login cada campo tiene un solo texto fijo, el mismo para todas sus reglas, así que aparece una sola vez; en los listados y el detalle la lista trae el primer parámetro inválido, sin cambiar su validación. El `415` pasó a tener un texto fijo, porque el de Spring repetía el `Content-Type` recibido. La documentación de la API muestra `errors` en el `400` de los nueve pedidos. Los tests de aceptación se escribieron antes que el código; ningún test anterior se tocó. Queda hecho el mecanismo que usa el alta de usuarios: un pedido nuevo con cuerpo solo declara el texto de cada campo. |
+| 15/11/2026 | Despliegue público, primera parte ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)): el despliegue quedó descripto en [`render.yaml`](render.yaml), sin ningún secreto y sin cambiar el código de la aplicación. Su test de aceptación lee las variables del propio archivo, así que no pueden desviarse: sin la variable que hace leer las cabeceras del intermediario, la documentación de la API declara su servidor con `http://` y el test falla. La imagen se probó con los límites del plan gratuito, 512 MB y una décima de procesador: arranca en un minuto y medio y usa la mitad de la memoria. El formato del archivo se revisó contra la referencia que publica el servicio, pero no contra el servicio. **Falta crear el servicio,** que es un paso del autor en persona; recién entonces hay una dirección pública, se mide sobre el servicio real y se cierra el ticket. |
 | 15/11/2026 | Rol de administrador y alta de usuarios ([#36](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/36)): la carga inicial suma a `admin`, con rol `ADMIN`, y en una base que ya tenía a `demo` lo agrega al arrancar sin tocar a `demo`. Las reglas de acceso leen el rol del token y reservan `POST /api/v1/users` al administrador: sin sesión, `401`; con la sesión de un usuario común, `403`, antes de mirar el cuerpo. El alta valida cada campo con su texto fijo, guarda la contraseña cifrada con BCrypt y responde `409` si el nombre ya existe, también cuando dos altas llegan a la vez. Al escribir los tests apareció una contradicción en la especificación: aceptaba una contraseña de solo espacios, que el login rechaza, así que ese usuario no habría podido entrar nunca. Se corrigió la regla: el alta la rechaza. Los tests de aceptación se escribieron antes que el código. |
 
 ## Documentación

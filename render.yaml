@@ -1,0 +1,49 @@
+# Describes the public deployment on Render: one free web service, built from the Dockerfile of
+# this repository. The database is a free PostgreSQL on Neon, created by hand; its three values
+# are asked for once, when the service is created from this file, and are never written here.
+#
+# PublicDeploymentAcceptanceTest reads the variables of this file that have a value.
+services:
+  - type: web
+    name: star-wars-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    # The east coast of the United States, the same area as the database.
+    region: virginia
+    # Render asks this address to know that a new version is ready.
+    healthCheckPath: /actuator/health
+    # A commit on main is deployed only after the automatic verification passes.
+    autoDeployTrigger: checksPass
+    envVars:
+      # The port the application listens on inside the container.
+      - key: PORT
+        value: "8080"
+
+      # Database: asked for when the service is created. DB_URL has the form
+      # jdbc:postgresql://<host>/<database>?sslmode=require
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      # Key that signs the login tokens. Render generates it once and keeps it.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Loads the test users, so whoever opens the public address can log in right away.
+      - key: SEED_ENABLED
+        value: "true"
+
+      # Render answers HTTPS and passes the request on as HTTP. With this, the application reads
+      # the headers that say so, and the API documentation sends its requests over HTTPS.
+      - key: SERVER_FORWARD_HEADERS_STRATEGY
+        value: framework
+
+      # The free instance has 512 MB and a tenth of a processor: a heap of half the memory, the
+      # simplest collector, and only the quick compiler, which halves the start-up time.
+      - key: JAVA_TOOL_OPTIONS
+        value: "-XX:MaxRAMPercentage=50 -XX:+UseSerialGC -Xss512k -XX:TieredStopAtLevel=1"
