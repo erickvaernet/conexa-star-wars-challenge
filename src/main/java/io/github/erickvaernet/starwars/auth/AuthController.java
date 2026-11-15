@@ -1,5 +1,6 @@
 package io.github.erickvaernet.starwars.auth;
 
+import io.github.erickvaernet.starwars.shared.ValidationProblemDetail;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -49,10 +50,11 @@ public class AuthController {
     @ApiResponse(responseCode = "200", description = "The token, its type and the seconds until it expires.")
     @ApiResponse(
             responseCode = "400",
-            description = "The body is not valid JSON, or the user name or the password is missing or blank.",
+            description = "The body is not valid JSON, or the user name or the password is missing, blank or "
+                    + "too long. When a field is what failed, `errors` says which.",
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(implementation = ProblemDetail.class)))
+                    schema = @Schema(implementation = ValidationProblemDetail.class)))
     @ApiResponse(
             responseCode = "401",
             description = "The user name or the password is wrong. The answer does not say which.",

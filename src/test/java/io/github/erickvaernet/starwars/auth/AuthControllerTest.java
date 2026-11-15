@@ -8,10 +8,13 @@ import static org.mockito.Mockito.when;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.core.properties.SpringDocConfigProperties;
@@ -42,6 +45,12 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 class AuthControllerTest {
 
     private static final String LOGIN = "/api/v1/auth/login";
+
+    /** The text of each field in the list of errors, as the specification writes it. */
+    private static final String USERNAME_RULE =
+            "must not be blank, and must have at most 50 characters and no control characters";
+
+    private static final String PASSWORD_RULE = "must not be blank, and must have at most 72 characters";
 
     @Autowired
     private MockMvc mockMvc;
@@ -116,6 +125,101 @@ class AuthControllerTest {
         String control = Character.toString(Integer.parseInt(codePoint, 16));
 
         expectInvalidBody(loginAs("de" + control + "mo", "demo1234"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidUserNames")
+    @DisplayName("An invalid user name is in errors once, with the same text whichever of its rules it breaks")
+    void invalidUserNameHasTheSameTextWhicheverRuleItBreaks(String what, String body) {
+        login(body)
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.detail").isEqualTo("Invalid request content.")
+                .jsonPath("$.errors").value(List.class, errors -> assertThat(errors)
+                        .containsExactly(Map.of("field", "username", "message", USERNAME_RULE)));
+
+        verifyNoInteractions(loginService);
+    }
+
+    /** One case for each rule of the user name, and two that break more than one rule at once. */
+    static Stream<Arguments> invalidUserNames() {
+        return Stream.of(
+                Arguments.of("missing", "{\"password\": \"demo1234\"}"),
+                Arguments.of("null", "{\"username\": null, \"password\": \"demo1234\"}"),
+                Arguments.of("empty", withUserName("")),
+                Arguments.of("only spaces", withUserName("   ")),
+                Arguments.of("51 characters", withUserName("u".repeat(51))),
+                // Written as JSON writes a control character: a backslash, "u" and its code.
+                Arguments.of("a control character", withUserName("de\\u0007mo")),
+                Arguments.of("51 characters, one of them a control character",
+                        withUserName("u".repeat(50) + "\\u0007")),
+                Arguments.of("51 spaces", withUserName(" ".repeat(51))));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidPasswords")
+    @DisplayName("An invalid password is in errors once, with the same text whichever of its rules it breaks")
+    void invalidPasswordHasTheSameTextWhicheverRuleItBreaks(String what, String body) {
+        login(body)
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.detail").isEqualTo("Invalid request content.")
+                .jsonPath("$.errors").value(List.class, errors -> assertThat(errors)
+                        .containsExactly(Map.of("field", "password", "message", PASSWORD_RULE)));
+
+        verifyNoInteractions(loginService);
+    }
+
+    /** One case for each rule of the password, and one that breaks two rules at once. */
+    static Stream<Arguments> invalidPasswords() {
+        return Stream.of(
+                Arguments.of("missing", "{\"username\": \"demo\"}"),
+                Arguments.of("null", "{\"username\": \"demo\", \"password\": null}"),
+                Arguments.of("empty", withPassword("")),
+                Arguments.of("only spaces", withPassword("   ")),
+                Arguments.of("73 characters", withPassword("p".repeat(73))),
+                Arguments.of("73 spaces", withPassword(" ".repeat(73))));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+        "{}",
+        "{\"username\": null, \"password\": null}",
+        "{\"username\": \"\", \"password\": \"\"}"
+    })
+    @DisplayName("A body with an invalid user name and an invalid password has both in errors: password first, then username")
+    void invalidUserNameAndPasswordAreBothInErrors(String body) {
+        login(body)
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.errors").value(List.class, errors -> assertThat(errors).containsExactly(
+                        Map.of("field", "password", "message", PASSWORD_RULE),
+                        Map.of("field", "username", "message", USERNAME_RULE)));
+    }
+
+    @Test
+    @DisplayName("The answer to an invalid body repeats neither the user name nor the password that were received")
+    void invalidBodyRepeatsNothingOfWhatWasReceived() {
+        String username = "x9".repeat(26);
+        String password = "k4".repeat(37);
+
+        String body = loginAs(username, password)
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).returnResult().getResponseBody();
+
+        assertThat(body).doesNotContain("x9x9").doesNotContain("k4k4");
+    }
+
+    @ParameterizedTest(name = "\"{0}\"")
+    @ValueSource(strings = {"", "this is not JSON", "[]", "{\"username\": {}, \"password\": \"demo1234\"}"})
+    @DisplayName("A body that cannot be read as a login has no errors: no field was checked")
+    void bodyThatCannotBeReadHasNoErrors(String body) {
+        String answer = login(body)
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).returnResult().getResponseBody();
+        Map<String, Object> problem = JsonPath.read(answer, "$");
+
+        assertThat(problem).containsOnlyKeys("type", "title", "status", "detail", "instance");
     }
 
     @Test
@@ -304,6 +408,46 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("The documentation shows that the 400 of the login can say which fields are invalid, and that the 401 cannot")
+    void documentationShowsTheListOfErrorsInTheBadRequestOnly() {
+        String documentation = apiDocumentation();
+        String badRequest = JsonPath.read(documentation, "$.paths['/api/v1/auth/login'].post.responses['400']"
+                + ".content['application/problem+json'].schema['$ref']");
+        String unauthorized = JsonPath.read(documentation, "$.paths['/api/v1/auth/login'].post.responses['401']"
+                + ".content['application/problem+json'].schema['$ref']");
+        String description = JsonPath.read(documentation,
+                "$.paths['/api/v1/auth/login'].post.responses['400'].description");
+
+        assertThat(badRequest).isEqualTo("#/components/schemas/ValidationProblemDetail");
+        assertThat(unauthorized).isEqualTo("#/components/schemas/ProblemDetail");
+        // It tells where to look for the field that failed.
+        assertThat(description).contains("errors");
+
+        // The schema of the 400 is the one of every error, plus the list.
+        List<Map<String, Object>> parts = JsonPath.read(documentation,
+                "$.components.schemas['ValidationProblemDetail'].allOf");
+        assertThat(parts).hasSize(2);
+        assertThat(parts.getFirst()).containsEntry("$ref", "#/components/schemas/ProblemDetail");
+        Map<String, Object> errors = JsonPath.read(documentation,
+                "$.components.schemas['ValidationProblemDetail'].allOf[1].properties.errors");
+        assertThat(errors).containsEntry("type", "array")
+                .containsEntry("items", Map.of("$ref", "#/components/schemas/InvalidField"));
+        assertThat((String) errors.get("description")).isNotBlank();
+        // Each element says which field and what it must be, and nothing else.
+        Map<String, Map<String, Object>> element = JsonPath.read(documentation,
+                "$.components.schemas['InvalidField'].properties");
+        assertThat(element).containsOnlyKeys("field", "message");
+        for (Map<String, Object> field : element.values()) {
+            assertThat(field).containsEntry("type", "string");
+            assertThat((String) field.get("description")).isNotBlank();
+        }
+        // The schema of the other errors is not touched: they have no list.
+        Map<String, Object> everyError = JsonPath.read(documentation,
+                "$.components.schemas['ProblemDetail'].properties");
+        assertThat(everyError).doesNotContainKey("errors");
+    }
+
+    @Test
     @DisplayName("The documentation shows that the login requires no token, even though every other request does")
     void documentationShowsThatTheLoginRequiresNoToken() {
         Map<String, Object> login = JsonPath.read(apiDocumentation(), "$.paths['/api/v1/auth/login'].post");
@@ -324,6 +468,16 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .exchange();
+    }
+
+    /** A login with a valid password and this user name, which is written into the JSON as it is. */
+    private static String withUserName(String username) {
+        return "{\"username\": \"" + username + "\", \"password\": \"demo1234\"}";
+    }
+
+    /** A login with a valid user name and this password, which is written into the JSON as it is. */
+    private static String withPassword(String password) {
+        return "{\"username\": \"demo\", \"password\": \"" + password + "\"}";
     }
 
     /** Sends the two values as they are: the client writes the JSON and escapes what needs it. */
