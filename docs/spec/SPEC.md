@@ -547,9 +547,11 @@ Se reintenta solo lo que suele ser pasajero y falla rápido: una respuesta `502`
 | `SWAPI_CACHE_TTL`        | Vencimiento de la caché de SWAPI                      | No. Por defecto, `1h`             |
 | `SWAPI_CACHE_MAX_SIZE`   | Cantidad máxima de respuestas en caché                | No. Por defecto, `500`            |
 | `SWAPI_MAX_RETRIES`      | Cuántas veces se reintenta un pedido a SWAPI que falló | No. Por defecto, `1`. De `0` a `3`; con `0` no se reintenta |
-| `SWAPI_RETRY_DELAY`      | Espera antes de cada reintento                        | No. Por defecto, `200ms`          |
+| `SWAPI_RETRY_DELAY`      | Espera antes de cada reintento                        | No. Por defecto, `200ms`. Vale `0s`: se reintenta en el momento |
 
 Un valor de `SWAPI_MAX_RETRIES` o de `SWAPI_RETRY_DELAY` fuera de rango, vacío o negativo impide arrancar, y el mensaje dice qué variable corregir, igual que los demás ajustes de SWAPI.
+
+> **Nota del 15/11/2026.** Precisión que apareció al implementar los reintentos (ticket #38): el rango de `SWAPI_RETRY_DELAY` no estaba escrito. Vale cualquier tiempo que no sea negativo, incluido `0s`, que reintenta en el momento, y no tiene tope; vacío o negativo impide arrancar. A diferencia de los tiempos máximos, donde cero significaría "esperar para siempre", acá cero tiene un significado razonable. La precisión la autorizó la sesión supervisora que había escrito la extensión; las alternativas están en el [ADR-0020](../adr/0020-swapi-failure-tolerance.md), nota de esta fecha. Ningún criterio de aceptación cambió.
 
 ## 6. Criterios de aceptación
 

@@ -90,7 +90,7 @@ sequenceDiagram
 1. La seguridad valida el token. Sin token válido, responde 401 y el pedido no sigue ([ADR-0005](adr/0005-authentication.md)). Si el pedido está reservado a un rol y el del token no alcanza, responde 403 y tampoco sigue ([ADR-0017](adr/0017-role-based-access.md)).
 2. El controlador de la entidad valida los parámetros y llama al núcleo.
 3. El núcleo pide los datos por la interfaz, sin saber que detrás está SWAPI.
-4. El cliente de SWAPI responde desde la caché o hace el pedido HTTP ([ADR-0003](adr/0003-swapi-client.md), [ADR-0011](adr/0011-swapi-response-cache.md)).
+4. El cliente de SWAPI responde desde la caché o hace el pedido HTTP ([ADR-0003](adr/0003-swapi-client.md), [ADR-0011](adr/0011-swapi-response-cache.md)). Si el pedido falla de una forma que suele ser pasajera, lo repite una vez antes de darlo por fallido ([ADR-0020](adr/0020-swapi-failure-tolerance.md)).
 5. El núcleo arma la página: usa la de SWAPI si vino paginada, o recorta en memoria si vino la lista completa ([ADR-0004](adr/0004-pagination-and-filters.md)).
 
 Con un filtro el recorrido es el mismo; lo que cambia es qué le pide el núcleo a la fuente. Con un identificador no pide una página: pide ese elemento.

@@ -16,8 +16,8 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
 
 /**
- * Checks how the settings of SWAPI are read at start-up: its address and the longest times the
- * application waits for it.
+ * Checks how the settings of SWAPI are read at start-up: its address, the longest times the
+ * application waits for it, and how a request that failed is sent again.
  *
  * <p>Only the settings are loaded, through the real {@code application.properties}, so the tests
  * cover the whole path from the environment variable to the value the application uses. They need
@@ -99,6 +99,66 @@ class SwapiPropertiesTest {
         application.withPropertyValues("SWAPI_CONNECT_TIMEOUT=" + timeout)
                 .run(context -> assertThat(context).getFailure().rootCause()
                         .hasMessageContaining("SWAPI_CONNECT_TIMEOUT"));
+    }
+
+    @Test
+    @DisplayName("By default a request that failed is sent once more, 200 milliseconds later")
+    void defaultRetries() {
+        application.run(context -> {
+            SwapiProperties properties = context.getBean(SwapiProperties.class);
+            assertThat(properties.maxRetries()).isEqualTo(1);
+            assertThat(properties.retryDelay()).isEqualTo(Duration.ofMillis(200));
+        });
+    }
+
+    @Test
+    @DisplayName("SWAPI_MAX_RETRIES and SWAPI_RETRY_DELAY change how many times and how long after")
+    void retriesCanBeChanged() {
+        application.withPropertyValues("SWAPI_MAX_RETRIES=3", "SWAPI_RETRY_DELAY=1s")
+                .run(context -> {
+                    SwapiProperties properties = context.getBean(SwapiProperties.class);
+                    assertThat(properties.maxRetries()).isEqualTo(3);
+                    assertThat(properties.retryDelay()).isEqualTo(Duration.ofSeconds(1));
+                });
+    }
+
+    @Test
+    @DisplayName("SWAPI_MAX_RETRIES=0 is valid: it switches the retries off")
+    void retriesCanBeSwitchedOff() {
+        application.withPropertyValues("SWAPI_MAX_RETRIES=0")
+                .run(context -> assertThat(context.getBean(SwapiProperties.class).maxRetries()).isZero());
+    }
+
+    @Test
+    @DisplayName("SWAPI_RETRY_DELAY=0s is valid: the retry is sent at once")
+    void retryCanBeSentAtOnce() {
+        application.withPropertyValues("SWAPI_RETRY_DELAY=0s")
+                .run(context -> assertThat(context.getBean(SwapiProperties.class).retryDelay()).isZero());
+    }
+
+    @ParameterizedTest(name = "SWAPI_MAX_RETRIES=\"{0}\"")
+    @ValueSource(strings = {"", "-1", "4", "100"})
+    @DisplayName("The application does not start with a number of retries out of the range from 0 to 3, and says which variable to fix")
+    void applicationDoesNotStartWithRetriesOutOfRange(String maxRetries) {
+        application.withPropertyValues("SWAPI_MAX_RETRIES=" + maxRetries)
+                .run(context -> assertThat(context).getFailure().rootCause()
+                        .hasMessageContaining("SWAPI_MAX_RETRIES"));
+    }
+
+    @Test
+    @DisplayName("The application does not start with a number of retries that is not a number")
+    void applicationDoesNotStartWithRetriesThatAreNotANumber() {
+        application.withPropertyValues("SWAPI_MAX_RETRIES=many")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @ParameterizedTest(name = "SWAPI_RETRY_DELAY=\"{0}\"")
+    @ValueSource(strings = {"", "-1ms", "-200ms"})
+    @DisplayName("The application does not start with a wait before a retry that is empty or negative, and says which variable to fix")
+    void applicationDoesNotStartWithARetryDelayThatIsEmptyOrNegative(String delay) {
+        application.withPropertyValues("SWAPI_RETRY_DELAY=" + delay)
+                .run(context -> assertThat(context).getFailure().rootCause()
+                        .hasMessageContaining("SWAPI_RETRY_DELAY"));
     }
 
     @Test

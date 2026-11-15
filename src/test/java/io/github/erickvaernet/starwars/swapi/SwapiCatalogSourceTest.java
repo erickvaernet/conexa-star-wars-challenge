@@ -98,6 +98,12 @@ class SwapiCatalogSourceTest {
     /** Short, so that the tests of the slow answer do not take long. Only they use it. */
     private static final Duration SHORT_READ_TIMEOUT = Duration.ofMillis(500);
 
+    /** The retries by default: one. What is retried, and what is not, has its own test class. */
+    private static final int MAX_RETRIES = 1;
+
+    /** Short, so that the tests of a failure that is retried do not take long. */
+    private static final Duration RETRY_DELAY = Duration.ofMillis(10);
+
     @Autowired
     private WireMockServer swapi;
 
@@ -114,7 +120,7 @@ class SwapiCatalogSourceTest {
         String baseUrl = environment.getRequiredProperty("SWAPI_BASE_URL");
         source = sourceAt(baseUrl);
         impatientSource = new SwapiCatalogSource(
-                new SwapiProperties(baseUrl, Duration.ofSeconds(3), SHORT_READ_TIMEOUT));
+                new SwapiProperties(baseUrl, Duration.ofSeconds(3), SHORT_READ_TIMEOUT, MAX_RETRIES, RETRY_DELAY));
     }
 
     @AfterEach
@@ -1067,7 +1073,8 @@ class SwapiCatalogSourceTest {
     }
 
     private static SwapiCatalogSource sourceAt(String baseUrl) {
-        return new SwapiCatalogSource(new SwapiProperties(baseUrl, Duration.ofSeconds(3), READ_TIMEOUT));
+        return new SwapiCatalogSource(
+                new SwapiProperties(baseUrl, Duration.ofSeconds(3), READ_TIMEOUT, MAX_RETRIES, RETRY_DELAY));
     }
 
 }
