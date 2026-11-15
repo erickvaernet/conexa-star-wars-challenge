@@ -117,6 +117,9 @@ class SwapiCatalogSourceRetryTest {
     void setUp() {
         baseUrl = environment.getRequiredProperty("SWAPI_BASE_URL");
         source = sourceWith(1, RETRY_DELAY, READ_TIMEOUT);
+        // The stub is shared with other test classes, and one that ran before may have left its
+        // requests written down: every test here counts all the requests that the stub received.
+        swapi.resetRequests();
     }
 
     @AfterEach
