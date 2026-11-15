@@ -16,6 +16,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -55,6 +56,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     /** The text of every 415. The one of Spring repeats the content type that the client sent. */
     static final String UNSUPPORTED_MEDIA_TYPE = "The content type of the request is not supported.";
+
+    /**
+     * The text of every 405, whoever answers it: this class, for a method that a route does not
+     * have, or {@link RejectedRequestController}, for one that the web server has switched off.
+     * The one of Spring repeats the method that the client sent.
+     */
+    static final String METHOD_NOT_SUPPORTED = "The method of the request is not supported.";
 
     /** The text of every 403: the session is valid, and its role does not allow the request. */
     static final String FORBIDDEN = "You do not have permission to perform this request.";
@@ -180,6 +188,19 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             HttpMediaTypeNotSupportedException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return handleExceptionInternal(
                 error, problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE, UNSUPPORTED_MEDIA_TYPE), headers, status, request);
+    }
+
+    /**
+     * A method that the route does not have. The text of Spring names the method that the client
+     * sent, so it is replaced. The headers are kept: they are written by the server, and
+     * {@code Allow} names the methods that the route does have.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHttpRequestMethodNotSupported(
+            HttpRequestMethodNotSupportedException error, HttpHeaders headers, HttpStatusCode status,
+            WebRequest request) {
+        return handleExceptionInternal(
+                error, problem(HttpStatus.METHOD_NOT_ALLOWED, METHOD_NOT_SUPPORTED), headers, status, request);
     }
 
     /**
