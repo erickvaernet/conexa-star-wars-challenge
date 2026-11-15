@@ -93,7 +93,8 @@ class ProtectedAccessAcceptanceTest {
 
     @ParameterizedTest(name = "GET {0}")
     @ValueSource(strings = {
-        "/api/v1/people"
+        "/api/v1/people",
+        "/api/v1/films"
     })
     @DisplayName("CA-10.4: with a valid token, a list is answered with 200")
     void listWithAValidTokenIsAnswered(String path) {

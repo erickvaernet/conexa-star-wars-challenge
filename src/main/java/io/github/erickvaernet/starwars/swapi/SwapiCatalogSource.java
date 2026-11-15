@@ -38,7 +38,9 @@ class SwapiCatalogSource implements CatalogSource {
      * entity that is added to the catalog adds its line here.
      */
     private static final Map<String, ParameterizedTypeReference<? extends SwapiItemResponse<?>>> ITEM_FORMATS =
-            Map.of("people", new ParameterizedTypeReference<SwapiItemResponse<SwapiPerson>>() { });
+            Map.of(
+                    "people", new ParameterizedTypeReference<SwapiItemResponse<SwapiPerson>>() { },
+                    "films", new ParameterizedTypeReference<SwapiItemResponse<SwapiFilm>>() { });
 
     /** The characters that mean something in a pattern: {@code \ ^ $ . | ? * + ( ) [ ] { }}. */
     private static final Pattern PATTERN_CHARACTERS = Pattern.compile("[\\\\^$.|?*+()\\[\\]{}]");

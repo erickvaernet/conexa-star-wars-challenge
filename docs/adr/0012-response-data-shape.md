@@ -117,3 +117,17 @@ Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
     - La alternativa era responder `502` ante cualquier dato que falte, con el mismo criterio que una dirección mal formada. Se descartó porque no son el mismo caso: una dirección mal formada es un dato que llegó y no se entiende, y devolver la relación sin ese elemento sería esconderlo; un valor que no llegó se ve en la respuesta, como `null`.
     - Límite conocido: en una relación, la respuesta no distingue "SWAPI no la envió" de "no tiene elementos". Las dos llegan como lista vacía.
   - **Dónde está cada cosa.** Los datos de detalle de cada entidad, con los nombres de esta API, están en `catalog`; los nombres de los campos de SWAPI y sus direcciones, en `swapi`, que es donde se traduce y se limpia ([ADR-0002](0002-code-organization.md), nota del 15/11/2026).
+- **15/11/2026.** Precisión que apareció al implementar el detalle de Films (ticket #12). El episodio de una película es el único valor que la API devuelve como número, y la nota anterior solo decía qué pasa cuando falta un texto. Estas filas se suman a su tabla:
+
+    | Qué envía SWAPI como episodio                                                  | Qué responde la API                  |
+    |--------------------------------------------------------------------------------|--------------------------------------|
+    | Un número entero (`4`)                                                         | Ese número                           |
+    | Nada, o un valor nulo                                                          | El episodio llega como `null`        |
+    | Otra cosa: un texto, aunque sea `"4"`; un número con decimales; un booleano    | `502`                                |
+
+    - **Si falta, `null`.** Es un valor secundario, igual que un texto que falta: la película se puede mostrar sin él, y el hueco se ve en la respuesta.
+    - **Si llega y no es un número entero, `502`.** Es un dato que llegó y no se entiende, el mismo caso que una dirección mal formada. El contrato dice que el episodio es un entero, así que no se puede devolver tal cual, como se hace con los textos.
+    - **Alternativa descartada: aceptar un texto que tenga solo dígitos.** Tolera que SWAPI cambie el tipo algún día, pero es una regla de conversión, y abre las mismas preguntas que este ADR evitó con los demás valores: qué hacer con `" 4 "`, con `"04"` o con `"4.0"`. La capa que traduce no interpreta los datos de SWAPI. Hoy las seis películas traen el episodio como número.
+    - **Tampoco se recorta un número con decimales.** `4.5` no pasa a ser `4`, y `4.0` tampoco: sería cambiar un valor sin avisar. Un entero demasiado grande para el tipo del contrato también responde `502`.
+    - **No se juzga el valor.** Un `0` o un número negativo se devuelven como llegan.
+    - **Quién decide.** La traducción recibe el valor sin fijarle un tipo y resuelve ella los tres casos. Si lo recibiera ya como entero, decidiría la librería que lee el JSON, que por defecto convierte `"4"` en `4` y recorta `4.5` a `4` (comprobado con la versión que usa el proyecto).

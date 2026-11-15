@@ -30,7 +30,7 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora están el login, la protección del acceso, el listado de People con sus filtros por ID y por nombre, y el detalle de un personaje, con la caché de las respuestas de SWAPI. Las otras tres entidades llegan con los próximos tickets.
+Por ahora están el login, la protección del acceso y dos de las cuatro entidades, People y Films, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Starships y Vehicles llegan con los próximos tickets.
 
 ### Iniciar sesión
 
@@ -192,6 +192,68 @@ curl "http://localhost:8080/api/v1/people?id=1&name=luke" \
 - El texto se busca tal cual: un punto es un punto y un paréntesis es un paréntesis. SWAPI los interpreta como parte de un patrón, así que la aplicación los escapa antes de consultarla. El porqué está en el [ADR-0004](docs/adr/0004-pagination-and-filters.md).
 - SWAPI responde una búsqueda con todas las coincidencias juntas. La aplicación recorta la página pedida y guarda la respuesta completa: recorrer las páginas de una búsqueda es un solo pedido a SWAPI.
 
+### Films
+
+Las películas se piden igual que los personajes: los mismos parámetros, la misma forma de respuesta y los mismos errores.
+
+| Pedido | Qué devuelve |
+|---|---|
+| `GET /api/v1/films` | El listado, con `page`, `size`, `id` y `name` |
+| `GET /api/v1/films/{id}` | Todos los datos de una película |
+
+```bash
+curl "http://localhost:8080/api/v1/films?page=2&size=2" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "content": [
+    { "id": "3", "name": "Return of the Jedi" },
+    { "id": "4", "name": "The Phantom Menace" }
+  ],
+  "page": 2,
+  "size": 2,
+  "totalElements": 6,
+  "totalPages": 3
+}
+```
+
+En un listado, el `name` de una película es su título, y el filtro `name` busca en el título. Este pedido devuelve "A New Hope":
+
+```bash
+curl "http://localhost:8080/api/v1/films?name=hope" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+El detalle devuelve todos los datos de la película. En este ejemplo el texto de apertura está recortado:
+
+```bash
+curl http://localhost:8080/api/v1/films/1 \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "id": "1",
+  "title": "A New Hope",
+  "episodeId": 4,
+  "openingCrawl": "It is a period of civil war.\r\nRebel spaceships, striking\r\nfrom a hidden base, have won...",
+  "director": "George Lucas",
+  "producer": "Gary Kurtz, Rick McCallum",
+  "releaseDate": "1977-05-25",
+  "characterIds": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "12", "13", "14", "15", "16", "18", "19", "81"],
+  "starshipIds": ["2", "3", "5", "9", "10", "11", "12", "13"],
+  "vehicleIds": ["4", "6", "7", "8"]
+}
+```
+
+- SWAPI no pagina las películas: devuelve las seis juntas, se le pida la página que se le pida. La aplicación recorta la página y guarda la lista completa, así que recorrer las páginas es un solo pedido a SWAPI.
+- El orden es el de SWAPI, que es el de estreno y no el de los episodios: la película `4` es el episodio 1.
+- `episodeId` es un número entero, el único valor de una película que no es texto. Si SWAPI no lo envía, llega como `null`; si envía algo que no es un número entero, la respuesta es `502`. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
+- `openingCrawl` conserva sus saltos de línea (`\r\n`): a los textos solo se les quitan los espacios del inicio y del final.
+- Los planetas y las especies de una película no se devuelven, porque la API no expone esas entidades.
+
 ### Configuración
 
 No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para cambiarlos, copiar `.env.example` a `.env`.
@@ -289,6 +351,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Caché de las respuestas de SWAPI ([#9](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/9)): un pedido repetido ya no vuelve a SWAPI durante una hora, y un error no se guarda. Se eligió Caffeine después de compararla con el mapa que trae Spring, que no vence ni tiene tope, y con escribirla a mano; se usa de forma directa, en una clase que envuelve al cliente de SWAPI. Los tests de aceptación se escribieron antes que el código y prueban el vencimiento adelantando el reloj de la caché, sin esperar. Quedó escrito el motivo del tope de 500 respuestas, que figuraba sin justificar. |
 | 15/11/2026 | Filtro por ID y detalle de un personaje ([#10](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/10)): `?id=` devuelve una página con uno o ningún elemento y `/people/{id}` todos los datos, con las relaciones como listas de identificadores. Los dos usan el mismo pedido a SWAPI y la misma respuesta guardada, y un "no existe" no se guarda. Los tests de aceptación se escribieron antes que el código; al escribirlos se vio que el detalle de un personaje inexistente ya respondía `404` antes de existir, porque la ruta no existía, así que los tests comprueban también qué se le pidió a SWAPI. El detalle vive en `catalog` sin ningún nombre de SWAPI y su traducción en `swapi`: desde ahora, sumar una entidad incluye esa pieza. |
 | 15/11/2026 | Filtro por nombre, solo y junto con el ID ([#11](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/11)): `?name=` busca por una parte del nombre, sin distinguir mayúsculas, y con `id` y `name` juntos se pide ese elemento y se comprueba su nombre. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI a una búsqueda con coincidencias y a una sin ninguna. Al grabarlas se vio que SWAPI interpreta el texto como un patrón: un punto coincidía con cualquier carácter y un paréntesis suelto le hacía responder un error. Ahora el texto se busca tal cual. La caché guarda una búsqueda entera, sin página ni tamaño, así que recorrer sus páginas es un solo pedido a SWAPI; lo mismo va a valer para el listado de Films. |
+| 15/11/2026 | Films, la segunda entidad ([#12](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/12)): listado paginado, filtros por ID y por título, y detalle. Fue el primer uso de los pasos para sumar una entidad: una carpeta en `catalog` con su controlador y sus datos de detalle, y su traducción en `swapi`; el núcleo, la validación, los errores y la caché no se tocaron. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que confirmaron lo previsto: no pagina las películas (devuelve las seis, se le pida la página que se le pida) y las busca por título. La aplicación recorta la página y recorrer las tres páginas es un solo pedido a SWAPI. El episodio es el único valor numérico: si SWAPI no lo envía llega como `null`, y si envía algo que no es un entero la respuesta es `502`, sin convertirlo. |
 
 ## Documentación
 
