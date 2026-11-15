@@ -10,6 +10,10 @@ import org.springframework.stereotype.Service;
  * <p>For a list or a search, it asks the source for the page and then decides by how the source
  * answered. It never asks which entity it is, so an entity that SWAPI starts or stops paging
  * needs no change here.
+ *
+ * <p>The elements of a page are summaries or, when the request asks for them, the elements with
+ * their complete data. The core pages both with the same code and never looks inside a complete
+ * element: all it knows of one is its summary.
  */
 @Service
 public class CatalogService {
@@ -33,25 +37,68 @@ public class CatalogService {
      *
      * <p>With the name alone, the source searches. Its matches are used as they come.
      *
+     * <p>When the query asks for the complete data, the elements and the totals are the same and
+     * only what each element brings changes: the source is asked for the same page with its
+     * complete elements, in a single request, and a filter by identifier returns the element it
+     * found instead of its summary.
+     *
      * @param entity the entity to list
-     * @param query  the page, the size and the filters that were asked for
+     * @param query  the page, the size and the filters that were asked for, and whether each
+     *               element comes with its complete data
+     * @param <E>    the name that the entity gives to an element of its list in the API
+     *               documentation, such as {@code PersonListElement}: "its summary or its
+     *               detail". It is an interface that nothing implements, and it says nothing
+     *               about what the page really holds
      */
-    public PageResult<ItemSummary> list(CatalogEntity entity, ListQuery query) {
+    public <E> PageResult<E> list(CatalogEntity entity, ListQuery query) {
+        PageResult<?> page = query.expanded() ? expandedPage(entity, query) : summaryPage(entity, query);
+        // The one conversion that the compiler cannot check. The page holds summaries or complete
+        // elements, and neither of them is an E.
+        // - Why it is harmless: the type of the elements is erased when the application runs,
+        //   and the page is only written as JSON, which looks at each object and not at this
+        //   type. No code reads an element of the page as an E.
+        // - Why it is here: Java has no type for "one of two", and the library that generates the
+        //   API documentation only learns the two forms from the type of the answer of each list.
+        @SuppressWarnings("unchecked")
+        PageResult<E> named = (PageResult<E>) page;
+        return named;
+    }
+
+    private PageResult<ItemSummary> summaryPage(CatalogEntity entity, ListQuery query) {
         if (query.id() != null) {
-            List<ItemSummary> found = source.find(entity, query.id())
-                    .map(CatalogItem::summary)
-                    .filter(item -> query.name() == null || query.name().matches(item.name()))
-                    .stream().toList();
-            // Cut like any whole list: a page after the first one is empty, and the totals still
-            // count the element.
-            return PageResult.sliceOf(found, query.page());
+            return PageResult.sliceOf(found(entity, query).stream().map(CatalogItem::summary).toList(), query.page());
         }
-        Listing listing = query.name() == null
+        return page(query.name() == null
                 ? source.list(entity, query.page())
-                : source.search(entity, query.name(), query.page());
+                : source.search(entity, query.name(), query.page()), query.page());
+    }
+
+    private PageResult<CatalogItem> expandedPage(CatalogEntity entity, ListQuery query) {
+        if (query.id() != null) {
+            return PageResult.sliceOf(found(entity, query), query.page());
+        }
+        return page(query.name() == null
+                ? source.listExpanded(entity, query.page())
+                : source.searchExpanded(entity, query.name(), query.page()), query.page());
+    }
+
+    /**
+     * The one or no element that a filter by identifier leaves: the element with that identifier,
+     * if the source has it and, when there is also a filter by name, if its name contains the
+     * text. It is cut afterwards like any whole list: a page after the first one is empty, and
+     * the totals still count the element.
+     */
+    private List<CatalogItem> found(CatalogEntity entity, ListQuery query) {
+        return source.find(entity, query.id())
+                .filter(item -> query.name() == null || query.name().matches(item.summary().name()))
+                .stream().toList();
+    }
+
+    /** Builds the page by how the source answered, whatever its elements are. */
+    private static <T> PageResult<T> page(Listing<T> listing, PageQuery query) {
         return switch (listing) {
-            case Listing.OnePage page -> PageResult.ofSourcePage(page.items(), page.totalElements(), query.page());
-            case Listing.Complete all -> PageResult.sliceOf(all.items(), query.page());
+            case Listing.OnePage<T> page -> PageResult.ofSourcePage(page.items(), page.totalElements(), query);
+            case Listing.Complete<T> all -> PageResult.sliceOf(all.items(), query);
         };
     }
 

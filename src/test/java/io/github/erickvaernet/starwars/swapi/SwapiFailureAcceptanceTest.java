@@ -1,6 +1,7 @@
 package io.github.erickvaernet.starwars.swapi;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -55,6 +56,12 @@ class SwapiFailureAcceptanceTest {
 
     /** The address of one of the films of character 1, as it is in the recorded answer. */
     private static final String FILM_ADDRESS = "https://www.swapi.tech/api/films/2";
+
+    /**
+     * The address of a film that, in the recorded page of two people with their complete data,
+     * only the second character has.
+     */
+    private static final String FILM_ADDRESS_OF_THE_SECOND_CHARACTER = "https://www.swapi.tech/api/films/5";
 
     /** The same address with nothing after its last slash: no identifier can be taken from it. */
     private static final String FILM_ADDRESS_WITHOUT_IDENTIFIER = "https://www.swapi.tech/api/films/";
@@ -159,6 +166,35 @@ class SwapiFailureAcceptanceTest {
                 .doesNotContain("springframework");
         // The 502 comes from what SWAPI answered, not from a request that never left.
         swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_CHARACTER_1)));
+    }
+
+    @Test
+    @DisplayName("CA-24.14: when SWAPI gives, in a page with expanded=true, a character a relation whose address does not end in an identifier, the list answers 502 without internal details")
+    void relationWithoutAnIdentifierInAnExpandedPageIsAnsweredWithBadGateway() throws IOException {
+        // Not a recording as it was served: it is the recorded first page of two people with
+        // expanded=true, with the address of one of the six films of its second character,
+        // C-3PO, cut right before the identifier. That address is only once in the page:
+        // everything else, the first character included, is what SWAPI sent.
+        String recorded = new ClassPathResource("swapi/__files/people-page-1-limit-2-expanded.json")
+                .getContentAsString(StandardCharsets.UTF_8);
+        assertThat(recorded).containsOnlyOnce('"' + FILM_ADDRESS_OF_THE_SECOND_CHARACTER + '"');
+        String altered = recorded.replace(
+                '"' + FILM_ADDRESS_OF_THE_SECOND_CHARACTER + '"', '"' + FILM_ADDRESS_WITHOUT_IDENTIFIER + '"');
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).withQueryParam("expanded", equalTo("true")).atPriority(1)
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, "application/json; charset=utf-8")
+                        .withBody(altered)));
+
+        // With one good character out of two, an answer of 200 with one element, or with the
+        // second one short of a film, would mean that something was left out in silence.
+        String body = expectProblem(client.get().uri(PEOPLE + "?expanded=true&size=2").exchange(), 502, "Bad Gateway");
+
+        // Nor the address that could not be read.
+        assertThat(body).doesNotContain("swapi.tech");
+        // The 502 comes from what SWAPI answered to the request for the complete data, not from
+        // a request that never left.
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)).withQueryParam("expanded", equalTo("true")));
     }
 
     @Test

@@ -24,7 +24,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Checks what the cache keeps, for how long and how much: which requests count as the same one,
  * when an answer expires, that a failure is never kept, and that the cache stops growing. A list
- * or a search that SWAPI answers whole is one answer for all its pages.
+ * or a search that SWAPI answers whole is one answer for all its pages. An answer with the
+ * complete data of its elements is kept apart from the one with their summaries, and each of its
+ * elements is kept as well as if it had been asked for alone.
  *
  * <p>SWAPI is a fake source written here, which remembers every request it gets. The cache is the
  * real one, built as the application builds it, with a clock that only moves when a test tells
@@ -62,7 +64,7 @@ class CachedCatalogSourceTest {
     /**
      * Every request that reached the fake SWAPI, in order: {@code people?page=1&limit=10} for a
      * list, {@code people?name=sky&page=1&limit=10} for a search and {@code people/1} for one
-     * element.
+     * element. A list or a search with the complete data ends in {@code &expanded=true}.
      */
     private final List<String> requestsToSwapi = new ArrayList<>();
 
@@ -76,8 +78,8 @@ class CachedCatalogSourceTest {
     @Test
     @DisplayName("A repeated request is answered with what was stored, without asking SWAPI again")
     void repeatedRequestIsAnsweredFromTheCache() {
-        Listing first = source.list(PEOPLE, new PageQuery(1, 10));
-        Listing second = source.list(PEOPLE, new PageQuery(1, 10));
+        Listing<ItemSummary> first = source.list(PEOPLE, new PageQuery(1, 10));
+        Listing<ItemSummary> second = source.list(PEOPLE, new PageQuery(1, 10));
 
         assertThat(second).isEqualTo(first).isEqualTo(listingOf("people?page=1&limit=10"));
         assertThat(requestsToSwapi).containsExactly("people?page=1&limit=10");
@@ -87,9 +89,9 @@ class CachedCatalogSourceTest {
     @DisplayName("Another page, another size or another entity is another request: each one is asked to SWAPI")
     void pageSizeAndEntityTellRequestsApart() {
         source.list(PEOPLE, new PageQuery(1, 10));
-        Listing otherPage = source.list(PEOPLE, new PageQuery(2, 10));
-        Listing otherSize = source.list(PEOPLE, new PageQuery(1, 5));
-        Listing otherEntity = source.list(STARSHIPS, new PageQuery(1, 10));
+        Listing<ItemSummary> otherPage = source.list(PEOPLE, new PageQuery(2, 10));
+        Listing<ItemSummary> otherSize = source.list(PEOPLE, new PageQuery(1, 5));
+        Listing<ItemSummary> otherEntity = source.list(STARSHIPS, new PageQuery(1, 10));
 
         assertThat(requestsToSwapi).containsExactly(
                 "people?page=1&limit=10",
@@ -196,7 +198,7 @@ class CachedCatalogSourceTest {
     @Test
     @DisplayName("An element and a list are never taken for each other, although both are kept in the same cache")
     void elementAndListAreNotMixedUp() {
-        Listing list = source.list(PEOPLE, new PageQuery(1, 10));
+        Listing<ItemSummary> list = source.list(PEOPLE, new PageQuery(1, 10));
         Optional<CatalogItem> element = source.find(PEOPLE, LUKE);
 
         assertThat(requestsToSwapi).containsExactly("people?page=1&limit=10", "people/1");
@@ -246,10 +248,10 @@ class CachedCatalogSourceTest {
     @Test
     @DisplayName("A list that SWAPI answers whole is stored once: another page or another size does not ask SWAPI again")
     void wholeListIsStoredOnceWhateverThePage() {
-        Listing first = source.list(FILMS, new PageQuery(1, 2));
-        Listing second = source.list(FILMS, new PageQuery(2, 2));
-        Listing third = source.list(FILMS, new PageQuery(3, 2));
-        Listing otherSize = source.list(FILMS, new PageQuery(1, 10));
+        Listing<ItemSummary> first = source.list(FILMS, new PageQuery(1, 2));
+        Listing<ItemSummary> second = source.list(FILMS, new PageQuery(2, 2));
+        Listing<ItemSummary> third = source.list(FILMS, new PageQuery(3, 2));
+        Listing<ItemSummary> otherSize = source.list(FILMS, new PageQuery(1, 10));
 
         assertThat(requestsToSwapi).containsExactly("films?page=1&limit=2");
         assertThat(first).isEqualTo(wholeListOf("films?page=1&limit=2"));
@@ -271,9 +273,9 @@ class CachedCatalogSourceTest {
     @Test
     @DisplayName("A search is stored once: walking its pages, or changing the size, does not ask SWAPI again")
     void searchIsStoredOnceWhateverThePage() {
-        Listing first = source.search(PEOPLE, SKY, new PageQuery(1, 2));
-        Listing second = source.search(PEOPLE, SKY, new PageQuery(2, 2));
-        Listing otherSize = source.search(PEOPLE, SKY, new PageQuery(1, 10));
+        Listing<ItemSummary> first = source.search(PEOPLE, SKY, new PageQuery(1, 2));
+        Listing<ItemSummary> second = source.search(PEOPLE, SKY, new PageQuery(2, 2));
+        Listing<ItemSummary> otherSize = source.search(PEOPLE, SKY, new PageQuery(1, 10));
 
         assertThat(requestsToSwapi).containsExactly("people?name=sky&page=1&limit=2");
         assertThat(first).isEqualTo(wholeListOf("people?name=sky&page=1&limit=2"));
@@ -294,8 +296,8 @@ class CachedCatalogSourceTest {
     @DisplayName("Another text or another entity is another search: each one is asked to SWAPI and gets its own answer")
     void textAndEntityTellSearchesApart() {
         source.search(PEOPLE, SKY, new PageQuery(1, 10));
-        Listing otherText = source.search(PEOPLE, new NameFilter("skyw"), new PageQuery(1, 10));
-        Listing otherEntity = source.search(STARSHIPS, SKY, new PageQuery(1, 10));
+        Listing<ItemSummary> otherText = source.search(PEOPLE, new NameFilter("skyw"), new PageQuery(1, 10));
+        Listing<ItemSummary> otherEntity = source.search(STARSHIPS, SKY, new PageQuery(1, 10));
 
         assertThat(requestsToSwapi).containsExactly(
                 "people?name=sky&page=1&limit=10",
@@ -308,8 +310,8 @@ class CachedCatalogSourceTest {
     @Test
     @DisplayName("A whole list and a search of the same entity are never taken for each other")
     void wholeListAndSearchDoNotShareAnAnswer() {
-        Listing list = source.list(FILMS, new PageQuery(1, 10));
-        Listing search = source.search(FILMS, new NameFilter("hope"), new PageQuery(1, 10));
+        Listing<ItemSummary> list = source.list(FILMS, new PageQuery(1, 10));
+        Listing<ItemSummary> search = source.search(FILMS, new NameFilter("hope"), new PageQuery(1, 10));
 
         assertThat(requestsToSwapi).containsExactly("films?page=1&limit=10", "films?title=hope&page=1&limit=10");
         assertThat(list).isEqualTo(wholeListOf("films?page=1&limit=10"));
@@ -319,8 +321,8 @@ class CachedCatalogSourceTest {
     @Test
     @DisplayName("Nor when the search is the one that was stored first")
     void searchAndWholeListDoNotShareAnAnswer() {
-        Listing search = source.search(FILMS, new NameFilter("hope"), new PageQuery(1, 10));
-        Listing list = source.list(FILMS, new PageQuery(1, 10));
+        Listing<ItemSummary> search = source.search(FILMS, new NameFilter("hope"), new PageQuery(1, 10));
+        Listing<ItemSummary> list = source.list(FILMS, new PageQuery(1, 10));
 
         assertThat(requestsToSwapi).containsExactly("films?title=hope&page=1&limit=10", "films?page=1&limit=10");
         assertThat(search).isEqualTo(wholeListOf("films?title=hope&page=1&limit=10"));
@@ -334,10 +336,10 @@ class CachedCatalogSourceTest {
     @Test
     @DisplayName("A search without matches is a correct answer and is stored like any other")
     void searchWithoutMatchesIsStored() {
-        Listing first = source.search(PEOPLE, NO_MATCH, new PageQuery(1, 10));
-        Listing second = source.search(PEOPLE, NO_MATCH, new PageQuery(2, 10));
+        Listing<ItemSummary> first = source.search(PEOPLE, NO_MATCH, new PageQuery(1, 10));
+        Listing<ItemSummary> second = source.search(PEOPLE, NO_MATCH, new PageQuery(2, 10));
 
-        assertThat(first).isEqualTo(new Listing.Complete(List.of()));
+        assertThat(first).isEqualTo(new Listing.Complete<>(List.of()));
         assertThat(second).isEqualTo(first);
         assertThat(requestsToSwapi).containsExactly("people?name=zzzz&page=1&limit=10");
     }
@@ -347,8 +349,8 @@ class CachedCatalogSourceTest {
     void searchThatSwapiCutsInPagesIsStoredByPage() {
         source.search(VEHICLES, SKY, new PageQuery(1, 10));
         source.search(VEHICLES, SKY, new PageQuery(1, 10));
-        Listing otherPage = source.search(VEHICLES, SKY, new PageQuery(2, 10));
-        Listing list = source.list(VEHICLES, new PageQuery(1, 10));
+        Listing<ItemSummary> otherPage = source.search(VEHICLES, SKY, new PageQuery(2, 10));
+        Listing<ItemSummary> list = source.list(VEHICLES, new PageQuery(1, 10));
 
         assertThat(requestsToSwapi).containsExactly(
                 "vehicles?name=sky&page=1&limit=10",
@@ -389,6 +391,187 @@ class CachedCatalogSourceTest {
         assertThat(requestsToSwapi).hasSize(4);
     }
 
+    @Test
+    @DisplayName("A repeated request for a page with the complete data is answered with what was stored, without asking SWAPI again")
+    void repeatedExpandedRequestIsAnsweredFromTheCache() {
+        Listing<CatalogItem> first = source.listExpanded(PEOPLE, new PageQuery(1, 10));
+        Listing<CatalogItem> second = source.listExpanded(PEOPLE, new PageQuery(1, 10));
+
+        assertThat(second).isSameAs(first);
+        assertThat(first.items()).extracting(item -> item.summary().name())
+                .containsOnly("people?page=1&limit=10&expanded=true");
+        assertThat(requestsToSwapi).containsExactly("people?page=1&limit=10&expanded=true");
+    }
+
+    @Test
+    @DisplayName("The same page with the complete data and with the summaries are two requests, each one with its own stored answer")
+    void expandedAndPlainAnswersAreStoredApart() {
+        Listing<CatalogItem> expanded = source.listExpanded(PEOPLE, new PageQuery(1, 10));
+        Listing<ItemSummary> plain = source.list(PEOPLE, new PageQuery(1, 10));
+
+        assertThat(requestsToSwapi).containsExactly("people?page=1&limit=10&expanded=true", "people?page=1&limit=10");
+        assertThat(plain).isEqualTo(listingOf("people?page=1&limit=10"));
+
+        // Neither one takes the place of the other: both are still there.
+        assertThat(source.listExpanded(PEOPLE, new PageQuery(1, 10))).isSameAs(expanded);
+        assertThat(source.list(PEOPLE, new PageQuery(1, 10))).isSameAs(plain);
+        assertThat(requestsToSwapi).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("The same holds in the other order, and for a list that SWAPI answers whole and for a search: the two forms never share an answer")
+    void wholeAnswersAreStoredApartToo() {
+        Listing<ItemSummary> plainFilms = source.list(FILMS, new PageQuery(1, 10));
+        Listing<CatalogItem> expandedFilms = source.listExpanded(FILMS, new PageQuery(1, 10));
+        Listing<ItemSummary> plainSearch = source.search(PEOPLE, SKY, new PageQuery(1, 10));
+        Listing<CatalogItem> expandedSearch = source.searchExpanded(PEOPLE, SKY, new PageQuery(1, 10));
+
+        assertThat(requestsToSwapi).containsExactly(
+                "films?page=1&limit=10",
+                "films?page=1&limit=10&expanded=true",
+                "people?name=sky&page=1&limit=10",
+                "people?name=sky&page=1&limit=10&expanded=true");
+        assertThat(source.list(FILMS, new PageQuery(1, 10))).isSameAs(plainFilms);
+        assertThat(source.listExpanded(FILMS, new PageQuery(1, 10))).isSameAs(expandedFilms);
+        assertThat(source.search(PEOPLE, SKY, new PageQuery(1, 10))).isSameAs(plainSearch);
+        assertThat(source.searchExpanded(PEOPLE, SKY, new PageQuery(1, 10))).isSameAs(expandedSearch);
+        assertThat(requestsToSwapi).hasSize(4);
+    }
+
+    @Test
+    @DisplayName("With the complete data too, another page, another size, another entity or another text is another request")
+    void expandedRequestsAreToldApartLikeTheOthers() {
+        source.listExpanded(PEOPLE, new PageQuery(1, 10));
+        source.listExpanded(PEOPLE, new PageQuery(2, 10));
+        source.listExpanded(PEOPLE, new PageQuery(1, 5));
+        source.listExpanded(VEHICLES, new PageQuery(1, 10));
+        // A search that the fake SWAPI cuts in pages, and the same one for another text.
+        source.searchExpanded(VEHICLES, SKY, new PageQuery(1, 10));
+        source.searchExpanded(VEHICLES, new NameFilter("speeder"), new PageQuery(1, 10));
+
+        assertThat(requestsToSwapi).containsExactly(
+                "people?page=1&limit=10&expanded=true",
+                "people?page=2&limit=10&expanded=true",
+                "people?page=1&limit=5&expanded=true",
+                "vehicles?page=1&limit=10&expanded=true",
+                "vehicles?name=sky&page=1&limit=10&expanded=true",
+                "vehicles?name=speeder&page=1&limit=10&expanded=true");
+    }
+
+    @Test
+    @DisplayName("A list or a search with the complete data that SWAPI answers whole is one stored answer for all its pages and sizes")
+    void wholeExpandedAnswerServesEveryPage() {
+        Listing<CatalogItem> films = source.listExpanded(FILMS, new PageQuery(1, 2));
+        Listing<CatalogItem> search = source.searchExpanded(PEOPLE, SKY, new PageQuery(1, 2));
+
+        assertThat(source.listExpanded(FILMS, new PageQuery(2, 2))).isSameAs(films);
+        assertThat(source.listExpanded(FILMS, new PageQuery(1, 10))).isSameAs(films);
+        assertThat(source.searchExpanded(PEOPLE, SKY, new PageQuery(2, 2))).isSameAs(search);
+        assertThat(source.searchExpanded(PEOPLE, SKY, new PageQuery(1, 100))).isSameAs(search);
+        assertThat(requestsToSwapi).containsExactly(
+                "films?page=1&limit=2&expanded=true", "people?name=sky&page=1&limit=2&expanded=true");
+    }
+
+    @Test
+    @DisplayName("Each element of a page with the complete data is stored as if it had been asked for alone: its detail does not ask SWAPI")
+    void elementsOfAnExpandedPageAreStoredByTheirIdentifier() {
+        Listing<CatalogItem> page = source.listExpanded(PEOPLE, new PageQuery(1, 10));
+
+        // The two elements of the page, and they are the very ones that came in it.
+        assertThat(source.find(PEOPLE, new ItemId("1")).orElseThrow()).isSameAs(page.items().get(0));
+        assertThat(source.find(PEOPLE, new ItemId("2")).orElseThrow()).isSameAs(page.items().get(1));
+        assertThat(requestsToSwapi).containsExactly("people?page=1&limit=10&expanded=true");
+
+        // An element that did not come in the page, and the same identifier in another entity,
+        // are still asked to SWAPI.
+        source.find(PEOPLE, new ItemId("3"));
+        source.find(VEHICLES, new ItemId("1"));
+        assertThat(requestsToSwapi).containsExactly(
+                "people?page=1&limit=10&expanded=true", "people/3", "vehicles/1");
+    }
+
+    @Test
+    @DisplayName("The elements of a whole list and of a search with the complete data are stored by their identifier too")
+    void elementsOfAWholeExpandedAnswerAreStoredByTheirIdentifier() {
+        Listing<CatalogItem> films = source.listExpanded(FILMS, new PageQuery(1, 10));
+        Listing<CatalogItem> search = source.searchExpanded(PEOPLE, SKY, new PageQuery(1, 10));
+
+        assertThat(source.find(FILMS, new ItemId("2")).orElseThrow()).isSameAs(films.items().get(1));
+        assertThat(source.find(PEOPLE, new ItemId("1")).orElseThrow()).isSameAs(search.items().get(0));
+        assertThat(requestsToSwapi).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("A list of summaries stores no element: its summaries are not the complete data")
+    void elementsOfAListOfSummariesAreNotStored() {
+        source.list(PEOPLE, new PageQuery(1, 10));
+        source.search(PEOPLE, SKY, new PageQuery(1, 10));
+
+        source.find(PEOPLE, LUKE);
+
+        assertThat(requestsToSwapi).containsExactly(
+                "people?page=1&limit=10", "people?name=sky&page=1&limit=10", "people/1");
+    }
+
+    @Test
+    @DisplayName("An element whose identifier does not have the form of one is not stored on its own, and the page that brought it is answered and stored all the same")
+    void elementWithAnIdentifierThatIsNotValidIsNotStoredOnItsOwn() {
+        // The fake SWAPI gives the starships the identifiers "x-wing" and "007". Neither can be
+        // asked for by its identifier, so there is no request that such an entry would answer.
+        Listing<CatalogItem> page = source.listExpanded(STARSHIPS, new PageQuery(1, 10));
+
+        assertThat(page.items()).extracting(item -> item.summary().id()).containsExactly("x-wing", "007");
+        cache.cleanUp();
+        // One entry, the page. With valid identifiers there would be three.
+        assertThat(cache.asMap()).hasSize(1);
+        assertThat(source.listExpanded(STARSHIPS, new PageQuery(1, 10))).isSameAs(page);
+        assertThat(requestsToSwapi).containsExactly("starships?page=1&limit=10&expanded=true");
+    }
+
+    @Test
+    @DisplayName("A page with the complete data takes one entry for itself and one for each of its elements")
+    void expandedPageTakesOneEntryForEachElement() {
+        source.listExpanded(PEOPLE, new PageQuery(1, 10));
+
+        cache.cleanUp();
+        assertThat(cache.asMap()).hasSize(3);
+
+        // Answered from the cache, the page stores nothing again.
+        source.listExpanded(PEOPLE, new PageQuery(1, 10));
+        cache.cleanUp();
+        assertThat(cache.asMap()).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("An error of SWAPI in a list with the complete data is not stored, and neither is any element")
+    void errorOfAnExpandedListIsNotStored() {
+        BadGatewayException failure = new BadGatewayException("SWAPI failed", null);
+        CachedCatalogSource failingOnce = new CachedCatalogSource(failingTheFirstTimeWith(failure), cache);
+
+        assertThatThrownBy(() -> failingOnce.listExpanded(PEOPLE, new PageQuery(1, 10))).isSameAs(failure);
+        cache.cleanUp();
+        assertThat(cache.asMap()).isEmpty();
+
+        // SWAPI recovers: the next request reaches it, and its answer is stored.
+        failingOnce.listExpanded(PEOPLE, new PageQuery(1, 10));
+        failingOnce.listExpanded(PEOPLE, new PageQuery(1, 10));
+        assertThat(requestsToSwapi).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("The elements stored from a page with the complete data expire like any other answer")
+    void elementsOfAnExpandedPageExpire() {
+        source.listExpanded(PEOPLE, new PageQuery(1, 10));
+
+        clock.advance(ONE_HOUR.minusSeconds(1));
+        source.find(PEOPLE, LUKE);
+        assertThat(requestsToSwapi).hasSize(1);
+
+        clock.advance(Duration.ofSeconds(2));
+        source.find(PEOPLE, LUKE);
+        assertThat(requestsToSwapi).containsExactly("people?page=1&limit=10&expanded=true", "people/1");
+    }
+
     /** A fake SWAPI that fails the first time it is asked, and answers from then on. */
     private CatalogSource failingTheFirstTimeWith(RuntimeException failure) {
         return new FakeSwapi(failure);
@@ -408,21 +591,43 @@ class CachedCatalogSourceTest {
         }
 
         @Override
-        public Listing list(CatalogEntity entity, PageQuery query) {
+        public Listing<ItemSummary> list(CatalogEntity entity, PageQuery query) {
             String request = entity.sourceName() + "?page=" + query.page() + "&limit=" + query.size();
             note(request);
             return entity.equals(FILMS) ? wholeListOf(request) : listingOf(request);
         }
 
         @Override
-        public Listing search(CatalogEntity entity, NameFilter name, PageQuery query) {
+        public Listing<ItemSummary> search(CatalogEntity entity, NameFilter name, PageQuery query) {
             String request = entity.sourceName() + "?" + entity.searchField() + "=" + name.value()
                     + "&page=" + query.page() + "&limit=" + query.size();
             note(request);
             if (name.equals(NO_MATCH)) {
-                return new Listing.Complete(List.of());
+                return new Listing.Complete<>(List.of());
             }
             return entity.equals(VEHICLES) ? listingOf(request) : wholeListOf(request);
+        }
+
+        @Override
+        public Listing<CatalogItem> listExpanded(CatalogEntity entity, PageQuery query) {
+            String request = entity.sourceName() + "?page=" + query.page() + "&limit=" + query.size() + "&expanded=true";
+            note(request);
+            return entity.equals(FILMS)
+                    ? new Listing.Complete<>(completeItemsOf(entity, request))
+                    : new Listing.OnePage<>(completeItemsOf(entity, request), 82);
+        }
+
+        @Override
+        public Listing<CatalogItem> searchExpanded(CatalogEntity entity, NameFilter name, PageQuery query) {
+            String request = entity.sourceName() + "?" + entity.searchField() + "=" + name.value()
+                    + "&page=" + query.page() + "&limit=" + query.size() + "&expanded=true";
+            note(request);
+            if (name.equals(NO_MATCH)) {
+                return new Listing.Complete<>(List.of());
+            }
+            return entity.equals(VEHICLES)
+                    ? new Listing.OnePage<>(completeItemsOf(entity, request), 82)
+                    : new Listing.Complete<>(completeItemsOf(entity, request));
         }
 
         @Override
@@ -442,18 +647,40 @@ class CachedCatalogSourceTest {
     }
 
     /** A list with one element named after the request, so that every request has its own answer. */
-    private static Listing listingOf(String request) {
-        return new Listing.OnePage(List.of(new ItemSummary("1", request)), 82);
+    private static Listing<ItemSummary> listingOf(String request) {
+        return new Listing.OnePage<>(List.of(new ItemSummary("1", request)), 82);
     }
 
     /** A whole list, not cut in pages, with one element named after the request. */
-    private static Listing wholeListOf(String request) {
-        return new Listing.Complete(List.of(new ItemSummary("1", request)));
+    private static Listing<ItemSummary> wholeListOf(String request) {
+        return new Listing.Complete<>(List.of(new ItemSummary("1", request)));
+    }
+
+    /**
+     * The elements of an answer with the complete data: two, with the identifiers 1 and 2, each
+     * one named after the request. The ones of the starships have identifiers that are not
+     * valid, which the real SWAPI does not send today.
+     */
+    private static List<CatalogItem> completeItemsOf(CatalogEntity entity, String request) {
+        if (entity.equals(STARSHIPS)) {
+            return List.of(new FakeCompleteItem("x-wing", request), new FakeCompleteItem("007", request));
+        }
+        return List.of(new FakeCompleteItem("1", request), new FakeCompleteItem("2", request));
     }
 
     /** An element named after the request, for the same reason. */
     private static CatalogItem itemOf(String request) {
         return new FakeItem(request);
+    }
+
+    /** An element of an answer with the complete data: with an identifier of its own. */
+    private record FakeCompleteItem(String id, String name) implements CatalogItem {
+
+        @Override
+        public ItemSummary summary() {
+            return new ItemSummary(id, name);
+        }
+
     }
 
     /** A record, so that two elements named the same are equal. */

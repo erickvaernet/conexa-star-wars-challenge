@@ -1,0 +1,18 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPath": "/api/people",
+    "queryParameters": {
+      "name": { "equalTo": "sky" },
+      "expanded": { "equalTo": "true" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "bodyFileName": "people-name-sky-expanded.json"
+  }
+}

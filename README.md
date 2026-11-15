@@ -198,6 +198,7 @@ Los cuatro listados aceptan los mismos parámetros:
 | `size` | `10` | Un entero de 1 a 100 |
 | `id` | — | Solo dígitos: de 1 a 10, sin ceros a la izquierda |
 | `name` | — | Un texto de 1 a 100 caracteres, sin contar los espacios del inicio y del final |
+| `expanded` | `false` | `true` o `false`, en minúsculas. Con `true`, cada elemento trae [todos sus datos](#pedir-los-datos-completos-en-el-listado) |
 
 ### Filtrar por ID y ver el detalle
 
@@ -273,15 +274,71 @@ curl "http://localhost:8080/api/v1/people?id=1&name=luke" \
   -H "Authorization: Bearer eyJ..."
 ```
 
+### Pedir los datos completos en el listado
+
+Por defecto cada elemento de un listado es un resumen: `id` y `name`. Con `expanded=true`, cada elemento es el mismo objeto que devuelve su detalle, y no hace falta un pedido por cada uno:
+
+```bash
+curl "http://localhost:8080/api/v1/people?expanded=true&size=2" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "content": [
+    {
+      "id": "1",
+      "name": "Luke Skywalker",
+      "birthYear": "19BBY",
+      "gender": "male",
+      "height": "172",
+      "mass": "77",
+      "hairColor": "blond",
+      "skinColor": "fair",
+      "eyeColor": "blue",
+      "filmIds": ["1", "2", "3", "6"],
+      "starshipIds": ["12", "22"],
+      "vehicleIds": ["14", "30"]
+    },
+    {
+      "id": "2",
+      "name": "C-3PO",
+      "birthYear": "112BBY",
+      "gender": "n/a",
+      "height": "167",
+      "mass": "75",
+      "hairColor": "n/a",
+      "skinColor": "gold",
+      "eyeColor": "yellow",
+      "filmIds": ["1", "2", "3", "4", "5", "6"],
+      "starshipIds": [],
+      "vehicleIds": []
+    }
+  ],
+  "page": 1,
+  "size": 2,
+  "totalElements": 82,
+  "totalPages": 41
+}
+```
+
+- La página es la misma: `expanded` no cambia qué elementos llegan, ni su orden, ni los totales. Solo cambia cuántos datos trae cada uno.
+- Se combina con los filtros: `people?name=sky&expanded=true` devuelve las coincidencias con todos sus datos, y `people?id=1&expanded=true`, una página con el detalle de ese personaje.
+- En Films, un elemento completo tiene `title` y no `name`, igual que su detalle.
+- Con `expanded=false`, o sin el parámetro, el listado es el de siempre.
+
+El porqué de esta forma, y las alternativas, están en el [ADR-0019](docs/adr/0019-expanded-listings.md).
+
 ### Reglas que valen para las cuatro entidades
 
 **Páginas y parámetros**
 
 - Una página posterior a la última devuelve `content` vacío, con los totales correctos.
 - Un valor inválido responde `400` y el `detail` dice qué parámetro corregir: `Parameter 'size' must be an integer between 1 and 100.`
-- Ese `400` trae además la lista `errors`, igual que el del login, con un elemento: `{ "field": "size", "message": "must be an integer between 1 and 100" }`. Si hay varios parámetros inválidos, nombra el primero, en el orden `page`, `size`, `id`, `name`. Vale también para el `id` de la ruta del detalle.
+- Ese `400` trae además la lista `errors`, igual que el del login, con un elemento: `{ "field": "size", "message": "must be an integer between 1 and 100" }`. Si hay varios parámetros inválidos, nombra el primero, en el orden `page`, `size`, `id`, `name`, `expanded`. Vale también para el `id` de la ruta del detalle.
 - Un ID con otro formato (`0`, `01`, `abc`) responde `400`, en el filtro y en el detalle, sin consultar a SWAPI: `Parameter 'id' must be a number of 1 to 10 digits, without leading zeros.`
 - Un `name` vacío, solo de espacios o de más de 100 caracteres responde `400`, sin consultar a SWAPI: `Parameter 'name' must have 1 to 100 characters, not counting leading and trailing spaces.`
+- Un `expanded` que no es exactamente `true` o `false` (`1`, `TRUE`, vacío) responde `400`, sin consultar a SWAPI: `Parameter 'expanded' must be true or false.`
 - Un parámetro mal codificado, como `name=100%` (un `%` suelto se escribe `%25`), responde `400`: `The request has a parameter that is not correctly encoded.`
 - Una dirección que el servidor no acepta, como una con `;` o con `//`, responde `400`, con token o sin él: `The request was rejected.`
 
@@ -306,6 +363,9 @@ curl "http://localhost:8080/api/v1/people?id=1&name=luke" \
 - Las respuestas de SWAPI se guardan en memoria durante una hora: un pedido repetido responde sin volver a SWAPI, que demora cada vez más a quien le hace muchos pedidos. Un error no se guarda. El porqué y los detalles están en el [ADR-0011](docs/adr/0011-swapi-response-cache.md).
 - El filtro por ID y el detalle del mismo elemento comparten la respuesta guardada: son un solo pedido a SWAPI. Un "no existe" no se guarda.
 - SWAPI responde una búsqueda con todas las coincidencias juntas. La aplicación recorta la página pedida y guarda la respuesta completa: recorrer las páginas de una búsqueda es un solo pedido a SWAPI.
+- Un listado con `expanded=true` es un solo pedido a SWAPI, que tiene ese mismo parámetro: no se pide cada elemento por separado. Su respuesta se guarda aparte de la del listado común, así que pedir el mismo listado de las dos formas son dos pedidos a SWAPI.
+- Cada elemento que llega en un listado con `expanded=true` queda guardado también por su identificador: pedir después su detalle, o filtrar por su ID, no vuelve a SWAPI.
+- Con `expanded=true`, si SWAPI entrega un solo elemento de la página con una relación que no se puede leer, toda la página responde `502`. El listado común no lee las relaciones y no corre ese riesgo.
 - El orden de un listado es el de SWAPI, que no siempre es el de los identificadores, y los identificadores tienen huecos. Hay un ejemplo en cada entidad.
 
 ### Lo particular de cada entidad
@@ -526,7 +586,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 853 tests: 698 corren con `./mvnw test` y 155 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Son 978 tests: 799 corren con `./mvnw test` y 179 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -629,6 +689,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Verificación automática en cada cambio ([#33](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/33)), el primer ticket del ciclo 2: cada pull request y cada cambio en `main` corren en GitHub Actions todos los tests sobre un JDK 21 y, a la vez, levantan la aplicación con `docker compose` y le hacen tres pedidos. Hasta acá los tests se habían corrido siempre con un JDK más nuevo y `docker compose` se comprobaba a mano. La primera ejecución pasó sin correcciones, con los 793 tests, en menos de dos minutos. Se comprobó una vez que un test roto se ve: un commit que rompía una regla a propósito dejó la ejecución en rojo, y se revirtió. El README muestra el distintivo con el estado de `main`. |
 | 15/11/2026 | Errores de validación campo por campo ([#35](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/35)): un `400` que sale de un campo del cuerpo o de un parámetro trae la lista `errors`, con el nombre de cada campo inválido y la regla que tiene que cumplir. En el login cada campo tiene un solo texto fijo, el mismo para todas sus reglas, así que aparece una sola vez; en los listados y el detalle la lista trae el primer parámetro inválido, sin cambiar su validación. El `415` pasó a tener un texto fijo, porque el de Spring repetía el `Content-Type` recibido. La documentación de la API muestra `errors` en el `400` de los nueve pedidos. Los tests de aceptación se escribieron antes que el código; ningún test anterior se tocó. Queda hecho el mecanismo que usa el alta de usuarios: un pedido nuevo con cuerpo solo declara el texto de cada campo. |
 | 15/11/2026 | Despliegue público, primera parte ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)): el despliegue quedó descripto en [`render.yaml`](render.yaml), sin ningún secreto y sin cambiar el código de la aplicación. Su test de aceptación lee las variables del propio archivo, así que no pueden desviarse: sin la variable que hace leer las cabeceras del intermediario, la documentación de la API declara su servidor con `http://` y el test falla. La imagen se probó con los límites del plan gratuito, 512 MB y una décima de procesador: arranca en un minuto y medio y usa la mitad de la memoria. El formato del archivo se revisó contra la referencia que publica el servicio, pero no contra el servicio. **Falta crear el servicio,** que es un paso del autor en persona; recién entonces hay una dirección pública, se mide sobre el servicio real y se cierra el ticket. |
+| 15/11/2026 | Datos completos a pedido en los listados ([#37](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/37)): con `expanded=true`, cada elemento de un listado es el mismo objeto que devuelve su detalle, para las cuatro entidades y combinado con los filtros. Es un solo pedido a SWAPI, que tiene ese mismo parámetro, y no uno por elemento; la fuente de datos sumó dos pedidos y el núcleo los pagina con el mismo código que a los resúmenes, sin conocer los datos de ninguna entidad. La caché guarda estas respuestas aparte de las comunes y, además, cada elemento que llega por su identificador: su detalle ya no vuelve a SWAPI. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI; cinco de los veinticuatro casos ya pasaban, porque describen lo que no cambia. Lo más incierto era documentar que un elemento es "el resumen o el detalle": se probaron seis formas antes de programar y quedó la que la librería entiende sola, a costa de un tipo por entidad que nada implementa y de una conversión que el compilador no puede comprobar, explicadas en el código y en el ADR-0019. |
 
 ## Documentación
 
