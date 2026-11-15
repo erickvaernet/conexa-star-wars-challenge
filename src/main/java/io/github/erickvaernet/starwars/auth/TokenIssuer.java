@@ -1,9 +1,7 @@
 package io.github.erickvaernet.starwars.auth;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import javax.crypto.spec.SecretKeySpec;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -26,8 +24,7 @@ class TokenIssuer {
     private final Duration ttl;
 
     TokenIssuer(JwtProperties properties) {
-        SecretKeySpec key = new SecretKeySpec(properties.secret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        this.encoder = NimbusJwtEncoder.withSecretKey(key).algorithm(MacAlgorithm.HS256).build();
+        this.encoder = NimbusJwtEncoder.withSecretKey(properties.signingKey()).algorithm(MacAlgorithm.HS256).build();
         this.ttl = Duration.ofMinutes(properties.ttlMinutes());
     }
 
