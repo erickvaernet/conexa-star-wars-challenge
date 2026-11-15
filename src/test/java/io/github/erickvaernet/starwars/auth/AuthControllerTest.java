@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -102,6 +103,19 @@ class AuthControllerTest {
                 .jsonPath("$.title").isEqualTo("Unauthorized")
                 .jsonPath("$.instance").isEqualTo(LOGIN)
                 .jsonPath("$.detail").value(String.class, detail -> assertThat(detail).doesNotContain("internal"));
+    }
+
+    @Test
+    @DisplayName("A rejected login names the way to authenticate, as HTTP requires of every 401")
+    void rejectedLoginNamesTheWayToAuthenticate() {
+        when(loginService.login(anyString(), anyString()))
+                .thenThrow(new BadCredentialsException("internal message"));
+
+        login("""
+                {"username": "demo", "password": "not-the-password"}
+                """)
+                .expectStatus().isUnauthorized()
+                .expectHeader().valueEquals(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
     }
 
     @Test

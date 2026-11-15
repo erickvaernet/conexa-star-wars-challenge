@@ -84,6 +84,37 @@ class TokenAccessTest {
     }
 
     @Test
+    @DisplayName("Without a token, the 401 names the way to authenticate, as HTTP requires of every 401")
+    void answerToAMissingTokenNamesTheWayToAuthenticate() {
+        client.get().uri(ROUTE)
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectHeader().valueEquals(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+    }
+
+    @ParameterizedTest(name = "Authorization: {0}")
+    @ValueSource(strings = {"Bearer not-a-token", "Bearer not a token", "Bearer"})
+    @DisplayName("With a malformed token, the 401 names the way to authenticate and nothing else")
+    void answerToAMalformedTokenNamesTheWayToAuthenticate(String authorization) {
+        // The header is the scheme alone, without the parameters that would say what was wrong.
+        client.get().uri(ROUTE)
+                .header(HttpHeaders.AUTHORIZATION, authorization)
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectHeader().valueEquals(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+    }
+
+    @Test
+    @DisplayName("With a token signed with another key, the 401 names the way to authenticate and nothing else")
+    void answerToATokenSignedWithAnotherKeyNamesTheWayToAuthenticate() {
+        client.get().uri(ROUTE)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenSignedWithAnotherKey())
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectHeader().valueEquals(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+    }
+
+    @Test
     @DisplayName("A token that is rejected is rejected on a public request too")
     void rejectedTokenIsRejectedOnAPublicRequestToo() {
         // The token is validated before the access rules are looked at. A public request needs no
