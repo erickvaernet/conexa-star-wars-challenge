@@ -13,7 +13,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -122,13 +121,6 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleNoResourceFoundException(
             NoResourceFoundException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        return handleExceptionInternal(error, notFound(), headers, status, request);
-    }
-
-    /** The same answer, for the case in which Spring is not looking for static files. */
-    @Override
-    protected ResponseEntity<Object> handleNoHandlerFoundException(
-            NoHandlerFoundException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return handleExceptionInternal(error, notFound(), headers, status, request);
     }
 
