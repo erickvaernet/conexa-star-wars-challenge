@@ -7,7 +7,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -17,8 +16,11 @@ import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
@@ -30,6 +32,10 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
  *
  * <p>A request has a session when its {@code Authorization: Bearer} header brings a token that
  * the login issued and that has not expired. The server keeps nothing between requests.
+ *
+ * <p>One request is kept for a role: only an administrator creates users. The role is read from
+ * the token, where the login wrote it. The order is always the same: first the session (401),
+ * then the role (403), and only then the content of the request (400).
  */
 @Configuration(proxyBeanMethods = false)
 // The access rules cannot work without the signing key. Declaring it here makes the token settings
@@ -37,8 +43,16 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 @EnableConfigurationProperties(JwtProperties.class)
 class SecurityConfiguration {
 
+    /** The role that the creation of users is kept for, as the token and the database write it. */
+    private static final String ADMIN = "ADMIN";
+
+    /** The claim of the token where the login writes the role of the user. */
+    private static final String ROLE_CLAIM = "role";
+
     @Bean
-    SecurityFilterChain accessRules(HttpSecurity http, AuthenticationEntryPoint notAuthenticated) throws Exception {
+    SecurityFilterChain accessRules(
+            HttpSecurity http, AuthenticationEntryPoint notAuthenticated, AccessDeniedHandler notAllowed)
+            throws Exception {
         return http
                 .authorizeHttpRequests(requests -> requests
                         // A request that the web server or these rules reject is handed over to
@@ -50,14 +64,20 @@ class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        // The only request kept for a role. Every other one is for any user with a session.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users").hasRole(ADMIN)
                         .anyRequest().authenticated())
                 // Spring Security reads the token of each request and validates it with tokenValidator().
-                // A rejected token is answered here; a missing one, by the line that follows. Both
+                // A rejected token is answered here; a missing one, by the lines that follow. Both
                 // use the same answer, so it does not tell why the request was rejected.
                 .oauth2ResourceServer(tokens -> tokens
-                        .jwt(Customizer.withDefaults())
-                        .authenticationEntryPoint(notAuthenticated))
-                .exceptionHandling(errors -> errors.authenticationEntryPoint(notAuthenticated))
+                        .jwt(token -> token.jwtAuthenticationConverter(roleFromTheToken()))
+                        .authenticationEntryPoint(notAuthenticated)
+                        // Its own answer to a 403 has no body, and a header that describes the error.
+                        .accessDeniedHandler(notAllowed))
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(notAuthenticated)
+                        .accessDeniedHandler(notAllowed))
                 // The server keeps no session and uses no cookies: each request stands on its own.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // CSRF abuses a session kept in a cookie. There is none, so its protection only gets in the way.
@@ -77,6 +97,34 @@ class SecurityConfiguration {
     AuthenticationEntryPoint notAuthenticated(
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errorHandlers) {
         return (request, response, error) -> errorHandlers.resolveException(request, response, null, error);
+    }
+
+    /**
+     * Answers a request whose session is valid and whose role does not allow it.
+     *
+     * <p>Like {@link #notAuthenticated}, it hands the error to the handlers that format the
+     * errors of the controllers, so a 403 has the same Problem Details format as any other error.
+     */
+    @Bean
+    AccessDeniedHandler notAllowed(@Qualifier("handlerExceptionResolver") HandlerExceptionResolver errorHandlers) {
+        return (request, response, error) -> errorHandlers.resolveException(request, response, null, error);
+    }
+
+    /**
+     * Tells Spring Security where the role of the user is in a token.
+     *
+     * <p>By default it looks for permissions in the claims {@code scope} and {@code scp}, which
+     * these tokens do not have. With this, it reads the claim {@code role} and names what it
+     * finds the way its rules expect a role: {@code ADMIN} becomes {@code ROLE_ADMIN}, which is
+     * what {@code hasRole("ADMIN")} asks for. A token without the claim gets no role.
+     */
+    private static JwtAuthenticationConverter roleFromTheToken() {
+        JwtGrantedAuthoritiesConverter role = new JwtGrantedAuthoritiesConverter();
+        role.setAuthoritiesClaimName(ROLE_CLAIM);
+        role.setAuthorityPrefix("ROLE_");
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(role);
+        return converter;
     }
 
     /**

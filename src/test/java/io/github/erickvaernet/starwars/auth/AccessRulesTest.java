@@ -68,7 +68,7 @@ class AccessRulesTest {
     }
 
     @ParameterizedTest(name = "POST {0}")
-    @ValueSource(strings = {"/api/v1/people", "/logout", "/actuator/health", "/v3/api-docs"})
+    @ValueSource(strings = {"/api/v1/people", "/api/v1/users", "/logout", "/actuator/health", "/v3/api-docs"})
     @DisplayName("Requests that change something are closed too")
     void writeRequestsAreClosed(String path) {
         client.post().uri(path).exchange().expectStatus().isUnauthorized();

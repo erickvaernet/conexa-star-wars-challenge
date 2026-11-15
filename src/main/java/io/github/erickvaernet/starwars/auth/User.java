@@ -7,11 +7,12 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 /**
  * A user that can log in. It maps the {@code users} table, which Flyway creates.
  *
- * <p>It has no setters: the MVP only reads users, which arrive through the seed.
+ * <p>It has no setters: a user is created, by the seed or by an administrator, and never changed.
  */
 @Entity
 @Table(name = "users")
@@ -42,7 +43,9 @@ class User {
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
-        this.createdAt = Instant.now();
+        // To the millisecond: the database keeps less digits than the clock gives, and whoever
+        // creates a user is told this moment. Cut here, what is told is exactly what is stored.
+        this.createdAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     }
 
     String getUsername() {
@@ -55,6 +58,10 @@ class User {
 
     String getRole() {
         return role;
+    }
+
+    Instant getCreatedAt() {
+        return createdAt;
     }
 
 }
