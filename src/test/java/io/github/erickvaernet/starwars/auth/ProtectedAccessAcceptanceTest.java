@@ -170,6 +170,44 @@ class ProtectedAccessAcceptanceTest {
         browser.get().uri(path).exchange().expectStatus().isOk();
     }
 
+    @ParameterizedTest(name = "GET {0}")
+    @ValueSource(strings = {
+        "/actuator/env",
+        "/actuator/beans",
+        "/actuator/metrics",
+        "/actuator/loggers",
+        "/actuator/threaddump",
+        "/actuator/configprops"
+    })
+    @DisplayName("With a valid token, the rest of Actuator is still not there: only the health check is exposed")
+    void restOfActuatorIsNotExposedToAUserWithASession(String path) {
+        // Without a token these are answered with 401 whether they are exposed or not. The token
+        // is what tells the two cases apart.
+        client.get().uri(path).header(HttpHeaders.AUTHORIZATION, bearer(login())).exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    @DisplayName("With a valid token, the health check still shows no internal details")
+    void healthCheckShowsNoDetailsToAUserWithASession() {
+        client.get().uri("/actuator/health").header(HttpHeaders.AUTHORIZATION, bearer(login())).exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("UP")
+                .jsonPath("$.components").doesNotExist();
+    }
+
+    @Test
+    @DisplayName("No answer sets a cookie: the server keeps no session between requests")
+    void noAnswerSetsACookie() {
+        client.get().uri(PEOPLE).exchange()
+                .expectStatus().isUnauthorized()
+                .expectHeader().doesNotExist(HttpHeaders.SET_COOKIE);
+        getPeopleWith(bearer(login()))
+                .expectStatus().isOk()
+                .expectHeader().doesNotExist(HttpHeaders.SET_COOKIE);
+    }
+
     /** Logs in as the test user and returns the token. */
     private String login() {
         String body = client.post().uri(LOGIN)

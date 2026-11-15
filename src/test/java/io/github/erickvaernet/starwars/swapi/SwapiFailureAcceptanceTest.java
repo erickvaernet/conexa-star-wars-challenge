@@ -161,6 +161,24 @@ class SwapiFailureAcceptanceTest {
         swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_CHARACTER_1)));
     }
 
+    @Test
+    @DisplayName("When SWAPI starts to answer in time and stops halfway, the list answers 504, not 502")
+    void swapiThatStopsHalfwayIsAnsweredWithGatewayTimeout() {
+        // Not a recording as it was served: it is the recorded first page, sent in five pieces
+        // along a time longer than the application waits. The headers arrive at once, so the
+        // wait runs out with the answer already begun.
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, "application/json; charset=utf-8")
+                        .withBodyFile("people-page-1-limit-10.json")
+                        .withChunkedDribbleDelay(5, SLOW_ANSWER_MILLISECONDS)));
+
+        expectProblem(client.get().uri(PEOPLE).exchange(), 504, "Gateway Timeout");
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
+    }
+
     /**
      * Checks an error in Problem Details format that shows nothing internal, and returns its
      * body.

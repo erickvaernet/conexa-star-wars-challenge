@@ -34,6 +34,7 @@ public class AuthController {
     /** Exchanges a user name and a password for a token. */
     @PostMapping(path = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "login",
             summary = "Log in and get a token",
             description = "Exchanges a user name and a password for a token. To use it on this page, copy "
                     + "`accessToken` from the answer, press **Authorize** and paste it: it is then sent with "

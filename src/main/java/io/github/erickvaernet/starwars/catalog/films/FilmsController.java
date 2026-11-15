@@ -48,6 +48,7 @@ class FilmsController {
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "listFilms",
             summary = "List films, one page at a time",
             description = "Each element has the identifier of a film and its title, as `name`, in the order of "
                     + "SWAPI: the one of release, not the one of the episodes. "
@@ -62,6 +63,7 @@ class FilmsController {
 
     @GetMapping(path = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "getFilm",
             summary = "Get the complete data of a film",
             description = "Every value is text, as SWAPI gives it, except the episode, which is a whole number. "
                     + "The relations are lists of identifiers of characters, starships and vehicles, which can "

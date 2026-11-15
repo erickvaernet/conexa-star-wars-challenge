@@ -1,5 +1,6 @@
 package io.github.erickvaernet.starwars.auth;
 
+import jakarta.servlet.DispatcherType;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -40,6 +41,12 @@ class SecurityConfiguration {
     SecurityFilterChain accessRules(HttpSecurity http, AuthenticationEntryPoint notAuthenticated) throws Exception {
         return http
                 .authorizeHttpRequests(requests -> requests
+                        // A request that the web server or these rules reject is handed over to
+                        // /error to be answered. That second pass brings no token with it:
+                        // without this rule it would be answered with 401, whatever the reason
+                        // of the rejection. It opens nothing: only the server starts such a
+                        // pass, and asking for /error directly is not one.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()

@@ -13,7 +13,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -34,6 +33,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     /** The type of an error that has no type of its own, as the RFC names it. */
     private static final URI NO_SPECIFIC_TYPE = URI.create("about:blank");
+
+    /** The text of every 404: an element and a route that do not exist are answered alike. */
+    static final String NOT_FOUND = "The requested resource was not found.";
+
+    /** The text of every 500. What failed goes to the log. */
+    static final String UNEXPECTED = "An unexpected error occurred.";
 
     /**
      * A login with wrong credentials. The answer does not say whether the user name or the
@@ -64,6 +69,21 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * A parameter that is not correctly encoded: a "%" that is not followed by two hexadecimal
+     * digits, as in {@code name=100%}, or bytes that are not UTF-8 text.
+     *
+     * <p>Tomcat finds it out when the parameters are first read, and by then the request is
+     * already inside a controller: without this it would end as an unexpected error, a 500 for a
+     * mistake of the client. Nothing goes to the log, as with any other invalid parameter, and
+     * the text is fixed: the message of Tomcat repeats what the client sent.
+     */
+    @ExceptionHandler(org.apache.tomcat.util.http.InvalidParameterException.class)
+    ProblemDetail handleParameterThatIsNotCorrectlyEncoded(
+            org.apache.tomcat.util.http.InvalidParameterException error) {
+        return problem(HttpStatus.BAD_REQUEST, "The request has a parameter that is not correctly encoded.");
+    }
+
+    /**
      * An element that does not exist, asked for by its address. The answer is the same as for a
      * route that does not exist: for the client, both are an address with nothing behind it.
      */
@@ -90,7 +110,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(Exception.class)
     ProblemDetail handleUnexpected(Exception error) {
         log.error("Unexpected error", error);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred.");
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, UNEXPECTED);
     }
 
     /**
@@ -101,13 +121,6 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleNoResourceFoundException(
             NoResourceFoundException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        return handleExceptionInternal(error, notFound(), headers, status, request);
-    }
-
-    /** The same answer, for the case in which Spring is not looking for static files. */
-    @Override
-    protected ResponseEntity<Object> handleNoHandlerFoundException(
-            NoHandlerFoundException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return handleExceptionInternal(error, notFound(), headers, status, request);
     }
 
@@ -140,11 +153,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(problem(HttpStatus.UNAUTHORIZED, detail));
     }
 
-    private static ProblemDetail notFound() {
-        return problem(HttpStatus.NOT_FOUND, "The requested resource was not found.");
+    static ProblemDetail notFound() {
+        return problem(HttpStatus.NOT_FOUND, NOT_FOUND);
     }
 
-    private static ProblemDetail problem(HttpStatus status, String detail) {
+    /** Builds an error with a fixed text and all the fields that every error of the API has. */
+    static ProblemDetail problem(HttpStatus status, String detail) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
         problem.setType(NO_SPECIFIC_TYPE);
         return problem;

@@ -6,6 +6,7 @@ import com.jayway.jsonpath.JsonPath;
 import io.github.erickvaernet.starwars.SwapiStubConfiguration;
 import io.github.erickvaernet.starwars.TestSession;
 import io.github.erickvaernet.starwars.TestcontainersConfiguration;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,6 +129,30 @@ class PaginationAcceptanceTest {
                 // It names the parameter that is wrong, and only that one.
                 .jsonPath("$.detail").value(String.class,
                         detail -> assertThat(detail).contains(parameter).doesNotContain(other));
+    }
+
+    // "%2B" is a plus sign, and "%D9%A1" and "%D9%A5" are the Arabic-Indic digits one and five.
+    @ParameterizedTest(name = "{0}={1}")
+    @CsvSource({
+        "page, %2B1",
+        "page, %D9%A1",
+        "size, %2B5",
+        "size, %D9%A5"
+    })
+    @DisplayName("A page or a size written with a sign or with digits of another alphabet is rejected with 400")
+    void pageOrSizeThatIsNotWrittenWithPlainDigitsIsRejected(String parameter, String value) {
+        // The address is written out in full, so that the client does not encode the "%" again.
+        URI address = URI.create("http://localhost:" + port + PEOPLE + "?" + parameter + "=" + value);
+
+        client.get().uri(address)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Bad Request")
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.instance").isEqualTo(PEOPLE)
+                .jsonPath("$.detail").value(String.class, detail -> assertThat(detail).contains(parameter));
     }
 
     @Test

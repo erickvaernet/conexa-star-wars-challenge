@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -127,6 +128,33 @@ class ApiDocumentationAcceptanceTest {
         List<String> everyGroup = JsonPath.read(documentation, "$.paths.*.*.tags[*]");
         assertThat(everyGroup.stream().distinct().sorted(String.CASE_INSENSITIVE_ORDER).findFirst())
                 .contains(groupsOfTheLogin.getFirst());
+    }
+
+    @Test
+    @DisplayName("Each request has a name of its own in the documentation, which says what it does")
+    void eachRequestHasANameOfItsOwn() {
+        // The generated clients name their methods after these. Without a name of its own, each
+        // request takes the one of its method in the code, and the repeated ones get a number:
+        // "list_2", "detail_3".
+        Map<String, String> expected = Map.of(
+                "POST /api/v1/auth/login", "login",
+                "GET /api/v1/people", "listPeople",
+                "GET /api/v1/people/{id}", "getPerson",
+                "GET /api/v1/films", "listFilms",
+                "GET /api/v1/films/{id}", "getFilm",
+                "GET /api/v1/starships", "listStarships",
+                "GET /api/v1/starships/{id}", "getStarship",
+                "GET /api/v1/vehicles", "listVehicles",
+                "GET /api/v1/vehicles/{id}", "getVehicle");
+
+        Map<String, String> documented = new HashMap<>();
+        for (String request : documentedRequests()) {
+            String method = request.substring(0, request.indexOf(' ')).toLowerCase(Locale.ROOT);
+            String path = request.substring(request.indexOf(' ') + 1);
+            documented.put(request, JsonPath.read(documentation, "$.paths['" + path + "']." + method + ".operationId"));
+        }
+
+        assertThat(documented).containsExactlyInAnyOrderEntriesOf(expected);
     }
 
     /** Every request of the documentation, as its method and its route. */

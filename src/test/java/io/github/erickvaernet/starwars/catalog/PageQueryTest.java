@@ -76,6 +76,39 @@ class PageQueryTest {
         assertThat(error.requirement()).isEqualTo("must be an integer between 1 and 100");
     }
 
+    // U+0661 is the Arabic-Indic digit one, U+FF11 the fullwidth digit one and U+0967 the
+    // Devanagari digit one. Java reads all of them as a 1.
+    @ParameterizedTest(name = "page=\"{0}\"")
+    @ValueSource(strings = {"+1", "+10", "\u0661", "\u0661\u0660", "\uFF11", "\u0967", "1\u0660"})
+    @DisplayName("A page written with a sign or with digits of another alphabet is rejected: only the digits 0 to 9 count")
+    void pageThatIsNotWrittenWithPlainDigitsIsRejected(String page) {
+        InvalidParameterException error =
+                catchThrowableOfType(InvalidParameterException.class, () -> PageQuery.of(page, null));
+
+        assertThat(error).isNotNull();
+        assertThat(error.parameter()).isEqualTo("page");
+        assertThat(error.requirement()).isEqualTo("must be an integer greater than or equal to 1");
+    }
+
+    @ParameterizedTest(name = "size=\"{0}\"")
+    @ValueSource(strings = {"+5", "+100", "\u0665", "\u0661\u0660", "\uFF15", "\u096B", "1\u0660"})
+    @DisplayName("A size written with a sign or with digits of another alphabet is rejected: only the digits 0 to 9 count")
+    void sizeThatIsNotWrittenWithPlainDigitsIsRejected(String size) {
+        InvalidParameterException error =
+                catchThrowableOfType(InvalidParameterException.class, () -> PageQuery.of(null, size));
+
+        assertThat(error).isNotNull();
+        assertThat(error.parameter()).isEqualTo("size");
+        assertThat(error.requirement()).isEqualTo("must be an integer between 1 and 100");
+    }
+
+    @Test
+    @DisplayName("Zeros on the left do not change the number: 01 is 1")
+    void zerosOnTheLeftAreAccepted() {
+        assertThat(PageQuery.of("01", "010")).isEqualTo(new PageQuery(1, 10));
+        assertThat(PageQuery.of("007", "0100")).isEqualTo(new PageQuery(7, 100));
+    }
+
     @Test
     @DisplayName("A query cannot be built with invalid values either")
     void queryCannotBeBuiltWithInvalidValues() {

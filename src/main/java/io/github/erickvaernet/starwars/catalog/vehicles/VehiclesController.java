@@ -43,6 +43,7 @@ class VehiclesController {
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "listVehicles",
             summary = "List vehicles, one page at a time",
             description = "Each element has the identifier of a vehicle and its name, in the order of SWAPI, "
                     + "which is not the one of the identifiers. "
@@ -57,6 +58,7 @@ class VehiclesController {
 
     @GetMapping(path = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "getVehicle",
             summary = "Get the complete data of a vehicle",
             description = "Every value is text, as SWAPI gives it, the quantities too: some are not plain "
                     + "numbers, like \"2 months\". A text only loses the spaces at its start and at its end. "
