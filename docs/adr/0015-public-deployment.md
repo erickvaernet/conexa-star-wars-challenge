@@ -110,3 +110,31 @@ El arranque lento:
 - La medición del arranque es de desarrollo. La real se toma con el primer despliegue y se anota acá.
 - Si los planes cambian, o si se acepta poner una tarjeta, Google Cloud Run es el reemplazo natural: la imagen y las variables son las mismas, y desaparece el problema del arranque. Se registraría en un ADR nuevo.
 - El README explica la elección, como pide el PRD, y muestra la URL en su primera pantalla.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Lo que apareció al dejar el despliegue descripto en el repositorio (ticket #34). **El servicio todavía no existe:** todo lo que sigue se hizo sin él, y lo que solo se puede saber con el servicio creado está listado al final.
+  - **`render.yaml` quedó como estaba previsto,** con dos ajustes de forma: el contexto de la construcción de la imagen está escrito (`dockerContext: .`) y los valores van entre comillas, porque las variables de entorno de Render son siempre textos.
+  - **El archivo y el test no pueden desviarse.** El test de CA-20.1 no copia las variables: lee de `render.yaml` las que tienen su valor escrito y se las da a la aplicación como variables de entorno, que es como las entrega el servicio. Sin `SERVER_FORWARD_HEADERS_STRATEGY` en el archivo, el test falla: la documentación declara `http://` y el nombre interno.
+  - **Contra qué se revisó el formato.** El sitio de documentación de Render no abrió desde el entorno de trabajo. Se revisó contra la referencia del formato que Render publica en su organización de GitHub ([`render-oss/skills`](https://github.com/render-oss/skills/tree/main/skills/render-blueprints), actualizada el 08/10/2026). Ahí figuran todas las claves que usa el archivo: `runtime: docker` con `dockerfilePath` y `dockerContext`; `plan: free`; `region`, con `virginia` entre sus valores; `healthCheckPath`; `autoDeployTrigger`, con `commit`, `checksPass` y `off`; y, en las variables, `value`, `sync: false` y `generateValue: true`. **No se validó contra el esquema ni contra el servicio:** las dos formas de validarlo que ofrece Render piden una cuenta. Se valida al crear el servicio, que lee el archivo y muestra sus errores.
+  - **Qué hace cada clave que carga un secreto,** según esa referencia. `sync: false` pide el valor una sola vez, al crear el servicio desde el archivo, y no lo vuelve a tocar. `generateValue: true` genera un valor al azar si la variable todavía no existe: la clave de firma no cambia con cada despliegue.
+  - **La imagen se probó como la va a correr el servicio:** con las variables de `render.yaml`, 512 MB de memoria y una décima de procesador, contra un PostgreSQL local. Tres arranques desde cero:
+
+    | Arranque, hasta que responde el control de estado | Memoria al arrancar | Memoria después de los primeros pedidos |
+    |---|---|---|
+    | 170 segundos, con la máquina ocupada en otra tarea | 225 MB | 262 MB |
+    | 95 segundos | 226 MB | 255 MB |
+    | 93 segundos | — | 254 MB |
+
+    Coincide con lo medido antes de decidir: un minuto y medio si nada más compite por el procesador, y cerca de tres si algo compite. La memoria queda en la mitad del límite, y la aplicación no se reinició ni se quedó sin memoria.
+  - **Qué respondió.** El control de estado, `UP`. El primer login del usuario de prueba, `200` en 6 a 7 segundos; el segundo, en menos de un segundo. La documentación de la API, pedida con las cabeceras que agrega el intermediario, declara su servidor con `https://` y el nombre público; sin las cabeceras, con `http://` y el nombre local. La primera vez tarda unos 10 segundos en generarse. Un listado sin token, `401`.
+  - **Los primeros pedidos se estorban entre sí.** Con el primer login y la primera lectura de la documentación a la vez, que es lo que provoca quien abre Swagger UI e inicia sesión, cada uno tardó 18 a 19 segundos, y un pedido al control de estado hecho en ese momento esperó 18 segundos. Después todo responde en milésimas. Importa por el punto siguiente.
+  - **Lo que no se pudo comprobar sin el servicio,** y se mira con el primer despliegue:
+    - Si Render tolera ese control de estado lento. Su referencia dice que da por fallido un control que tarda más de 5 segundos, que saca de servicio a una instancia tras 15 segundos de fallas seguidas y que la reinicia tras 60. Una espera de 18 segundos no llega a los 60 del reinicio, pero sí puede alcanzar los 15: la instancia podría quedar unos segundos fuera de servicio justo en la primera visita.
+    - Cuánto tarda de verdad el primer despliegue y el despertar después de dormirse.
+    - Qué cabeceras envía Render. El test usa las dos que nombra el criterio, `X-Forwarded-Proto` y `X-Forwarded-Host`.
+    - El largo de la clave que genera `generateValue`. La aplicación exige 32 caracteres y no arranca con menos, con un mensaje que lo dice.
+    - Que `checksPass` espere a la verificación de GitHub Actions y despliegue recién cuando pasa (CA-20.5).
+    - Que la región `virginia` de Render y la de Neon queden cerca. En Neon hay que elegir "AWS US East (N. Virginia)"; la región no se puede cambiar después.
