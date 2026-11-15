@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/api/people",
+    "queryParameters": {
+      "page": { "equalTo": "9" },
+      "limit": { "equalTo": "10" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "bodyFileName": "people-page-9-limit-10.json"
+  }
+}

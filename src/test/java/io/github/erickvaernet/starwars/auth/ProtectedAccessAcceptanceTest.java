@@ -3,6 +3,7 @@ package io.github.erickvaernet.starwars.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
+import io.github.erickvaernet.starwars.SwapiStubConfiguration;
 import io.github.erickvaernet.starwars.TestcontainersConfiguration;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
@@ -36,15 +37,16 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  * Acceptance tests for REQ-10: only a user with a session reaches the data.
  *
  * <p>The application runs on a real HTTP port against a real PostgreSQL, with the seed switched
- * on. A valid token is the one that the login gives to the test user. The tokens that must be
- * rejected are built here: the test alters a valid one, or signs its own with the signing key of
- * the tests.
+ * on, and looks for SWAPI at the simulated one: a request that gets past the access rules reaches
+ * a list, and the list needs SWAPI. A valid token is the one that the login gives to the test
+ * user. The tokens that must be rejected are built here: the test alters a valid one, or signs
+ * its own with the signing key of the tests.
  *
  * <p>The tests of a rejected token send the same request as the test of a valid token, and change
  * nothing but the token. That is what shows that the token is the reason for the rejection.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = "SEED_ENABLED=true")
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, SwapiStubConfiguration.class})
 class ProtectedAccessAcceptanceTest {
 
     private static final String LOGIN = "/api/v1/auth/login";
@@ -89,22 +91,21 @@ class ProtectedAccessAcceptanceTest {
         expectNotAuthenticated(client.get().uri(path).exchange(), path);
     }
 
-    /**
-     * Provisional: it is not a criterion of the specification.
-     *
-     * <p>No list exists yet, so a request that gets past the access rules ends in "not found".
-     * That answer is what proves that a valid token opens the access. Once a list exists this
-     * test goes away: CA-10.4 replaces it, with the four lists answering 200.
-     */
-    @Test
-    @DisplayName("Provisional, until CA-10.4: with a valid token, a protected request is no longer answered with 401")
-    void requestWithAValidTokenGetsPastTheAccessRules() {
-        getPeopleWith(bearer(login())).expectStatus().isNotFound();
+    @ParameterizedTest(name = "GET {0}")
+    @ValueSource(strings = {
+        "/api/v1/people"
+    })
+    @DisplayName("CA-10.4: with a valid token, a list is answered with 200")
+    void listWithAValidTokenIsAnswered(String path) {
+        client.get().uri(path).header(HttpHeaders.AUTHORIZATION, bearer(login())).exchange()
+                .expectStatus().isOk();
 
         // A token signed by this test is as good as one from the login. The tests of the rejected
         // tokens sign theirs the same way, so they are rejected only for what they change.
         Instant now = Instant.now();
-        getPeopleWith(bearer(sign(signingKey, now, now.plus(1, ChronoUnit.HOURS)))).expectStatus().isNotFound();
+        String signedHere = sign(signingKey, now, now.plus(1, ChronoUnit.HOURS));
+        client.get().uri(path).header(HttpHeaders.AUTHORIZATION, bearer(signedHere)).exchange()
+                .expectStatus().isOk();
     }
 
     @Test
