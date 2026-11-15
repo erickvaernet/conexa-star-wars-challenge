@@ -22,6 +22,7 @@ import io.github.erickvaernet.starwars.catalog.PageQuery;
 import io.github.erickvaernet.starwars.catalog.films.FilmDetail;
 import io.github.erickvaernet.starwars.catalog.people.PersonDetail;
 import io.github.erickvaernet.starwars.catalog.starships.StarshipDetail;
+import io.github.erickvaernet.starwars.catalog.vehicles.VehicleDetail;
 import io.github.erickvaernet.starwars.shared.BadGatewayException;
 import io.github.erickvaernet.starwars.shared.GatewayTimeoutException;
 import java.time.Duration;
@@ -59,6 +60,10 @@ class SwapiCatalogSourceTest {
     private static final CatalogEntity STARSHIPS = new CatalogEntity("starships", "name");
 
     private static final String SWAPI_STARSHIPS = "/api/starships";
+
+    private static final CatalogEntity VEHICLES = new CatalogEntity("vehicles", "name");
+
+    private static final String SWAPI_VEHICLES = "/api/vehicles";
 
     /** The identifier of the character that has a recording. */
     private static final ItemId LUKE = new ItemId("1");
@@ -687,6 +692,89 @@ class SwapiCatalogSourceTest {
                                 + "\"pilots\":[\"https://www.swapi.tech/api/people/\"]}}}")));
 
         assertThatThrownBy(() -> source.find(STARSHIPS, new ItemId("9"))).isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("A real page of vehicles, which SWAPI cuts in pages, is read as one page with the total, in the order of SWAPI")
+    void realPageOfVehiclesIsRead() {
+        Listing listing = source.list(VEHICLES, new PageQuery(1, 10));
+
+        // The order of SWAPI is not the one of the identifiers, and they have gaps.
+        assertThat(listing).isEqualTo(new Listing.OnePage(List.of(
+                new ItemSummary("4", "Sand Crawler"),
+                new ItemSummary("7", "X-34 landspeeder"),
+                new ItemSummary("6", "T-16 skyhopper"),
+                new ItemSummary("8", "TIE/LN starfighter"),
+                new ItemSummary("14", "Snowspeeder"),
+                new ItemSummary("18", "AT-AT"),
+                new ItemSummary("16", "TIE bomber"),
+                new ItemSummary("19", "AT-ST"),
+                new ItemSummary("20", "Storm IV Twin-Pod cloud car"),
+                new ItemSummary("24", "Sail barge")), 39));
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_VEHICLES))
+                .withQueryParam("page", equalTo("1"))
+                .withQueryParam("limit", equalTo("10")));
+    }
+
+    @Test
+    @DisplayName("A real vehicle of SWAPI is read: every field of its detail as text, its length without the space that SWAPI sends at its end, and its relations as identifiers")
+    void realVehicleIsRead() {
+        // The recording has the length as "36.8 ", with a space at the end.
+        assertThat(source.find(VEHICLES, new ItemId("4"))).contains(new VehicleDetail(
+                "4", "Sand Crawler", "Digger Crawler", "wheeled", "Corellia Mining Corporation", "150000", "36.8",
+                "46", "30", "30", "50000", "2 months", List.of("1", "5"), List.of()));
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_VEHICLES + "/4")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("Each data of a vehicle is read from its name in SWAPI, and its pilots become identifiers")
+    void eachDataOfAVehicleIsReadFromItsNameInSwapi() {
+        // Not a recording. Vehicle 4 of the recording has no pilots, and its passengers and its
+        // maximum speed are the same text. Here every value is different, so one read from the
+        // name of another shows.
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_VEHICLES + "/14"))
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("""
+                                {"message":"ok","result":{"properties":{
+                                  "created":"2026-11-14T16:52:06.918Z","edited":"2026-11-14T16:52:06.918Z",
+                                  "consumables":"none","name":"Snowspeeder","cargo_capacity":"10","passengers":"0",
+                                  "max_atmosphering_speed":"650","crew":"2","length":"4.5","model":"t-47 airspeeder",
+                                  "cost_in_credits":"75000","manufacturer":"Incom corporation",
+                                  "vehicle_class":"airspeeder",
+                                  "pilots":["https://www.swapi.tech/api/people/1","https://www.swapi.tech/api/people/18"],
+                                  "films":["https://www.swapi.tech/api/films/2"],
+                                  "url":"https://www.swapi.tech/api/vehicles/14"},
+                                  "description":"A vehicle","uid":"14"}}
+                                """)));
+
+        assertThat(source.find(VEHICLES, new ItemId("14"))).contains(new VehicleDetail(
+                "14", "Snowspeeder", "t-47 airspeeder", "airspeeder", "Incom corporation", "75000", "4.5", "2", "0",
+                "650", "10", "none", List.of("2"), List.of("1", "18")));
+    }
+
+    @Test
+    @DisplayName("A vehicle with only its identifier and its name is read: what SWAPI does not send is null or empty")
+    void vehicleWithOnlyItsNameIsRead() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_VEHICLES + "/4")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"result\":{\"uid\":\"4\",\"properties\":{\"name\":\"Sand Crawler\"}}}")));
+
+        assertThat(source.find(VEHICLES, new ItemId("4"))).contains(new VehicleDetail(
+                "4", "Sand Crawler", null, null, null, null, null, null, null, null, null, null,
+                List.of(), List.of()));
+    }
+
+    @Test
+    @DisplayName("A vehicle with a pilot whose address has no identifier is a failure of the data source")
+    void vehicleWithABadAddressIsAFailure() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_VEHICLES + "/4")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"result\":{\"uid\":\"4\",\"properties\":{\"name\":\"Sand Crawler\","
+                                + "\"pilots\":[\"https://www.swapi.tech/api/people/\"]}}}")));
+
+        assertThatThrownBy(() -> source.find(VEHICLES, new ItemId("4"))).isInstanceOf(BadGatewayException.class);
     }
 
     @Test
