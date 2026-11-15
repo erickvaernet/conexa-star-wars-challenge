@@ -11,6 +11,7 @@ import io.github.erickvaernet.starwars.shared.BadGatewayException;
 import io.github.erickvaernet.starwars.shared.GatewayTimeoutException;
 import java.net.http.HttpClient;
 import java.net.http.HttpTimeoutException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -21,6 +22,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * The data source of the catalog: it asks SWAPI over HTTP and translates what it answers.
@@ -49,7 +51,11 @@ class SwapiCatalogSource implements CatalogSource {
 
     private final RestClient swapi;
 
+    /** The longest wait for an answer, kept to tell an answer that was cut for taking too long. */
+    private final Duration readTimeout;
+
     SwapiCatalogSource(SwapiProperties properties) {
+        this.readTimeout = properties.readTimeout();
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(properties.connectTimeout())
                 .build();
@@ -94,7 +100,8 @@ class SwapiCatalogSource implements CatalogSource {
     }
 
     /** Sends a request for a list or for a search, and reads the answer in whichever form it came. */
-    private static Listing listing(CatalogEntity entity, String request, RestClient.RequestHeadersSpec<?> call) {
+    private Listing listing(CatalogEntity entity, String request, RestClient.RequestHeadersSpec<?> call) {
+        long startedAt = System.nanoTime();
         try {
             SwapiListResponse response = call.retrieve().body(SwapiListResponse.class);
             if (response == null) {
@@ -102,7 +109,7 @@ class SwapiCatalogSource implements CatalogSource {
             }
             return response.toListing(entity.searchField());
         } catch (RestClientException error) {
-            throw failure(request, error);
+            throw failure(request, error, startedAt);
         }
     }
 
@@ -133,6 +140,7 @@ class SwapiCatalogSource implements CatalogSource {
             throw new IllegalStateException("No format is declared for one element of " + entity.sourceName());
         }
         String request = "GET /" + entity.sourceName() + "/" + id.value();
+        long startedAt = System.nanoTime();
         try {
             SwapiItemResponse<?> response = swapi.get()
                     .uri("/{entity}/{id}", entity.sourceName(), id.value())
@@ -145,21 +153,37 @@ class SwapiCatalogSource implements CatalogSource {
         } catch (HttpClientErrorException.NotFound notFound) {
             return Optional.empty();
         } catch (RestClientException error) {
-            throw failure(request, error);
+            throw failure(request, error, startedAt);
         }
     }
 
-    /** Turns a failure of the HTTP client into one of the two errors of the data source. */
-    private static RuntimeException failure(String request, RestClientException error) {
+    /**
+     * Turns a failure of the HTTP client into one of the two errors of the data source.
+     *
+     * <p>Running out of time is the only case that is answered with a 504, and it arrives in two
+     * ways. If SWAPI did not connect or did not begin to answer in time, the HTTP client says
+     * so. If SWAPI began to answer and stopped halfway, the client only says that the answer
+     * could not be read, exactly as it does for an answer that is not JSON: what tells the two
+     * apart is how long the request had been waiting.
+     *
+     * @param startedAt when the request was sent, as {@link System#nanoTime()} gives it
+     */
+    private RuntimeException failure(String request, RestClientException error, long startedAt) {
+        if (error instanceof ResourceAccessException && error.getCause() instanceof HttpTimeoutException) {
+            return new GatewayTimeoutException("SWAPI did not answer " + request + " in time", error);
+        }
+        // An error status, such as 500 or 429, arrives with the start of the answer: it is never
+        // an answer that was cut, however long it took.
+        boolean cutForTakingTooLong = !(error instanceof RestClientResponseException)
+                && Duration.ofNanos(System.nanoTime() - startedAt).compareTo(readTimeout) >= 0;
+        if (cutForTakingTooLong) {
+            return new GatewayTimeoutException(
+                    "SWAPI began to answer " + request + " and did not finish in time", error);
+        }
         if (error instanceof ResourceAccessException) {
-            // The request could not be completed. Running out of time, to connect or to read, is
-            // told apart from the rest: it is the only case that is answered with a 504.
-            if (error.getCause() instanceof HttpTimeoutException) {
-                return new GatewayTimeoutException("SWAPI did not answer " + request + " in time", error);
-            }
             return new BadGatewayException("SWAPI could not be reached for " + request, error);
         }
-        // An error status, such as 500 or 429, or a body that is not the JSON that was expected.
+        // An error status, or a body that is not the JSON that was expected.
         return new BadGatewayException("SWAPI answered " + request + " with an error or an unreadable body", error);
     }
 
