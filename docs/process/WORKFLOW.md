@@ -16,7 +16,7 @@ Combina dos orígenes:
 1. **El qué y el cómo van en documentos distintos.** El PRD no nombra tecnologías, salvo las que impone la consigna.
 2. **No se avanza con dudas.** Las preguntas abiertas se responden una por una antes de aprobar un documento.
 3. **Cada etapa tiene una aprobación humana.** Ninguna empieza hasta que la anterior está revisada y aprobada.
-4. **Cada decisión técnica queda registrada** en un ADR, con las alternativas descartadas. Un ADR aceptado no se modifica: se reemplaza por otro.
+4. **Cada decisión técnica queda registrada** en un ADR, con las alternativas descartadas. Un ADR aceptado no se modifica: se reemplaza por otro. Solo admite notas fechadas que no cambian la decisión.
 5. **Los tests se escriben antes que el código,** a partir de criterios de aceptación ya aprobados.
 6. **Se trabaja en ciclos cortos** y cada ciclo termina con una versión que se puede entregar.
 7. **Todo se puede rastrear:** del requisito a la decisión, de la decisión a la regla, de la regla al ticket y del ticket al test.

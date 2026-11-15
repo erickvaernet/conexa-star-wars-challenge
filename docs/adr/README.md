@@ -19,5 +19,5 @@ Cada archivo registra una decisión: su contexto, lo que se eligió, las alterna
 ## Reglas
 
 - Un ADR nuevo parte de la [plantilla](0000-template.md).
-- Un ADR aceptado no se modifica. Si la decisión cambia, se escribe uno nuevo y el anterior pasa a "Reemplazado por ADR-NNNN".
+- Un ADR aceptado no se modifica. Si la decisión cambia, se escribe uno nuevo y el anterior pasa a "Reemplazado por ADR-NNNN". Sí admite notas fechadas que no cambian la decisión, en una sección "Notas posteriores" al final.
 - Las decisiones de los ciclos 2 y 3 se registran cuando empieza cada ciclo. Están listadas en la sección 4 del [RFC-001](../rfc/RFC-001-architecture.md).

@@ -213,7 +213,7 @@ La estructura de `docs/`, el orden de lectura y los identificadores están en el
 - El [índice](adr/README.md) lista todas las decisiones.
 - Se parte de la [plantilla](adr/0000-template.md).
 - Cada ADR registra **una** decisión e indica qué requisitos resuelve.
-- Un ADR aceptado no se modifica. Si la decisión cambia, se escribe un ADR nuevo y el anterior pasa a "Reemplazado por ADR-NNNN".
+- Un ADR aceptado no se modifica. Si la decisión cambia, se escribe un ADR nuevo y el anterior pasa a "Reemplazado por ADR-NNNN". Sí admite notas fechadas que no cambian la decisión, en una sección "Notas posteriores" al final.
 
 **Contenido de la especificación técnica**
 
