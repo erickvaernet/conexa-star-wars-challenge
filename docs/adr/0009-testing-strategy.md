@@ -44,3 +44,9 @@ Tres niveles de pruebas:
 - Los tests verifican lo que se cree que SWAPI responde. Si SWAPI cambia su formato, hay que volver a grabar las respuestas.
 - Los tests unitarios corren sin red y en segundos; los de aceptación tardan más porque levantan contenedores.
 - Las reglas de arquitectura protegen la estructura aunque el código lo escriba una herramienta de IA.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **14/11/2026.** Este ADR nombra JUnit 5. Al armar el esqueleto del proyecto se vio que Spring Boot 4.1 trae JUnit 6 (la 6.0.3), y esa es la versión que se usa. Los tests se escriben igual: las mismas anotaciones y la misma forma de organizarlos. La decisión no cambia: se usa la versión de JUnit que acompaña a Spring Boot, junto con Mockito y AssertJ.
