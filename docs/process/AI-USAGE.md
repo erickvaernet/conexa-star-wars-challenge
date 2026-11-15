@@ -6,7 +6,7 @@ Qué se delegó en herramientas de IA en este proyecto, cómo se revisó y qué 
 
 | Campo | Valor |
 |---|---|
-| Estado | Al 15/11/2026, con el ciclo 1 cerrado (tickets #5 a #16, revisión final y sus correcciones) y el ciclo 2 implementado: los tickets #33, #35, #36, #37 y #38 están fusionados en `main`; del #34 está fusionado el archivo que describe el despliegue, y el servicio público todavía no existe. La revisión final del ciclo 2 está hecha, y este documento incluye sus correcciones |
+| Estado | Al 15/11/2026, con el ciclo 1 cerrado (tickets #5 a #16, revisión final y sus correcciones) y el ciclo 2 implementado: los tickets #33, #35, #36, #37 y #38 están fusionados en `main`; del #34 está fusionado el archivo que describe el despliegue, y el servicio público todavía no existe. La revisión final del ciclo 2 está hecha, y este documento incluye sus correcciones. El ciclo 2 está cerrado como versión `v0.2.0`, y el #34 pasó al ciclo 3 |
 | Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30. La sección del ciclo 2 la redactó la sesión que preparó ese ciclo; lo que pasó al implementar se sumó en los pull requests de los tickets, y la sesión de la revisión final del ciclo 2 la completó después de encontrar que había quedado a medio actualizar |
 
 ## En resumen
@@ -54,6 +54,7 @@ En GitHub, los commits, los pull requests y las fusiones figuran a nombre del au
 | Tests de aceptación de los tickets #33 a #38 | La sesión supervisora, salvo los del ticket #35, que aprobó el autor | Antes del código, con el mismo criterio que en el ciclo 1. En el ticket #33 no hay tests nuevos: lo que se revisó fue la prueba de romper un test a propósito, ver la ejecución en rojo y revertirlo |
 | Pull requests de los tickets #33 a #38 ([#40](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/40) a [#45](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/45)) | La sesión supervisora | Con la misma lista de control, y desde el ticket #33 con la verificación automática de GitHub a la vista. **El autor no revisó ninguno** |
 | El ciclo 2 completo, con cinco de sus seis tickets fusionados | Una sesión aparte de la herramienta de IA, sin conocer las conclusiones de las revisiones anteriores. Es la misma herramienta: no es una mirada independiente | Con la misma consigna que la del ciclo 1, sobre un clon limpio. Además de lo que hizo aquella, atacó las reglas por rol y el alta de usuarios, y midió los reintentos contra una SWAPI simulada propia. Encontró 0 fallas críticas, 2 importantes y 6 menores, y dejó 6 observaciones. De 17 roturas hechas a propósito, los tests detectaron 16 |
+| Pull request de las correcciones de la revisión final del ciclo 2 ([#46](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/46)) | La sesión supervisora | Leyó el cambio completo y el informe de la sesión que lo escribió, esperó la verificación automática de GitHub, levantó la aplicación desde esa rama con `docker compose` y probó lo nuevo: los textos del `405` y del `400`, y los ejemplos de la documentación contra las respuestas. No repitió en local la verificación completa: tomó la de GitHub. Lo fusionó. **El autor no lo revisó** |
 
 Lista de control de cada pull request, que armó la propia sesión supervisora:
 
@@ -180,6 +181,8 @@ Cómo se decidió el ciclo 2 antes de empezar a programar, lo que pasó al imple
   - Cuatro precisiones de los documentos.
 - **Qué quedó como está, declarado:** la conversión que el compilador no puede comprobar en los listados ([ADR-0019](../adr/0019-expanded-listings.md)), el bloque del reintento escrito dos veces en el cliente de SWAPI y la caché sin tipos. Las tres son observaciones de diseño de esa revisión, no errores.
 - **Quién decidió qué.** La sesión supervisora eligió qué corregir y qué no; el autor no lo revisó antes. La sesión de la revisión escribió las correcciones, con los tests antes que el código. Cambió dos tests ya aprobados, con autorización de la sesión supervisora: el de CA-24.2, y el test unitario que fijaba el texto anterior del `405`.
+
+**El cierre del ciclo 2.** El autor había fijado que lo que no entrara pasaba al ciclo 3. Al cerrar faltaba una sola cosa, crear el servicio del despliegue público, que pide dos cuentas que el autor crea en persona. La sesión supervisora le preguntó si las iba a crear, no tuvo respuesta antes del cierre y aplicó esa regla: movió el ticket #34 al ciclo 3, lo anotó en el [PRD](../requirements/PRD.md#historial-de-cambios) y etiquetó la versión `v0.2.0`. También tildó las tareas de los tickets cerrados del ciclo, después de que la revisión final comprobara sus criterios.
 
 ## Límites
 

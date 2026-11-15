@@ -138,3 +138,4 @@ Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
     - El largo de la clave que genera `generateValue`. La aplicación exige 32 caracteres y no arranca con menos, con un mensaje que lo dice.
     - Que `checksPass` espere a la verificación de GitHub Actions y despliegue recién cuando pasa (CA-20.5).
     - Que la región `virginia` de Render y la de Neon queden cerca. En Neon hay que elegir "AWS US East (N. Virginia)"; la región no se puede cambiar después.
+- **15/11/2026.** El ciclo 2 cerró sin el servicio creado: el ticket #34 pasó al ciclo 3 y sigue abierto hasta que la dirección pública responda. Lo que este ADR deja para validar con el primer despliegue (la lista de arriba) sigue sin validarse.
