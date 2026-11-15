@@ -58,3 +58,8 @@ Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
   - Un error nunca se guarda: si se guardara, una caída breve de SWAPI se seguiría viendo hasta que venza la entrada.
   - Consecuencia: repetir el pedido de un identificador inexistente vuelve a llamar a SWAPI. La protección contra el abuso es el límite de pedidos por usuario (REQ-31), previsto para el ciclo 3.
   - Una búsqueda sin resultados sí se guarda, porque SWAPI la responde como correcta, con una lista vacía.
+- **14/11/2026.** Se revisó si convenía guardar solo los listados y dejar afuera los recursos específicos (`/people/1`), para que la caché no se llene. Se mantuvo la decisión de guardar todo.
+  - Los recursos específicos son la parte más acotada: existen 163 (82 personajes, 6 películas, 36 naves y 39 vehículos), cada respuesta real pesa entre 0,7 y 2,6 KB, y un identificador inexistente no se guarda.
+  - Son además los pedidos que más se repiten, y los filtros por ID se resuelven con ese mismo pedido a SWAPI.
+  - Lo que no tiene límite son las búsquedas por nombre y los números de página: cada texto y cada número es una entrada distinta, y una búsqueda sin resultados se guarda.
+  - El tamaño máximo impide que la caché crezca sin límite, pero una avalancha de búsquedas inútiles podría desplazar datos útiles. Con un uso normal no se llega a ese punto, así que la mejora queda como requisito "Podría" (REQ-35): guardar por separado los recursos específicos y los listados, cada grupo con su tope.
