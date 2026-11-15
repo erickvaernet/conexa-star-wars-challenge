@@ -1,6 +1,8 @@
 package io.github.erickvaernet.starwars.auth;
 
+import java.time.Duration;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,6 +11,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.servlet.HandlerExceptionResolver;
@@ -21,6 +27,9 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
  * check.
  */
 @Configuration(proxyBeanMethods = false)
+// The access rules cannot work without the signing key. Declaring it here makes the token settings
+// available wherever these rules are loaded, including the tests that load only the web layer.
+@EnableConfigurationProperties(JwtProperties.class)
 class SecurityConfiguration {
 
     @Bean
@@ -51,6 +60,24 @@ class SecurityConfiguration {
     AuthenticationEntryPoint notAuthenticated(
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errorHandlers) {
         return (request, response, error) -> errorHandlers.resolveException(request, response, null, error);
+    }
+
+    /**
+     * Validates the token of a request: its signature and its expiry.
+     *
+     * <p>It accepts only HS256 and the key that the login signs with. The validation itself is
+     * done by Spring Security.
+     */
+    @Bean
+    JwtDecoder tokenValidator(JwtProperties properties) {
+        NimbusJwtDecoder validator = NimbusJwtDecoder
+                .withSecretKey(properties.signingKey())
+                .macAlgorithm(MacAlgorithm.HS256)
+                .build();
+        // Spring Security accepts a token up to 60 seconds after it expired, to allow for servers
+        // whose clocks differ. Here the same server issues and validates, so there is no tolerance.
+        validator.setJwtValidator(new JwtTimestampValidator(Duration.ZERO));
+        return validator;
     }
 
     /** Passwords are stored and compared as BCrypt hashes. */

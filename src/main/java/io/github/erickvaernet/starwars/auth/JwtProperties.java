@@ -1,5 +1,8 @@
 package io.github.erickvaernet.starwars.auth;
 
+import java.nio.charset.StandardCharsets;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -25,6 +28,16 @@ record JwtProperties(String secret, long ttlMinutes) {
         if (ttlMinutes < 1) {
             throw new IllegalArgumentException("JWT_TTL_MINUTES must be 1 or more.");
         }
+    }
+
+    /**
+     * The secret as an HS256 key.
+     *
+     * <p>The login signs with it and every request is validated with it. Both take it from here,
+     * so they cannot end up with different keys.
+     */
+    SecretKey signingKey() {
+        return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
     }
 
 }
