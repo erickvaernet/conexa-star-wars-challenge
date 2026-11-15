@@ -98,6 +98,37 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("A user name longer than the column that stores it is answered with 400, before any credential is checked")
+    void userNameThatIsTooLongIsRejected() {
+        expectInvalidBody(loginAs("u".repeat(51), "demo1234"));
+    }
+
+    @Test
+    @DisplayName("A password longer than what BCrypt reads is answered with 400, before any credential is checked")
+    void passwordThatIsTooLongIsRejected() {
+        expectInvalidBody(loginAs("demo", "p".repeat(73)));
+    }
+
+    @ParameterizedTest(name = "user name with the character U+{0}")
+    @ValueSource(strings = {"0000", "0007", "000A", "001F", "007F", "0085"})
+    @DisplayName("A user name with a control character is answered with 400: the database cannot even look it up")
+    void userNameWithAControlCharacterIsRejected(String codePoint) {
+        String control = Character.toString(Integer.parseInt(codePoint, 16));
+
+        expectInvalidBody(loginAs("de" + control + "mo", "demo1234"));
+    }
+
+    @Test
+    @DisplayName("A user name and a password of the longest size accepted reach the login rules")
+    void longestUserNameAndPasswordAreAccepted() {
+        String username = "u".repeat(50);
+        String password = "p".repeat(72);
+        when(loginService.login(username, password)).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
+
+        loginAs(username, password).expectStatus().isOk();
+    }
+
+    @Test
     @DisplayName("A rejected login is answered with 401, and the answer says nothing about the cause")
     void rejectedLoginIsAnsweredWith401() {
         when(loginService.login(anyString(), anyString()))
@@ -144,6 +175,36 @@ class AuthControllerTest {
                 .jsonPath("$.type").isEqualTo("about:blank")
                 .jsonPath("$.status").isEqualTo(500)
                 .jsonPath("$.detail").value(String.class, detail -> assertThat(detail).doesNotContain("10.0.0.7"));
+    }
+
+    @Test
+    @DisplayName("A rejected login says exactly this, whatever the cause: the text is fixed")
+    void rejectedLoginHasAFixedText() {
+        when(loginService.login(anyString(), anyString()))
+                .thenThrow(new BadCredentialsException("internal message"));
+
+        login("""
+                {"username": "demo", "password": "not-the-password"}
+                """)
+                .expectStatus().isUnauthorized()
+                .expectBody()
+                .jsonPath("$.detail").isEqualTo("Invalid username or password.");
+    }
+
+    @Test
+    @DisplayName("An unexpected failure says exactly this, whatever failed: the text is fixed")
+    void unexpectedFailureHasAFixedText() {
+        when(loginService.login(anyString(), anyString()))
+                .thenThrow(new IllegalStateException("connection to 10.0.0.7 refused"));
+
+        login("""
+                {"username": "demo", "password": "demo1234"}
+                """)
+                .expectStatus().isEqualTo(500)
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Internal Server Error")
+                .jsonPath("$.detail").isEqualTo("An unexpected error occurred.")
+                .jsonPath("$.instance").isEqualTo(LOGIN);
     }
 
     @Test
@@ -263,6 +324,29 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .exchange();
+    }
+
+    /** Sends the two values as they are: the client writes the JSON and escapes what needs it. */
+    private RestTestClient.ResponseSpec loginAs(String username, String password) {
+        return client.post().uri(LOGIN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("username", username, "password", password))
+                .exchange();
+    }
+
+    /** Checks the 400 of a body that is not accepted, and that no credential was checked. */
+    private void expectInvalidBody(RestTestClient.ResponseSpec response) {
+        response
+                .expectStatus().isBadRequest()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.type").isEqualTo("about:blank")
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.title").isEqualTo("Bad Request")
+                .jsonPath("$.detail").isEqualTo("Invalid request content.")
+                .jsonPath("$.instance").isEqualTo(LOGIN);
+
+        verifyNoInteractions(loginService);
     }
 
 }

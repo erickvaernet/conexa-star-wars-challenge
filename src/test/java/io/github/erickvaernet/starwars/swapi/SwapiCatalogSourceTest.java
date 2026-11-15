@@ -359,6 +359,34 @@ class SwapiCatalogSourceTest {
     }
 
     @Test
+    @DisplayName("An answer that starts in time and stops halfway is a timeout too, not an answer that cannot be read")
+    void answerThatStopsHalfwayIsATimeout() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBodyFile("people-page-1-limit-10.json")
+                        // The body leaves in twenty pieces, one every 200 milliseconds. The
+                        // first ones arrive before the read timeout, which runs out with the
+                        // answer already begun.
+                        .withChunkedDribbleDelay(20, 4000)));
+
+        assertThatThrownBy(() -> impatientSource.list(PEOPLE, new PageQuery(1, 10)))
+                .isInstanceOf(GatewayTimeoutException.class);
+    }
+
+    @Test
+    @DisplayName("An answer for one element that starts in time and stops halfway is a timeout too")
+    void answerForAnElementThatStopsHalfwayIsATimeout() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBodyFile("people-1.json")
+                        .withChunkedDribbleDelay(20, 4000)));
+
+        assertThatThrownBy(() -> impatientSource.find(PEOPLE, LUKE)).isInstanceOf(GatewayTimeoutException.class);
+    }
+
+    @Test
     @DisplayName("An answer for one element that takes longer than the read timeout is a timeout")
     void slowAnswerForAnElementIsATimeout() {
         swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE + "/1")).atPriority(1)

@@ -52,6 +52,22 @@ class SwapiCacheConfigurationTest {
     }
 
     @Test
+    @DisplayName("Without a clock of its own, an answer expires when the real time goes by")
+    void answerExpiresWithTheSystemClock() {
+        // The only test of the expiry that waits: every other one moves a clock of its own, and
+        // none of them would notice a cache whose real clock stands still.
+        application.withPropertyValues("SWAPI_CACHE_TTL=100ms").run(context -> {
+            Cache<Object, Object> cache = cacheOf(context.getBean(Cache.class));
+            cache.put("key", "answer");
+            assertThat(cache.getIfPresent("key")).isEqualTo("answer");
+
+            Thread.sleep(300);
+
+            assertThat(cache.getIfPresent("key")).isNull();
+        });
+    }
+
+    @Test
     @DisplayName("When a clock is declared, the cache follows it: an answer expires as soon as that clock says so")
     void cacheFollowsTheDeclaredClock() {
         application.withUserConfiguration(ClockOfTheTest.class).run(context -> {

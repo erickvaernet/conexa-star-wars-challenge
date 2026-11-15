@@ -49,7 +49,8 @@ class HealthAcceptanceTest {
     @Test
     @DisplayName("No other Actuator endpoint is reachable")
     void noOtherActuatorEndpointIsReachable() {
-        // Any client error is accepted: "not found" today, "unauthorized" once access is protected.
+        // Without a session all of them are answered with "unauthorized", exposed or not. That
+        // they are not exposed is checked with a valid token, in ProtectedAccessAcceptanceTest.
         client.get().uri("/actuator/env").exchange().expectStatus().is4xxClientError();
         client.get().uri("/actuator/beans").exchange().expectStatus().is4xxClientError();
         client.get().uri("/actuator/metrics").exchange().expectStatus().is4xxClientError();

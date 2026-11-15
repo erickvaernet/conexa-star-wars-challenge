@@ -3,6 +3,7 @@ package io.github.erickvaernet.starwars.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -80,6 +81,16 @@ class LoginServiceTest {
         catchThrowable(() -> service.login("nadie", "demo1234"));
 
         verify(passwordEncoder).matches(eq("demo1234"), anyString());
+    }
+
+    @Test
+    @DisplayName("For an unknown user, the password is compared with a real BCrypt hash, which is what takes the time")
+    void unknownUserIsComparedWithARealHash() {
+        catchThrowable(() -> service.login("nadie", "demo1234"));
+
+        // Compared with a text that is not a hash, BCrypt answers at once: the unknown user would
+        // be the fast case again, and the response time would tell which users exist.
+        verify(passwordEncoder).matches(eq("demo1234"), argThat(hash -> hash.matches("\\$2[aby]\\$\\d{2}\\$.{53}")));
     }
 
     private static Jwt read(String token) {

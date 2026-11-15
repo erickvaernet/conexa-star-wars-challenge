@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.erickvaernet.starwars.StarWarsApplication;
 import io.github.erickvaernet.starwars.TestcontainersConfiguration;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
@@ -65,6 +68,42 @@ class SeedAcceptanceTest {
         Integer testUsers = jdbc.queryForObject(
                 "SELECT count(*) FROM users WHERE username = ?", Integer.class, USERNAME);
         assertThat(testUsers).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Switching the seed off on a database that already ran it does not stop the application from starting")
+    void seedCanBeSwitchedOffOnADatabaseThatAlreadyRanIt() {
+        // The database remembers that the seed ran. Without the seed folder the application no
+        // longer finds that file, which must not be taken as a broken database.
+        try (ConfigurableApplicationContext withoutSeed = new SpringApplicationBuilder(StarWarsApplication.class)
+                .run("--server.port=0",
+                        "--SEED_ENABLED=false",
+                        "--DB_URL=" + postgres.getJdbcUrl(),
+                        "--DB_USER=" + postgres.getUsername(),
+                        "--DB_PASSWORD=" + postgres.getPassword())) {
+            assertThat(withoutSeed.isRunning()).isTrue();
+        }
+
+        // Switching the seed off loads nothing new; it does not remove what was loaded.
+        Integer testUsers = jdbc.queryForObject(
+                "SELECT count(*) FROM users WHERE username = ?", Integer.class, USERNAME);
+        assertThat(testUsers).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Applying the seed again keeps the test user as it was")
+    void applyingTheSeedAgainKeepsTheTestUser() throws IOException {
+        // A restart does not apply the seed again, because its file did not change. This is what
+        // happens when it does change: the same file runs on a database that has the user.
+        String hashBefore = jdbc.queryForObject(
+                "SELECT password_hash FROM users WHERE username = ?", String.class, USERNAME);
+        String seed = new ClassPathResource("db/seed/R__seed_test_users.sql")
+                .getContentAsString(StandardCharsets.UTF_8);
+
+        jdbc.execute(seed);
+
+        Map<String, Object> user = jdbc.queryForMap("SELECT * FROM users WHERE username = ?", USERNAME);
+        assertThat(user.get("password_hash")).isEqualTo(hashBefore);
     }
 
 }

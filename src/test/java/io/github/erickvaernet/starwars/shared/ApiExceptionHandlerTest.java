@@ -8,12 +8,16 @@ import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -88,6 +92,41 @@ class ApiExceptionHandlerTest {
         assertThat(detailOf(body)).isEqualTo("The requested resource was not found.");
     }
 
+    @Test
+    @DisplayName("A method that a route does not have is answered with 405, and the answer names the ones it has")
+    void methodThatARouteDoesNotHaveIsAnsweredWithMethodNotAllowed() {
+        client.post().uri("/test/not-found")
+                .exchange()
+                .expectStatus().isEqualTo(405)
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectHeader().valueEquals(HttpHeaders.ALLOW, "GET")
+                .expectBody()
+                .jsonPath("$.type").isEqualTo("about:blank")
+                .jsonPath("$.title").isEqualTo("Method Not Allowed")
+                .jsonPath("$.status").isEqualTo(405)
+                .jsonPath("$.detail").isEqualTo("Method 'POST' is not supported.")
+                .jsonPath("$.instance").isEqualTo("/test/not-found");
+    }
+
+    @Test
+    @DisplayName("A parameter that is not correctly encoded is answered with 400 and a fixed text")
+    void parameterThatIsNotCorrectlyEncodedIsAnsweredWithBadRequest() {
+        String body = expectProblem("/test/undecodable-parameter", 400, "Bad Request");
+
+        assertThat(detailOf(body)).isEqualTo("The request has a parameter that is not correctly encoded.");
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("A parameter that is not correctly encoded leaves in the log neither a stack trace nor what the client sent")
+    void parameterThatIsNotCorrectlyEncodedLeavesNoTraceInTheLog(CapturedOutput log) {
+        expectProblem("/test/undecodable-parameter", 400, "Bad Request");
+
+        // It is a mistake of the client, like any other invalid parameter: not an event to
+        // investigate, and its value does not belong in the log.
+        assertThat(log.getAll()).doesNotContain("InvalidParameterException").doesNotContain(INTERNAL_TEXT);
+    }
+
     /**
      * Checks an error in Problem Details format that shows nothing of its cause, and returns its
      * body.
@@ -135,6 +174,14 @@ class ApiExceptionHandlerTest {
         @GetMapping("/test/not-found")
         String notFound() {
             throw new NotFoundException();
+        }
+
+        @GetMapping("/test/undecodable-parameter")
+        String undecodableParameter() {
+            // What Tomcat throws when a parameter is read and its bytes are not valid text. Its
+            // message repeats what the client sent.
+            throw new org.apache.tomcat.util.http.InvalidParameterException(
+                    "Character decoding failed. Parameter [name] with value [" + INTERNAL_TEXT + "] has been ignored.");
         }
 
     }
