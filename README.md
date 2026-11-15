@@ -81,7 +81,7 @@ No hace falta ninguna otra herramienta: alcanza con el navegador.
 - El alta de usuarios, `POST /api/v1/users`, en el grupo **Users**, exige además el rol de administrador. Para probarla hay que iniciar sesión como `admin`: en el paso 2, cambiar el cuerpo por `{"username": "admin", "password": "admin1234"}`. Con el token de `demo` responde `403`.
 - El token vence a los 60 minutos. Desde ese momento los pedidos responden `401`: se repite el login y se carga el token nuevo. El login no envía el token cargado, así que se puede repetir aunque ese token ya no sirva.
 - **Logout**, en el mismo diálogo de **Authorize**, quita el token de la página.
-- Cada pedido muestra sus parámetros, su respuesta y sus errores.
+- Cada pedido muestra sus parámetros, su respuesta y sus errores. Los ejemplos son respuestas reales de la API: cada listado trae dos, la página de resúmenes y la misma página con los datos completos, y cada error, el suyo.
 
 Las secciones que siguen muestran los mismos pedidos con `curl`.
 
@@ -135,7 +135,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 
 - Si los dos campos son inválidos, `errors` trae los dos, ordenados por nombre: primero `password` y después `username`.
 - Cada campo aparece una sola vez y su texto es fijo: dice la regla completa, falle la parte que falle, y nunca repite lo que se envió.
-- Un cuerpo que no es JSON también responde `400`, sin `errors`: no hay un campo al que culpar.
+- Un cuerpo que no es JSON también responde `400`, sin `errors`: `Failed to read request`. No hay un campo al que culpar.
 - Un cuerpo que no se envía como JSON (otro `Content-Type`) responde `415`: `The content type of the request is not supported.`
 
 El porqué de esta forma está en el [ADR-0016](docs/adr/0016-validation-error-detail.md).
@@ -368,6 +368,7 @@ El porqué de esta forma, y las alternativas, están en el [ADR-0019](docs/adr/0
 
 - Los datos salen de [SWAPI](https://www.swapi.tech/documentation). Si SWAPI responde con un error, el pedido responde `502`; si no responde a tiempo, `504`. El login no depende de SWAPI.
 - Una falla pasajera de SWAPI no llega a quien consume: si SWAPI responde `502`, `503` o `504`, o rechaza o corta la conexión, la aplicación repite el pedido una vez, 200 milisegundos después, y recién si vuelve a fallar responde el error. No repite lo que no se arregla repitiendo o lo empeora: un `429` de SWAPI por exceso de pedidos, otro `4xx`, un `500`, un tiempo máximo vencido ni una respuesta que no se puede leer. Las dos cosas se [configuran](#configuración), y con cero reintentos se apaga. No hay corte automático. El porqué está en el [ADR-0020](docs/adr/0020-swapi-failure-tolerance.md).
+- SWAPI puede recibir más pedidos de los que cuenta ese reintento: el cliente HTTP de Java repite por su cuenta, una vez, un pedido cuya conexión se cerró antes de recibir respuesta. Si SWAPI cierra así todas las conexiones, son cuatro pedidos y no dos, y dos con los reintentos apagados. Está medido en el mismo ADR.
 - Las respuestas de SWAPI se guardan en memoria durante una hora: un pedido repetido responde sin volver a SWAPI, que demora cada vez más a quien le hace muchos pedidos. Un error no se guarda. El porqué y los detalles están en el [ADR-0011](docs/adr/0011-swapi-response-cache.md).
 - El filtro por ID y el detalle del mismo elemento comparten la respuesta guardada: son un solo pedido a SWAPI. Un "no existe" no se guarda.
 - SWAPI responde una búsqueda con todas las coincidencias juntas. La aplicación recorta la página pedida y guarda la respuesta completa: recorrer las páginas de una búsqueda es un solo pedido a SWAPI.
@@ -598,11 +599,13 @@ Los errores, en el orden en que se comprueban:
 |---|---|---|
 | `401` | Falta el token, o fue rechazado | `Authentication is required to access this resource.` |
 | `403` | El token es de un usuario común, como `demo` | `You do not have permission to perform this request.` |
-| `400` | Un campo no cumple su regla, o el cuerpo no es JSON | `Invalid request content.` |
+| `400` | Un campo no cumple su regla | `Invalid request content.` |
+| `400` | El cuerpo no se puede leer: no es JSON, falta, o un campo trae un tipo que no se puede convertir | `Failed to read request` |
 | `409` | Ya existe un usuario con ese `username` | `A user with that username already exists.` |
 
 - El rol se comprueba antes que el contenido: un usuario común recibe `403` también si envía un cuerpo inválido.
 - El `403` no lleva la cabecera `WWW-Authenticate`: quien pide ya inició sesión, y volver a hacerlo no cambia nada.
+- El `400` de un cuerpo que no se puede leer no trae `errors`. Pasa también con un campo cuyo tipo no se puede convertir a texto, como `"role": ["ADMIN"]`: el cuerpo no llega a leerse, así que no hay un campo que nombrar.
 - El `400` por campos inválidos trae todos juntos en `errors`, ordenados por nombre, cada uno con su regla:
 
 ```json
@@ -662,6 +665,7 @@ Los tiempos se escriben como un número con su unidad: `500ms`, `3s`, `1h`. Un v
 - **Por qué esos servicios.** La consigna nombra Heroku y Vercel como ejemplos, pero Heroku ya no tiene plan gratuito y Vercel no ejecuta Java. Render no pide tarjeta, construye la imagen desde el `Dockerfile` del repositorio, da los 512 MB de memoria que la aplicación necesita y se describe entero en un archivo. Su base de datos gratuita vence a los 30 días; la de Neon no vence.
 - **Cómo está descripto:** en [`render.yaml`](render.yaml), con el motivo de cada variable. No tiene ningún secreto: los tres datos de la base se cargan a mano al crear el servicio, y la clave que firma los tokens la genera Render.
 - **Qué se despliega:** la misma imagen que levanta `docker compose`, sin cambios en el código. El archivo pide que cada cambio de `main` se despliegue solo, después de pasar la [verificación automática](#tests).
+- **Las credenciales de `admin` son públicas, y con ellas cualquiera puede crear usuarios en la instalación pública,** también otros administradores. Esos usuarios quedan hasta que se los borre desde la base de datos: no hay un pedido para listarlos ni para borrarlos. Es un límite aceptado, porque es lo que quien corrige tiene que poder probar, y no hay datos que proteger ([ADR-0015](docs/adr/0015-public-deployment.md) y [ADR-0017](docs/adr/0017-role-based-access.md)).
 - **La primera visita puede tardar entre uno y tres minutos.** El plan gratuito duerme la aplicación tras 15 minutos sin uso, y despertarla es arrancarla de nuevo con una décima de procesador: medido en desarrollo con esos límites, un minuto y medio. Después de esa espera responde con normalidad. No se la mantiene despierta: es el funcionamiento previsto del plan gratuito.
 
 Las alternativas evaluadas y lo medido están en el [ADR-0015](docs/adr/0015-public-deployment.md).
@@ -675,7 +679,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 1187 tests: 961 corren con `./mvnw test` y 226 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Son 1200 tests: 963 corren con `./mvnw test` y 237 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -689,9 +693,10 @@ El porqué de esta estrategia está en el [ADR-0009](docs/adr/0009-testing-strat
 El equipo técnico de Conexa permitió usar herramientas de IA y pidió documentar el flujo. En pocas líneas:
 
 - **Qué se delegó:** la redacción de los documentos, el código y los tests.
-- **Qué decidió el autor:** los requisitos y sus prioridades, las decisiones técnicas del RFC y las del contrato de la API, una por una y con las alternativas a la vista. En varias corrigió la recomendación de la herramienta.
-- **Cómo se revisó:** hasta el ticket #5, el autor aprobó cada paso. Desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA, por encargo del autor, que no los revisó uno por uno.
-- **Revisión final:** con todo fusionado, otra sesión de la herramienta revisó el conjunto con la consigna de encontrar y demostrar fallas. Encontró cuatro importantes, que se corrigieron en el [pull request #30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30).
+- **Qué decidió el autor en el ciclo 1:** los requisitos y sus prioridades, las decisiones técnicas del RFC y las del contrato de la API, una por una y con las alternativas a la vista. En varias corrigió la recomendación de la herramienta.
+- **Qué no decidió en el ciclo 2:** fijó el alcance y delegó también las decisiones, incluidas las de contrato: los roles, el alta de usuarios, la política de contraseñas, el parámetro `expanded` y el detalle de los errores. Las tomó una sesión supervisora de la herramienta, y el autor no revisó ninguna antes de que quedara escrita. Está contado en [Ciclo 2](docs/process/AI-USAGE.md#ciclo-2).
+- **Cómo se revisó:** hasta el ticket #5, el autor aprobó cada paso. Desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA, por encargo del autor, que no los revisó uno por uno; la excepción son los tests de aceptación del ticket #35, que aprobó él.
+- **Revisión final de cada ciclo:** con todo fusionado, otra sesión de la herramienta revisó el conjunto con la consigna de encontrar y demostrar fallas. En el ciclo 1 encontró cuatro importantes, que se corrigieron en el [pull request #30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30). En el ciclo 2 encontró dos, las dos en la documentación: este resumen y el registro decían menos de lo que se había delegado. Se corrigieron junto con seis hallazgos menores.
 
 El detalle, con las correcciones y los límites de esa revisión, está en [`docs/process/AI-USAGE.md`](docs/process/AI-USAGE.md).
 
