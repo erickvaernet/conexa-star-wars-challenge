@@ -29,6 +29,10 @@ services:
       JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-60}
       # Loads the test user, so there is someone to log in with right away.
       SEED_ENABLED: ${SEED_ENABLED:-true}
+      # Where the Star Wars data comes from, and the longest the application waits for it.
+      SWAPI_BASE_URL: ${SWAPI_BASE_URL:-https://www.swapi.tech/api}
+      SWAPI_CONNECT_TIMEOUT: ${SWAPI_CONNECT_TIMEOUT:-3s}
+      SWAPI_READ_TIMEOUT: ${SWAPI_READ_TIMEOUT:-10s}
     ports:
       - "${APP_PORT:-8080}:8080"
     depends_on:
