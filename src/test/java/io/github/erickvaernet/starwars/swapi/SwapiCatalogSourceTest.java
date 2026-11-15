@@ -21,6 +21,7 @@ import io.github.erickvaernet.starwars.catalog.NameFilter;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
 import io.github.erickvaernet.starwars.catalog.films.FilmDetail;
 import io.github.erickvaernet.starwars.catalog.people.PersonDetail;
+import io.github.erickvaernet.starwars.catalog.starships.StarshipDetail;
 import io.github.erickvaernet.starwars.shared.BadGatewayException;
 import io.github.erickvaernet.starwars.shared.GatewayTimeoutException;
 import java.time.Duration;
@@ -54,6 +55,10 @@ class SwapiCatalogSourceTest {
     private static final CatalogEntity FILMS = new CatalogEntity("films", "title");
 
     private static final String SWAPI_FILMS = "/api/films";
+
+    private static final CatalogEntity STARSHIPS = new CatalogEntity("starships", "name");
+
+    private static final String SWAPI_STARSHIPS = "/api/starships";
 
     /** The identifier of the character that has a recording. */
     private static final ItemId LUKE = new ItemId("1");
@@ -603,6 +608,85 @@ class SwapiCatalogSourceTest {
                                 + "\"episode_id\":" + episode + "}}}")));
 
         assertThatThrownBy(() -> source.find(FILMS, new ItemId("1"))).isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("A real page of starships, which SWAPI cuts in pages, is read as one page with the total, in the order of SWAPI")
+    void realPageOfStarshipsIsRead() {
+        Listing listing = source.list(STARSHIPS, new PageQuery(1, 5));
+
+        // The order of SWAPI is not the one of the identifiers, and they have gaps.
+        assertThat(listing).isEqualTo(new Listing.OnePage(List.of(
+                new ItemSummary("2", "CR90 corvette"),
+                new ItemSummary("3", "Star Destroyer"),
+                new ItemSummary("5", "Sentinel-class landing craft"),
+                new ItemSummary("9", "Death Star"),
+                new ItemSummary("11", "Y-wing")), 36));
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_STARSHIPS))
+                .withQueryParam("page", equalTo("1"))
+                .withQueryParam("limit", equalTo("5")));
+    }
+
+    @Test
+    @DisplayName("A real starship of SWAPI is read: every field of its detail as text, and its relations as identifiers")
+    void realStarshipIsRead() {
+        assertThat(source.find(STARSHIPS, new ItemId("9"))).contains(new StarshipDetail(
+                "9", "Death Star", "DS-1 Orbital Battle Station", "Deep Space Mobile Battlestation",
+                "Imperial Department of Military Research, Sienar Fleet Systems", "1000000000000", "120000",
+                "342,953", "843,342", "n/a", "4.0", "10", "1000000000000", "3 years",
+                List.of("1"), List.of()));
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_STARSHIPS + "/9")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("Each data of a starship is read from its name in SWAPI, MGLT in capital letters too, and its pilots become identifiers")
+    void eachDataOfAStarshipIsReadFromItsNameInSwapi() {
+        // Not a recording. Starship 9 of the recording has no pilots, and its cost and its cargo
+        // capacity are the same text. Here every value is different, so one read from the name
+        // of another shows.
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_STARSHIPS + "/12"))
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("""
+                                {"message":"ok","result":{"properties":{
+                                  "created":"2026-11-14T16:52:06.918Z","edited":"2026-11-14T16:52:06.918Z",
+                                  "consumables":"1 week","name":"X-wing","cargo_capacity":"110","passengers":"0",
+                                  "max_atmosphering_speed":"1050","crew":"1","length":"12.5","model":"T-65 X-wing",
+                                  "cost_in_credits":"149999","manufacturer":"Incom Corporation",
+                                  "pilots":["https://www.swapi.tech/api/people/1","https://www.swapi.tech/api/people/9"],
+                                  "MGLT":"100","starship_class":"Starfighter","hyperdrive_rating":"1.0",
+                                  "films":["https://www.swapi.tech/api/films/1","https://www.swapi.tech/api/films/2"],
+                                  "url":"https://www.swapi.tech/api/starships/12"},
+                                  "description":"A Starship","uid":"12"}}
+                                """)));
+
+        assertThat(source.find(STARSHIPS, new ItemId("12"))).contains(new StarshipDetail(
+                "12", "X-wing", "T-65 X-wing", "Starfighter", "Incom Corporation", "149999", "12.5", "1", "0",
+                "1050", "1.0", "100", "110", "1 week", List.of("1", "2"), List.of("1", "9")));
+    }
+
+    @Test
+    @DisplayName("A starship with only its identifier and its name is read: what SWAPI does not send is null or empty")
+    void starshipWithOnlyItsNameIsRead() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_STARSHIPS + "/9")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"result\":{\"uid\":\"9\",\"properties\":{\"name\":\"Death Star\"}}}")));
+
+        assertThat(source.find(STARSHIPS, new ItemId("9"))).contains(new StarshipDetail(
+                "9", "Death Star", null, null, null, null, null, null, null, null, null, null, null, null,
+                List.of(), List.of()));
+    }
+
+    @Test
+    @DisplayName("A starship with a pilot whose address has no identifier is a failure of the data source")
+    void starshipWithABadAddressIsAFailure() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_STARSHIPS + "/9")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"result\":{\"uid\":\"9\",\"properties\":{\"name\":\"Death Star\","
+                                + "\"pilots\":[\"https://www.swapi.tech/api/people/\"]}}}")));
+
+        assertThatThrownBy(() -> source.find(STARSHIPS, new ItemId("9"))).isInstanceOf(BadGatewayException.class);
     }
 
     @Test

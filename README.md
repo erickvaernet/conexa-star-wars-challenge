@@ -30,7 +30,7 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora están el login, la protección del acceso y dos de las cuatro entidades, People y Films, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Starships y Vehicles llegan con los próximos tickets.
+Por ahora están el login, la protección del acceso y tres de las cuatro entidades, People, Films y Starships, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Vehicles llega con el próximo ticket.
 
 ### Iniciar sesión
 
@@ -254,6 +254,76 @@ curl http://localhost:8080/api/v1/films/1 \
 - `openingCrawl` conserva sus saltos de línea (`\r\n`): a los textos solo se les quitan los espacios del inicio y del final.
 - Los planetas y las especies de una película no se devuelven, porque la API no expone esas entidades.
 
+### Starships
+
+Las naves se piden igual que los personajes y las películas: los mismos parámetros, la misma forma de respuesta y los mismos errores.
+
+| Pedido | Qué devuelve |
+|---|---|
+| `GET /api/v1/starships` | El listado, con `page`, `size`, `id` y `name` |
+| `GET /api/v1/starships/{id}` | Todos los datos de una nave |
+
+```bash
+curl "http://localhost:8080/api/v1/starships?page=1&size=5" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "content": [
+    { "id": "2", "name": "CR90 corvette" },
+    { "id": "3", "name": "Star Destroyer" },
+    { "id": "5", "name": "Sentinel-class landing craft" },
+    { "id": "9", "name": "Death Star" },
+    { "id": "11", "name": "Y-wing" }
+  ],
+  "page": 1,
+  "size": 5,
+  "totalElements": 36,
+  "totalPages": 8
+}
+```
+
+El filtro `name` busca en el nombre de la nave. Este pedido devuelve las cinco naves cuyo nombre contiene "wing": Y-wing, X-wing, A-wing, B-wing y V-wing.
+
+```bash
+curl "http://localhost:8080/api/v1/starships?name=wing" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+El detalle devuelve todos los datos de la nave:
+
+```bash
+curl http://localhost:8080/api/v1/starships/9 \
+  -H "Authorization: Bearer eyJ..."
+```
+
+```json
+{
+  "id": "9",
+  "name": "Death Star",
+  "model": "DS-1 Orbital Battle Station",
+  "starshipClass": "Deep Space Mobile Battlestation",
+  "manufacturer": "Imperial Department of Military Research, Sienar Fleet Systems",
+  "costInCredits": "1000000000000",
+  "length": "120000",
+  "crew": "342,953",
+  "passengers": "843,342",
+  "maxAtmospheringSpeed": "n/a",
+  "hyperdriveRating": "4.0",
+  "mglt": "10",
+  "cargoCapacity": "1000000000000",
+  "consumables": "3 years",
+  "filmIds": ["1"],
+  "pilotIds": []
+}
+```
+
+- El orden del listado es el de SWAPI, que no es el de los identificadores: después de la nave `11` viene la `10`. Los identificadores además tienen huecos: no hay nave `1`.
+- SWAPI pagina las naves, como los personajes: cada página del listado es un pedido a SWAPI, y se guarda por separado.
+- Todos los valores son texto, también las cantidades, porque muchos no se pueden leer como número sin interpretarlos: `"342,953"`, `"4.0"`, `"3 years"` o `"n/a"`. Se devuelven como los entrega SWAPI. El porqué está en el [ADR-0012](docs/adr/0012-response-data-shape.md).
+- `filmIds` y `pilotIds` son identificadores de películas y de personajes, que se pueden pedir en esta misma API. Una nave sin pilotos conocidos, como esta, trae `pilotIds` vacío; la nave `10`, el Millennium Falcon, trae `["13", "14", "25", "31"]`.
+
 ### Configuración
 
 No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para cambiarlos, copiar `.env.example` a `.env`.
@@ -352,6 +422,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Filtro por ID y detalle de un personaje ([#10](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/10)): `?id=` devuelve una página con uno o ningún elemento y `/people/{id}` todos los datos, con las relaciones como listas de identificadores. Los dos usan el mismo pedido a SWAPI y la misma respuesta guardada, y un "no existe" no se guarda. Los tests de aceptación se escribieron antes que el código; al escribirlos se vio que el detalle de un personaje inexistente ya respondía `404` antes de existir, porque la ruta no existía, así que los tests comprueban también qué se le pidió a SWAPI. El detalle vive en `catalog` sin ningún nombre de SWAPI y su traducción en `swapi`: desde ahora, sumar una entidad incluye esa pieza. |
 | 15/11/2026 | Filtro por nombre, solo y junto con el ID ([#11](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/11)): `?name=` busca por una parte del nombre, sin distinguir mayúsculas, y con `id` y `name` juntos se pide ese elemento y se comprueba su nombre. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI a una búsqueda con coincidencias y a una sin ninguna. Al grabarlas se vio que SWAPI interpreta el texto como un patrón: un punto coincidía con cualquier carácter y un paréntesis suelto le hacía responder un error. Ahora el texto se busca tal cual. La caché guarda una búsqueda entera, sin página ni tamaño, así que recorrer sus páginas es un solo pedido a SWAPI; lo mismo va a valer para el listado de Films. |
 | 15/11/2026 | Films, la segunda entidad ([#12](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/12)): listado paginado, filtros por ID y por título, y detalle. Fue el primer uso de los pasos para sumar una entidad: una carpeta en `catalog` con su controlador y sus datos de detalle, y su traducción en `swapi`; el núcleo, la validación, los errores y la caché no se tocaron. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que confirmaron lo previsto: no pagina las películas (devuelve las seis, se le pida la página que se le pida) y las busca por título. La aplicación recorta la página y recorrer las tres páginas es un solo pedido a SWAPI. El episodio es el único valor numérico: si SWAPI no lo envía llega como `null`, y si envía algo que no es un entero la respuesta es `502`, sin convertirlo. |
+| 15/11/2026 | Starships, la tercera entidad ([#13](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/13)): listado paginado, filtros por ID y por nombre, y detalle, con los mismos pasos que Films y sin tocar el núcleo, la validación, los errores ni la caché. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que pagina las naves como los personajes: son 36. Al grabarlas se vio que el orden del listado no es el de los identificadores. Todos los valores de una nave son texto y ninguno se convierte. La nave grabada no tiene pilotos y repite el mismo valor en dos campos, así que la traducción se prueba además con una nave armada en el test, con todos los valores distintos. |
 
 ## Documentación
 
