@@ -10,6 +10,7 @@ import com.jayway.jsonpath.JsonPath;
 import io.github.erickvaernet.starwars.catalog.CatalogEntity;
 import io.github.erickvaernet.starwars.catalog.CatalogService;
 import io.github.erickvaernet.starwars.catalog.ItemSummary;
+import io.github.erickvaernet.starwars.catalog.ListQuery;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
 import io.github.erickvaernet.starwars.catalog.PageResult;
 import java.util.List;
@@ -97,7 +98,7 @@ class PeopleControllerTest {
 
         client.get().uri(PEOPLE).exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new PageQuery(1, 10));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null));
     }
 
     @Test
@@ -107,7 +108,7 @@ class PeopleControllerTest {
 
         client.get().uri(PEOPLE + "?page=9&size=100").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new PageQuery(9, 100));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(9, 100), null));
     }
 
     @Test
@@ -117,7 +118,7 @@ class PeopleControllerTest {
 
         client.get().uri(PEOPLE + "?size=5&sort=name&limit=50&unknown=").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new PageQuery(1, 5));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 5), null));
     }
 
     @ParameterizedTest(name = "?{0} is rejected for {1}")

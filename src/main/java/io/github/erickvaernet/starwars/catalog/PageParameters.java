@@ -35,8 +35,8 @@ public record PageParameters(
      * @throws io.github.erickvaernet.starwars.shared.InvalidParameterException if one of them is
      *     invalid; it names which
      */
-    public PageQuery toQuery() {
-        return PageQuery.of(page, size);
+    public ListQuery toQuery() {
+        return new ListQuery(PageQuery.of(page, size), null);
     }
 
 }
