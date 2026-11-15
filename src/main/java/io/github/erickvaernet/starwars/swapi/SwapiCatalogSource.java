@@ -15,9 +15,17 @@ import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ResolvableType;
+import org.springframework.core.retry.RetryListener;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryState;
+import org.springframework.core.retry.RetryTemplate;
+import org.springframework.core.retry.Retryable;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
@@ -31,9 +39,15 @@ import org.springframework.web.client.RestClientResponseException;
  *
  * <p>It is the only class that talks to SWAPI. Every failure leaves here as one of two errors,
  * so the rest of the application does not need to know how the HTTP client fails.
+ *
+ * <p>A request that fails in a way that usually goes away by itself is sent again here, a
+ * limited number of times, before it is given up as a failure. Nothing outside this class knows
+ * about it.
  */
 @Component
 class SwapiCatalogSource implements CatalogSource {
+
+    private static final Logger log = LoggerFactory.getLogger(SwapiCatalogSource.class);
 
     /**
      * How the data of one element of each entity is read, by the name of the entity in SWAPI.
@@ -58,13 +72,38 @@ class SwapiCatalogSource implements CatalogSource {
     /** The characters that mean something in a pattern: {@code \ ^ $ . | ? * + ( ) [ ] { }}. */
     private static final Pattern PATTERN_CHARACTERS = Pattern.compile("[\\\\^$.|?*+()\\[\\]{}]");
 
+    /**
+     * The answers of SWAPI that mean "not now", and not "this request is wrong": Bad Gateway,
+     * Service Unavailable and Gateway Timeout.
+     */
+    private static final Set<Integer> PASSING_STATUSES = Set.of(502, 503, 504);
+
     private final RestClient swapi;
 
     /** The longest wait for an answer, kept to tell an answer that was cut for taking too long. */
     private final Duration readTimeout;
 
+    /** Sends a request and, if it fails in a way that is worth it, sends it again. */
+    private final RetryTemplate retries;
+
     SwapiCatalogSource(SwapiProperties properties) {
         this.readTimeout = properties.readTimeout();
+        // The same wait before every retry. With zero retries, a request is sent only once.
+        this.retries = new RetryTemplate(RetryPolicy.builder()
+                .maxRetries(properties.maxRetries())
+                .delay(properties.retryDelay())
+                .predicate(SwapiCatalogSource::isWorthRetrying)
+                .build());
+        this.retries.setRetryListener(new RetryListener() {
+            @Override
+            public void beforeRetry(RetryPolicy policy, Retryable<?> request, RetryState state) {
+                // Only the text of the failure, which this class writes and which names the
+                // request without anything the client sent. The error of the HTTP client is left
+                // out: it comes back with the failure of the last attempt, if that one fails too.
+                log.warn("Retrying a request to SWAPI (retry {} of {}): {}",
+                        state.getRetryCount(), properties.maxRetries(), state.getLastException().getMessage());
+            }
+        });
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(properties.connectTimeout())
                 .build();
@@ -182,18 +221,26 @@ class SwapiCatalogSource implements CatalogSource {
         return read(request, format).toListing();
     }
 
-    /** Sends a request for a list or for a search, and reads its answer, in whichever form it came. */
+    /**
+     * Sends a request for a list or for a search, and reads its answer, in whichever form it came.
+     *
+     * <p>Each attempt is the whole request: it is sent, its answer is read, and its failure is
+     * turned into an error of the data source, with its own time.
+     */
     private <R> R read(Request request, ParameterizedTypeReference<R> format) {
-        long startedAt = System.nanoTime();
-        try {
-            R response = request.call().retrieve().body(format);
-            if (response == null) {
-                throw new BadGatewayException("SWAPI answered " + request.description() + " without a body", null);
+        return retries.invoke(() -> {
+            long startedAt = System.nanoTime();
+            try {
+                R response = request.call().retrieve().body(format);
+                if (response == null) {
+                    throw new BadGatewayException(
+                            "SWAPI answered " + request.description() + " without a body", null);
+                }
+                return response;
+            } catch (RestClientException error) {
+                throw failure(request.description(), error, startedAt);
             }
-            return response;
-        } catch (RestClientException error) {
-            throw failure(request.description(), error, startedAt);
-        }
+        });
     }
 
     /**
@@ -227,7 +274,8 @@ class SwapiCatalogSource implements CatalogSource {
      * Asks SWAPI for one element.
      *
      * <p>When SWAPI answers 404, the element does not exist: that is a normal answer, and the
-     * result is empty. Any other error status is a failure, like in a list.
+     * result is empty. Any other error status is a failure, like in a list. Each attempt is the
+     * whole request here too, so an element that does not exist is never asked for again.
      *
      * @throws IllegalStateException if no format was declared for the entity, which is a mistake
      *     in the code and not something a request can cause
@@ -236,21 +284,45 @@ class SwapiCatalogSource implements CatalogSource {
     public Optional<CatalogItem> find(CatalogEntity entity, ItemId id) {
         ParameterizedTypeReference<SwapiItemResponse<?>> format = formatOf(SwapiItemResponse.class, entity);
         String request = "GET /" + entity.sourceName() + "/" + id.value();
-        long startedAt = System.nanoTime();
-        try {
-            SwapiItemResponse<?> response = swapi.get()
-                    .uri("/{entity}/{id}", entity.sourceName(), id.value())
-                    .retrieve()
-                    .body(format);
-            if (response == null) {
-                throw new BadGatewayException("SWAPI answered " + request + " without a body", null);
+        return retries.invoke(() -> {
+            long startedAt = System.nanoTime();
+            try {
+                SwapiItemResponse<?> response = swapi.get()
+                        .uri("/{entity}/{id}", entity.sourceName(), id.value())
+                        .retrieve()
+                        .body(format);
+                if (response == null) {
+                    throw new BadGatewayException("SWAPI answered " + request + " without a body", null);
+                }
+                return Optional.of(response.toItem());
+            } catch (HttpClientErrorException.NotFound notFound) {
+                return Optional.empty();
+            } catch (RestClientException error) {
+                throw failure(request, error, startedAt);
             }
-            return Optional.of(response.toItem());
-        } catch (HttpClientErrorException.NotFound notFound) {
-            return Optional.empty();
-        } catch (RestClientException error) {
-            throw failure(request, error, startedAt);
+        });
+    }
+
+    /**
+     * Whether a failed attempt is worth another one: only what usually goes away by itself and
+     * fails fast.
+     *
+     * <p>It looks at the failure once it is one of the two errors of the data source, and at
+     * what caused it. A timeout is never retried, whichever way it arrived, because it would
+     * double the longest wait. Of the rest, SWAPI answering 502, 503 or 504 is retried, and so is
+     * a connection that was refused or cut. Any other error status is not: SWAPI would answer
+     * the same again, and after a 429 one more request makes things worse. Neither is an answer
+     * that arrived and cannot be read.
+     */
+    private static boolean isWorthRetrying(Throwable failure) {
+        if (!(failure instanceof BadGatewayException)) {
+            return false;
         }
+        if (failure.getCause() instanceof RestClientResponseException answer) {
+            return PASSING_STATUSES.contains(answer.getStatusCode().value());
+        }
+        // The request never got an HTTP answer. A timeout does not get here: it is the other error.
+        return failure.getCause() instanceof ResourceAccessException;
     }
 
     /**
@@ -262,7 +334,8 @@ class SwapiCatalogSource implements CatalogSource {
      * could not be read, exactly as it does for an answer that is not JSON: what tells the two
      * apart is how long the request had been waiting.
      *
-     * @param startedAt when the request was sent, as {@link System#nanoTime()} gives it
+     * @param startedAt when this attempt was sent, as {@link System#nanoTime()} gives it: with
+     *                  a retry, the time of an attempt does not count the ones before it
      */
     private RuntimeException failure(String request, RestClientException error, long startedAt) {
         if (error instanceof ResourceAccessException && error.getCause() instanceof HttpTimeoutException) {
