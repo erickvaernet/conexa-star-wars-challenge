@@ -37,3 +37,12 @@ No se evaluaron alternativas a Docker: el equipo técnico lo mencionó de forma 
 - Si apareciera una diferencia de comportamiento entre el JDK 25 local y el 21 de la imagen, se instala un JDK 21 y este ADR se reemplaza.
 - Ningún secreto queda en el repositorio. Los valores de `.env.example` son solo para desarrollo.
 - La misma imagen sirve para el despliegue público del ciclo 2 (REQ-20).
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Los tests ya corren sobre un JDK 21. Desde el ticket #33, la verificación automática ([ADR-0014](0014-continuous-verification.md)) ejecuta `./mvnw verify` con un JDK 21 en cada pull request y en cada cambio de `main`.
+  - En la primera ejecución pasaron los 793 tests, sin tocar ninguno: no apareció ninguna diferencia de comportamiento entre el JDK de desarrollo y el 21.
+  - La consecuencia que este ADR dejaba abierta queda cubierta de otra forma: una diferencia así ya no pasaría inadvertida, porque haría fallar la verificación del pull request. No hizo falta instalar un JDK 21 en la máquina de desarrollo, donde se sigue compilando con nivel de lenguaje 21 sobre un JDK más nuevo.
+  - La misma verificación ejecuta además `docker compose up --build --wait`, que hasta este ticket se comprobaba a mano.

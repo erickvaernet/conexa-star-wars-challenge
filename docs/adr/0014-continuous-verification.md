@@ -61,3 +61,18 @@ Se usa **GitHub Actions**, con un solo archivo, `.github/workflows/ci.yml`, y do
 - Las acciones se fijan por su versión mayor (`@v7`), no por el identificador exacto de un commit. Es lo habitual y se lee de un vistazo; fijarlas por commit protege más ante una acción comprometida y queda como mejora posible.
 - Si el proyecto se mudara de GitHub, la definición hay que reescribirla. Los comandos que ejecuta (`./mvnw verify` y `docker compose up --wait`) son los mismos en cualquier servicio.
 - El informe de cobertura de JaCoCo se guarda como archivo adjunto de cada ejecución. Mostrar el porcentaje en el README es el REQ-27, del ciclo 3.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Lo que apareció al implementar (ticket #33, [pull request #40](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/40)):
+  - **La definición corrió en GitHub como estaba escrita.** Sus comandos se habían probado antes en una máquina de desarrollo; la primera ejecución en GitHub pasó sin correcciones, y las tres acciones existen en las versiones previstas.
+  - **Con qué corrió:** la imagen `ubuntu-24.04` del ejecutor, Docker Engine 28.0.4 y un JDK 21 de Temurin (21.0.13). Pasaron los 793 tests: 648 unitarios y de arquitectura, y 145 de aceptación.
+  - **Cuánto tarda.** En las ejecuciones de este ticket, el trabajo `verify` tardó cerca de 1 min 45 s, y el trabajo `compose`, cerca de un minuto; los tiempos de cada una están en el pull request. Corren a la vez, así que el resultado estuvo en menos de dos minutos. La primera ejecución, sin las dependencias de Maven guardadas, tardó casi lo mismo que las siguientes, que ya las tenían.
+  - **CA-23.4 se comprobó una vez.** Un commit bajó a propósito el tamaño máximo de página de 100 a 99: su [ejecución](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/runs/43758104388) quedó en rojo a los 54 segundos, con 20 fallas y 7 errores entre los 648 tests unitarios, y el pull request lo mostró. El commit siguiente lo revirtió y la [ejecución](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/runs/43758258554) volvió a pasar.
+  - **Un test roto pone en rojo solo el trabajo `verify`.** En esa ejecución el trabajo `compose` pasó: el `Dockerfile` construye la imagen sin correr los tests, así que ese trabajo comprueba que la aplicación se construye, levanta y responde, no que los tests pasen. Alcanza con que falle uno de los dos para que la ejecución y el pull request queden en rojo.
+  - **Con tests unitarios rotos, los de aceptación no llegan a correr:** Maven se detiene antes. Por eso la ejecución en rojo fue más corta.
+  - **El distintivo del README muestra solo las ejecuciones sobre `main`.** No tiene estado hasta la primera, que es la del commit que fusiona este ticket.
+  - **Una ejecución nueva cancela la anterior de la misma rama.** Para ver un resultado hay que esperar a que la ejecución termine antes de subir otro commit; así se hizo con la ejecución en rojo.
+  - **El informe de cobertura adjunto** pesa unos 500 KB por ejecución y GitHub lo conserva el tiempo que tenga configurado el repositorio (90 días, si no se cambia).
