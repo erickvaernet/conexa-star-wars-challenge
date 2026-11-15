@@ -17,6 +17,7 @@ import io.github.erickvaernet.starwars.catalog.CatalogEntity;
 import io.github.erickvaernet.starwars.catalog.ItemId;
 import io.github.erickvaernet.starwars.catalog.ItemSummary;
 import io.github.erickvaernet.starwars.catalog.Listing;
+import io.github.erickvaernet.starwars.catalog.NameFilter;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
 import io.github.erickvaernet.starwars.catalog.people.PersonDetail;
 import io.github.erickvaernet.starwars.shared.BadGatewayException;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -35,8 +37,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 /**
- * Checks the client of SWAPI against the simulated SWAPI: what it asks for, how it reads a real
- * answer and what it does with each kind of failure.
+ * Checks the client of SWAPI against the simulated SWAPI: what it asks for, in a list, in a search
+ * and for one element, how it reads a real answer and what it does with each kind of failure.
  *
  * <p>It needs neither the application nor Docker: only the stub is started. The failures are not
  * recordings; each test tells the stub what to answer.
@@ -53,8 +55,19 @@ class SwapiCatalogSourceTest {
 
     private static final String JSON = "application/json; charset=utf-8";
 
-    /** Short, so that the test of the slow answer does not take long. */
-    private static final Duration READ_TIMEOUT = Duration.ofMillis(500);
+    private static final NameFilter SKY = new NameFilter("sky");
+
+    /** What SWAPI really answers to a search without matches. */
+    private static final String NO_MATCHES = "{\"message\":\"ok\",\"result\":[]}";
+
+    /**
+     * Long, so that no test depends on how fast the machine is. The first answer that a newly
+     * started JVM reads can take longer than half a second.
+     */
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
+
+    /** Short, so that the tests of the slow answer do not take long. Only they use it. */
+    private static final Duration SHORT_READ_TIMEOUT = Duration.ofMillis(500);
 
     @Autowired
     private WireMockServer swapi;
@@ -64,9 +77,15 @@ class SwapiCatalogSourceTest {
 
     private SwapiCatalogSource source;
 
+    /** The same client, with a read timeout that a slow answer of the stub exceeds soon. */
+    private SwapiCatalogSource impatientSource;
+
     @BeforeEach
     void setUp() {
-        source = sourceAt(environment.getRequiredProperty("SWAPI_BASE_URL"));
+        String baseUrl = environment.getRequiredProperty("SWAPI_BASE_URL");
+        source = sourceAt(baseUrl);
+        impatientSource = new SwapiCatalogSource(
+                new SwapiProperties(baseUrl, Duration.ofSeconds(3), SHORT_READ_TIMEOUT));
     }
 
     @AfterEach
@@ -211,7 +230,7 @@ class SwapiCatalogSourceTest {
                         .withFixedDelay(3000)));
 
         long start = System.nanoTime();
-        assertThatThrownBy(() -> source.list(PEOPLE, new PageQuery(1, 10)))
+        assertThatThrownBy(() -> impatientSource.list(PEOPLE, new PageQuery(1, 10)))
                 .isInstanceOf(GatewayTimeoutException.class);
         Duration waited = Duration.ofNanos(System.nanoTime() - start);
 
@@ -333,7 +352,7 @@ class SwapiCatalogSourceTest {
                         .withBodyFile("people-1.json")
                         .withFixedDelay(3000)));
 
-        assertThatThrownBy(() -> source.find(PEOPLE, LUKE)).isInstanceOf(GatewayTimeoutException.class);
+        assertThatThrownBy(() -> impatientSource.find(PEOPLE, LUKE)).isInstanceOf(GatewayTimeoutException.class);
     }
 
     @Test
@@ -345,6 +364,180 @@ class SwapiCatalogSourceTest {
         assertThatThrownBy(() -> source.find(PEOPLE, LUKE))
                 .isInstanceOf(BadGatewayException.class)
                 .hasMessageContaining("people/1")
+                .hasCauseInstanceOf(Exception.class);
+    }
+
+    @Test
+    @DisplayName("A real search of SWAPI is read: every match at once, in order, with the name taken from the data of each one")
+    void realSearchIsRead() {
+        Listing listing = source.search(PEOPLE, SKY, new PageQuery(1, 10));
+
+        assertThat(listing).isEqualTo(new Listing.Complete(List.of(
+                new ItemSummary("1", "Luke Skywalker"),
+                new ItemSummary("11", "Anakin Skywalker"),
+                new ItemSummary("43", "Shmi Skywalker"))));
+    }
+
+    @Test
+    @DisplayName("A real search of SWAPI without matches is read as a complete list without elements, not as a failure")
+    void realSearchWithoutMatchesIsRead() {
+        assertThat(source.search(PEOPLE, new NameFilter("zzzz"), new PageQuery(1, 10)))
+                .isEqualTo(new Listing.Complete(List.of()));
+    }
+
+    @Test
+    @DisplayName("SWAPI is asked to search by the name of the entity and the text, with the page and the size of the request, once")
+    void swapiIsAskedToSearch() {
+        source.search(PEOPLE, SKY, new PageQuery(2, 5));
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE))
+                .withQueryParam("name", equalTo("sky"))
+                .withQueryParam("page", equalTo("2"))
+                .withQueryParam("limit", equalTo("5")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("The search uses the field that the entity declares, to ask and to read the names: for a film, its title")
+    void searchUsesTheFieldOfTheEntity() {
+        // Not a recording: the shape of the real search, with the names of a film.
+        swapi.stubFor(get(urlPathEqualTo("/api/films")).withQueryParam("title", equalTo("hope"))
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody("""
+                        {"message":"ok","result":[{"uid":"1","properties":{"title":"A New Hope","episode_id":4}}]}
+                        """)));
+
+        Listing listing = source.search(new CatalogEntity("films", "title"), new NameFilter("hope"), new PageQuery(1, 10));
+
+        assertThat(listing).isEqualTo(new Listing.Complete(List.of(new ItemSummary("1", "A New Hope"))));
+        swapi.verify(0, getRequestedFor(urlPathEqualTo("/api/films")).withQueryParam("name", equalTo("hope")));
+    }
+
+    @ParameterizedTest(name = "\"{0}\" reaches SWAPI as \"{1}\"")
+    @CsvSource(quoteCharacter = '`', value = {
+        // A text without special characters does not change.
+        "sky, sky",
+        "obi-wan kenobi, obi-wan kenobi",
+        "r2-d2, r2-d2",
+        "padmé, padmé",
+        // SWAPI reads the text as a pattern. A backslash before each special character makes
+        // SWAPI look for that character and nothing else.
+        "l.ke, l\\.ke",
+        "(, \\(",
+        "\\, \\\\",
+        "a|b, a\\|b",
+        "^luke$, \\^luke\\$",
+        "c-3po?, c-3po\\?",
+        "sky*, sky\\*",
+        "sky+, sky\\+",
+        "[sky], \\[sky\\]",
+        "{2}, \\{2\\}",
+        "(sky), \\(sky\\)",
+        "\\d, \\\\d",
+        // Characters with a meaning in an address travel as part of the text, not of the address.
+        "a&b=c, a&b=c",
+        "50% #1, 50% #1",
+        "a/b:c, a/b:c"
+    })
+    @DisplayName("The text is searched as it is: the characters that SWAPI would read as a pattern are escaped")
+    void textReachesSwapiWithItsSpecialCharactersEscaped(String text, String received) {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody(NO_MATCHES)));
+
+        source.search(PEOPLE, new NameFilter(text), new PageQuery(1, 10));
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)).withQueryParam("name", equalTo(received)));
+    }
+
+    @Test
+    @DisplayName("If SWAPI answered a search with a page and its total, it is read as a page")
+    void searchThatSwapiCutsInPagesIsReadAsAPage() {
+        // Not a recording: SWAPI does not do this today. The form of the answer decides.
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody("""
+                        {"message":"ok","total_records":3,"total_pages":2,"results":[{"uid":"43","name":"Shmi Skywalker"}]}
+                        """)));
+
+        assertThat(source.search(PEOPLE, SKY, new PageQuery(2, 2)))
+                .isEqualTo(new Listing.OnePage(List.of(new ItemSummary("43", "Shmi Skywalker")), 3));
+    }
+
+    @ParameterizedTest(name = "SWAPI answers {0}")
+    // 400 is what SWAPI answers to a text it cannot read as a pattern. And 404 is not "no
+    // matches": a search without matches is answered with 200 and an empty list.
+    @ValueSource(ints = {400, 404, 429, 500, 503})
+    @DisplayName("An error answer of SWAPI to a search is a failure of the data source")
+    void errorAnswerToASearchIsAFailure(int status) {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(status)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"message\":\"it failed\"}")));
+
+        assertThatThrownBy(() -> source.search(PEOPLE, SKY, new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class);
+    }
+
+    @ParameterizedTest(name = "SWAPI answers 200 with: {0}")
+    @ValueSource(strings = {
+        "this is not JSON",
+        "{}",
+        "{\"message\":\"ok\"}",
+        "{\"message\":\"ok\",\"result\":{\"uid\":\"1\",\"properties\":{\"name\":\"Luke Skywalker\"}}}",
+        "{\"message\":\"ok\",\"result\":[{\"uid\":\"1\",\"properties\":{}}]}",
+        "{\"message\":\"ok\",\"result\":[{\"uid\":\"1\"}]}",
+        "{\"message\":\"ok\",\"result\":[{\"properties\":{\"name\":\"Luke Skywalker\"}}]}"
+    })
+    @DisplayName("An answer to a search that cannot be read is a failure of the data source")
+    void answerToASearchThatCannotBeReadIsAFailure(String body) {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody(body)));
+
+        assertThatThrownBy(() -> source.search(PEOPLE, SKY, new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("An answer to a search without a body is a failure of the data source")
+    void answerToASearchWithoutABodyIsAFailure() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)));
+
+        assertThatThrownBy(() -> source.search(PEOPLE, SKY, new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("When nothing listens at the address of SWAPI, a search is a failure of the data source")
+    void nothingListeningIsAFailureOfASearch() {
+        SwapiCatalogSource unreachable = sourceAt("http://localhost:1/api");
+
+        assertThatThrownBy(() -> unreachable.search(PEOPLE, SKY, new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class);
+    }
+
+    @Test
+    @DisplayName("An answer to a search that takes longer than the read timeout is a timeout")
+    void slowAnswerToASearchIsATimeout() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBodyFile("people-name-sky.json")
+                        .withFixedDelay(3000)));
+
+        assertThatThrownBy(() -> impatientSource.search(PEOPLE, SKY, new PageQuery(1, 10)))
+                .isInstanceOf(GatewayTimeoutException.class);
+    }
+
+    @Test
+    @DisplayName("The failure of a search keeps what failed for the log, without the text that the client sent")
+    void failureOfASearchKeepsWhatFailedForTheLogWithoutTheText() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_PEOPLE)).atPriority(1)
+                .willReturn(aResponse().withStatus(500)));
+
+        assertThatThrownBy(() -> source.search(PEOPLE, new NameFilter("a text\nwith two lines"), new PageQuery(1, 10)))
+                .isInstanceOf(BadGatewayException.class)
+                .hasMessageContaining("people")
+                .hasMessageContaining("name")
+                .hasMessageNotContaining("two lines")
                 .hasCauseInstanceOf(Exception.class);
     }
 

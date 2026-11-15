@@ -44,7 +44,7 @@ public record PageParameters(
      *     invalid; it names which
      */
     public ListQuery toQuery() {
-        return new ListQuery(PageQuery.of(page, size), id == null ? null : new ItemId(id));
+        return new ListQuery(PageQuery.of(page, size), id == null ? null : new ItemId(id), null);
     }
 
 }

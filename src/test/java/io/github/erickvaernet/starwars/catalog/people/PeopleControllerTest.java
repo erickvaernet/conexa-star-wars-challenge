@@ -109,7 +109,7 @@ class PeopleControllerTest {
 
         client.get().uri(PEOPLE).exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), null, null));
     }
 
     @Test
@@ -119,7 +119,7 @@ class PeopleControllerTest {
 
         client.get().uri(PEOPLE + "?page=9&size=100").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(9, 100), null));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(9, 100), null, null));
     }
 
     @Test
@@ -129,7 +129,7 @@ class PeopleControllerTest {
 
         client.get().uri(PEOPLE + "?size=5&sort=name&limit=50&unknown=").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 5), null));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 5), null, null));
     }
 
     @ParameterizedTest(name = "?{0} is rejected for {1}")
@@ -235,8 +235,8 @@ class PeopleControllerTest {
         client.get().uri(PEOPLE + "?id=1").exchange().expectStatus().isOk();
         client.get().uri(PEOPLE + "?id=83&page=2&size=5").exchange().expectStatus().isOk();
 
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), new ItemId("1")));
-        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(2, 5), new ItemId("83")));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(1, 10), new ItemId("1"), null));
+        verify(catalog).list(PEOPLE_ENTITY, new ListQuery(new PageQuery(2, 5), new ItemId("83"), null));
     }
 
     @ParameterizedTest(name = "?{0}")
