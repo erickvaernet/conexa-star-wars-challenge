@@ -1,6 +1,8 @@
 package io.github.erickvaernet.starwars.swapi;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
@@ -55,6 +57,11 @@ class SwapiCacheAcceptanceTest {
     /** The path of the list of people in SWAPI. */
     private static final String SWAPI_PEOPLE = "/api/people";
 
+    private static final String FILMS = "/api/v1/films";
+
+    /** The path of the list of films in SWAPI. */
+    private static final String SWAPI_FILMS = "/api/films";
+
     @LocalServerPort
     private int port;
 
@@ -94,6 +101,27 @@ class SwapiCacheAcceptanceTest {
         assertThat(first).contains("Luke Skywalker");
         assertThat(second).isEqualTo(first);
         swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_PEOPLE)));
+    }
+
+    @Test
+    @DisplayName("CA-32.2: with the cache empty, asking for pages 1, 2 and 3 of the films, two per page, sends SWAPI a single request")
+    void pagesOfFilmsShareOneStoredAnswer() {
+        String firstPage = listOfFilms("?size=2&page=1");
+        String secondPage = listOfFilms("?size=2&page=2");
+        String thirdPage = listOfFilms("?size=2&page=3");
+
+        // Each page is cut out of the same stored answer, and the three together are the six
+        // films: no page repeats another one.
+        assertThat(firstPage).contains("A New Hope", "The Empire Strikes Back")
+                .doesNotContain("Return of the Jedi", "The Phantom Menace", "Attack of the Clones", "Revenge of the Sith");
+        assertThat(secondPage).contains("Return of the Jedi", "The Phantom Menace")
+                .doesNotContain("A New Hope", "The Empire Strikes Back", "Attack of the Clones", "Revenge of the Sith");
+        assertThat(thirdPage).contains("Attack of the Clones", "Revenge of the Sith")
+                .doesNotContain("A New Hope", "The Empire Strikes Back", "Return of the Jedi", "The Phantom Menace");
+        // SWAPI answers the list of films whole, whatever the page: one request is enough for
+        // the three pages, although each one asks SWAPI for a different page.
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_FILMS)));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
     }
 
     @Test
@@ -220,6 +248,15 @@ class SwapiCacheAcceptanceTest {
      */
     private String peopleNamed(String name) {
         byte[] body = client.get().uri(PEOPLE + "?name={name}", name)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().returnResult().getResponseBody();
+        return new String(body, StandardCharsets.UTF_8);
+    }
+
+    /** Asks for the list of films, checks that it answers 200 and returns the body. */
+    private String listOfFilms(String query) {
+        byte[] body = client.get().uri(FILMS + query)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody().returnResult().getResponseBody();
