@@ -30,7 +30,45 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora es el esqueleto del proyecto: el login y los listados llegan con los próximos tickets.
+Por ahora están el esqueleto del proyecto y el login: los listados llegan con los próximos tickets.
+
+### Iniciar sesión
+
+`docker compose up` carga un usuario de prueba:
+
+| Usuario | Contraseña |
+|---|---|
+| `demo` | `demo1234` |
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "demo", "password": "demo1234"}'
+```
+
+La respuesta trae el token, que vence a los 60 minutos:
+
+```json
+{
+  "accessToken": "eyJ...",
+  "tokenType": "Bearer",
+  "expiresIn": 3600
+}
+```
+
+Un usuario o una contraseña incorrectos responden `401`, y un pedido al que le falta alguno de los dos, `400`. Los errores usan el formato Problem Details.
+
+Es una credencial de prueba, pensada para quien corrige: en la base de datos solo está su *hash* BCrypt.
+
+### Configuración
+
+No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para cambiarlos, copiar `.env.example` a `.env`.
+
+| Variable | Para qué | En `docker compose` | Sin `docker compose` |
+|---|---|---|---|
+| `JWT_SECRET` | Clave que firma los tokens, de al menos 32 caracteres | Una clave de desarrollo, pública | Obligatoria: sin ella la aplicación no arranca |
+| `JWT_TTL_MINUTES` | Minutos hasta que vence un token | `60` | `60` |
+| `SEED_ENABLED` | Cargar el usuario de prueba | `true` | `false` |
 
 Para correr los tests hace falta además un JDK 21 o posterior:
 
@@ -106,6 +144,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 14/11/2026 | Al repasar la caché se evaluó guardar solo los listados y no los recursos específicos. Se mantuvo la decisión: los recursos son pocos (163), pesan poco y son lo que más se repite; lo que no tiene límite son las búsquedas. Proteger la caché de una avalancha de búsquedas inútiles quedó como requisito nuevo del ciclo 3 (REQ-35). |
 | 14/11/2026 | Se crearon los tickets del MVP: doce historias de usuario en el [hito `v0.1.0`](https://github.com/erickvaernet/conexa-star-wars-challenge/milestone/1), cada una con sus tareas, sus dependencias y sus criterios de aceptación. Tres decisiones del reparto: la protección del acceso (REQ-10) va separada del login, para revisar por separado la emisión del token y su validación; la caché (REQ-32) va separada del listado de People, para aislar la elección de la librería; y las pruebas de integración (REQ-16) no llevan ticket, porque son parte de la definición de terminado. |
 | 14/11/2026 | Primer ticket de código ([#5](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/5)): esqueleto del proyecto y entorno local. Los tests se escribieron y se revisaron antes que el código. Se comprobó que las librerías elegidas funcionan con Spring Boot 4.1 y que `docker compose up` deja la aplicación lista, con su base de datos. |
+| 15/11/2026 | Login con usuarios de prueba ([#6](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/6)): tabla de usuarios y usuario `demo` cargados con Flyway, token firmado con HS256 y todo cerrado salvo el login, la documentación y el control de estado. Los tests de aceptación se escribieron antes que el código. Al probarlo se vio que apagar la carga de usuarios sobre una base que ya la tenía impedía arrancar, y se corrigió. |
 
 ## Documentación
 

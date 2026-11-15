@@ -37,3 +37,13 @@ Se usa **JWT sin estado, con el soporte que trae Spring Security** para emitir y
 - "Cerrar sesión" (REQ-33, ciclo 3) va a necesitar una lista de tokens anulados, con su propio ADR.
 - El token ya incluye el rol del usuario, así que sumar el rol de administrador (REQ-25, ciclo 2) no cambia el mecanismo.
 - Un pedido nuevo que no tenga una regla explícita exige autenticación.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al implementar el login (ticket #6):
+  - **Dependencia.** El soporte de Spring Security para JWT viene en `spring-boot-starter-security-oauth2-resource-server`. Trae la firma y la validación de tokens; el login usa solo la firma, y la validación se configura con el acceso protegido (REQ-10).
+  - **Comprobación de la contraseña.** La hace el propio login con el `PasswordEncoder` de Spring Security (BCrypt): busca al usuario y compara. Se evaluó usar el `AuthenticationManager` de Spring Security, que hace lo mismo, y se descartó porque pide más piezas para el mismo resultado. Lo que sí se tomó de él es una precaución: la comparación se hace también cuando el usuario no existe, para que el tiempo de respuesta no revele qué usuarios existen.
+  - **Clave de firma.** Se comprueba al arrancar: si `JWT_SECRET` falta o tiene menos de 32 caracteres, la aplicación no arranca y el mensaje dice por qué. HS256 necesita una clave de al menos 256 bits.
+  - **Rutas públicas.** El login se abre solo para `POST` y el control de estado solo para `GET /actuator/health`. La documentación abre `GET /swagger-ui.html`, `/swagger-ui/**` y `/v3/api-docs/**`, que son las rutas que Swagger UI necesita para funcionar.

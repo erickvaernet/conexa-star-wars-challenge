@@ -38,3 +38,13 @@ Errores que cubre el MVP:
 - Los errores de seguridad usan el mismo formato que el resto.
 - Ninguna respuesta de error muestra detalles internos, como nombres de clases o trazas.
 - El MVP cubre los errores básicos. El pulido completo (por ejemplo, el detalle campo por campo en las validaciones) es el REQ-21, del ciclo 2.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Precisiones que aparecieron al implementar los primeros errores (ticket #6):
+  - **Un solo lugar da formato a los errores,** en `shared`. También pasan por ahí los `401` de las reglas de acceso, que Spring Security resuelve fuera de los controladores.
+  - **El campo `type` se escribe siempre.** Spring lo omite cuando el error no tiene un tipo propio, y el estándar lo permite; se escribe igual (`about:blank`) para que todos los errores tengan los mismos campos, como muestra la especificación técnica.
+  - **Los textos de `detail` son fijos y están en inglés,** igual que los títulos y los mensajes que genera Spring, para no mezclar idiomas en una misma respuesta. El mensaje de la excepción nunca llega al cliente. El ejemplo en español de la especificación técnica muestra la forma de la respuesta, no el texto.
+  - **Un error inesperado responde `500`** con un texto genérico, y la causa queda en el registro de la aplicación. Se sumó junto con el login porque, con todo cerrado por defecto, sin esto una falla interna del login se veía desde afuera como un `401`.

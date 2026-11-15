@@ -2,6 +2,7 @@ package io.github.erickvaernet.starwars;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 /**
  * Entry point of the Star Wars API.
@@ -11,6 +12,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * holds users.
  */
 @SpringBootApplication
+// Finds the settings classes of every package, such as the token settings.
+@ConfigurationPropertiesScan
 public class StarWarsApplication {
 
     public static void main(String[] args) {
