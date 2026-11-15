@@ -66,3 +66,8 @@ Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
   - **Dónde se valida.** Los dos parámetros se reciben como texto y se convierten en `catalog`, en un solo lugar. La alternativa era recibirlos como enteros y validarlos con anotaciones; se descartó porque reparte la misma regla entre la conversión de tipos de Spring, la validación y el formato de los errores, y porque los textos por defecto de esa validación cambian con el idioma de la máquina.
   - **Casos que la especificación no nombra.** También responden `400`: un parámetro vacío (`page=`), uno repetido (`page=1&page=2`) y un número que no entra en un entero de 32 bits. Ninguno es "un entero" válido, y no se corrigen.
   - **`page` no tiene máximo.** Una página muy posterior a la última es un pedido válido y devuelve la lista vacía.
+- **15/11/2026.** Precisiones que aparecieron al implementar la validación de `id` (ticket #10):
+  - **Dónde se valida.** En `catalog`, en un solo lugar, igual que `page` y `size`. El parámetro del listado y el identificador de la ruta del detalle pasan por la misma regla y responden con el mismo texto.
+  - **Antes de consultar a SWAPI.** Un identificador inválido se rechaza sin hacer ningún pedido; los tests de aceptación lo comprueban.
+  - **Casos que la especificación no nombra.** También responden `400`: `id=` vacío, `id` repetido (`id=1&id=2`) y un identificador con espacios. No se recorta ni se corrige nada.
+  - **En la documentación de la API** figura como texto con su patrón (`^[1-9][0-9]{0,9}$`), no como entero, porque los identificadores se tratan como texto ([ADR-0012](0012-response-data-shape.md)).
