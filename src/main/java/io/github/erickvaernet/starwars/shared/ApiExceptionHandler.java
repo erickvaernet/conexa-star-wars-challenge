@@ -38,8 +38,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      * password was wrong.
      */
     @ExceptionHandler(BadCredentialsException.class)
-    ProblemDetail handleBadCredentials(BadCredentialsException error) {
-        return problem(HttpStatus.UNAUTHORIZED, "Invalid username or password.");
+    ResponseEntity<ProblemDetail> handleBadCredentials(BadCredentialsException error) {
+        return unauthorized("Invalid username or password.");
     }
 
     /**
@@ -47,8 +47,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      * has a signature that does not match. The answer is the same in the four cases.
      */
     @ExceptionHandler(AuthenticationException.class)
-    ProblemDetail handleNotAuthenticated(AuthenticationException error) {
-        return problem(HttpStatus.UNAUTHORIZED, "Authentication is required to access this resource.");
+    ResponseEntity<ProblemDetail> handleNotAuthenticated(AuthenticationException error) {
+        return unauthorized("Authentication is required to access this resource.");
     }
 
     /** Any error that has no handler of its own. The cause goes to the log, not to the answer. */
@@ -71,6 +71,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             problem.setType(NO_SPECIFIC_TYPE);
         }
         return super.createResponseEntity(body, headers, statusCode, request);
+    }
+
+    /**
+     * Builds a 401. HTTP requires every 401 to say how to authenticate, in the
+     * {@code WWW-Authenticate} header (RFC 9110).
+     *
+     * <p>The header names the scheme and nothing else. The standard of Bearer tokens allows
+     * parameters that describe the error; they are left out so that the answer does not tell why
+     * a token was rejected.
+     */
+    private static ResponseEntity<ProblemDetail> unauthorized(String detail) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(problem(HttpStatus.UNAUTHORIZED, detail));
     }
 
     private static ProblemDetail problem(HttpStatus status, String detail) {
