@@ -19,6 +19,7 @@ import io.github.erickvaernet.starwars.catalog.ItemSummary;
 import io.github.erickvaernet.starwars.catalog.Listing;
 import io.github.erickvaernet.starwars.catalog.NameFilter;
 import io.github.erickvaernet.starwars.catalog.PageQuery;
+import io.github.erickvaernet.starwars.catalog.films.FilmDetail;
 import io.github.erickvaernet.starwars.catalog.people.PersonDetail;
 import io.github.erickvaernet.starwars.shared.BadGatewayException;
 import io.github.erickvaernet.starwars.shared.GatewayTimeoutException;
@@ -49,6 +50,10 @@ class SwapiCatalogSourceTest {
     private static final CatalogEntity PEOPLE = new CatalogEntity("people", "name");
 
     private static final String SWAPI_PEOPLE = "/api/people";
+
+    private static final CatalogEntity FILMS = new CatalogEntity("films", "title");
+
+    private static final String SWAPI_FILMS = "/api/films";
 
     /** The identifier of the character that has a recording. */
     private static final ItemId LUKE = new ItemId("1");
@@ -400,16 +405,12 @@ class SwapiCatalogSourceTest {
     @Test
     @DisplayName("The search uses the field that the entity declares, to ask and to read the names: for a film, its title")
     void searchUsesTheFieldOfTheEntity() {
-        // Not a recording: the shape of the real search, with the names of a film.
-        swapi.stubFor(get(urlPathEqualTo("/api/films")).withQueryParam("title", equalTo("hope"))
-                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON).withBody("""
-                        {"message":"ok","result":[{"uid":"1","properties":{"title":"A New Hope","episode_id":4}}]}
-                        """)));
-
-        Listing listing = source.search(new CatalogEntity("films", "title"), new NameFilter("hope"), new PageQuery(1, 10));
+        // The recording of the real search of SWAPI for the films whose title contains "hope".
+        Listing listing = source.search(FILMS, new NameFilter("hope"), new PageQuery(1, 10));
 
         assertThat(listing).isEqualTo(new Listing.Complete(List.of(new ItemSummary("1", "A New Hope"))));
-        swapi.verify(0, getRequestedFor(urlPathEqualTo("/api/films")).withQueryParam("name", equalTo("hope")));
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_FILMS)).withQueryParam("title", equalTo("hope")));
+        swapi.verify(0, getRequestedFor(urlPathEqualTo(SWAPI_FILMS)).withQueryParam("name", equalTo("hope")));
     }
 
     @ParameterizedTest(name = "\"{0}\" reaches SWAPI as \"{1}\"")
@@ -539,6 +540,69 @@ class SwapiCatalogSourceTest {
                 .hasMessageContaining("name")
                 .hasMessageNotContaining("two lines")
                 .hasCauseInstanceOf(Exception.class);
+    }
+
+    @Test
+    @DisplayName("The real list of films, which SWAPI does not cut in pages, is read as the complete list, with each title as the name")
+    void realListOfFilmsIsReadAsComplete() {
+        // The recording answers the six films whatever the page and the size, like SWAPI.
+        Listing listing = source.list(FILMS, new PageQuery(2, 2));
+
+        assertThat(listing).isEqualTo(new Listing.Complete(List.of(
+                new ItemSummary("1", "A New Hope"),
+                new ItemSummary("2", "The Empire Strikes Back"),
+                new ItemSummary("3", "Return of the Jedi"),
+                new ItemSummary("4", "The Phantom Menace"),
+                new ItemSummary("5", "Attack of the Clones"),
+                new ItemSummary("6", "Revenge of the Sith"))));
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_FILMS))
+                .withQueryParam("page", equalTo("2"))
+                .withQueryParam("limit", equalTo("2")));
+    }
+
+    @Test
+    @DisplayName("A real film of SWAPI is read: every field of its detail, the episode as a number and its relations as identifiers")
+    void realFilmIsRead() {
+        assertThat(source.find(FILMS, new ItemId("1"))).contains(new FilmDetail(
+                "1", "A New Hope", 4,
+                "It is a period of civil war.\r\nRebel spaceships, striking\r\nfrom a hidden base, have won\r\n"
+                        + "their first victory against\r\nthe evil Galactic Empire.\r\n\r\nDuring the battle, Rebel\r\n"
+                        + "spies managed to steal secret\r\nplans to the Empire's\r\nultimate weapon, the DEATH\r\n"
+                        + "STAR, an armored space\r\nstation with enough power\r\nto destroy an entire planet.\r\n\r\n"
+                        + "Pursued by the Empire's\r\nsinister agents, Princess\r\nLeia races home aboard her\r\n"
+                        + "starship, custodian of the\r\nstolen plans that can save her\r\npeople and restore\r\n"
+                        + "freedom to the galaxy....",
+                "George Lucas", "Gary Kurtz, Rick McCallum", "1977-05-25",
+                List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "12", "13", "14", "15", "16", "18", "19", "81"),
+                List.of("2", "3", "5", "9", "10", "11", "12", "13"),
+                List.of("4", "6", "7", "8")));
+
+        swapi.verify(1, getRequestedFor(urlPathEqualTo(SWAPI_FILMS + "/1")));
+        swapi.verify(1, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("A film with only its identifier and its title is read: what SWAPI does not send is null or empty, the episode too")
+    void filmWithOnlyItsTitleIsRead() {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_FILMS + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"result\":{\"uid\":\"1\",\"properties\":{\"title\":\"A New Hope\",\"episode_id\":null}}}")));
+
+        assertThat(source.find(FILMS, new ItemId("1"))).contains(new FilmDetail(
+                "1", "A New Hope", null, null, null, null, null, List.of(), List.of(), List.of()));
+    }
+
+    @ParameterizedTest(name = "\"episode_id\": {0}")
+    // A text, even with digits; a number with decimals, even zero; a number too large; a boolean.
+    @ValueSource(strings = {"\"4\"", "\"IV\"", "4.5", "4.0", "3000000000", "true"})
+    @DisplayName("A film whose episode is not a whole number is a failure of the data source: it is not converted")
+    void filmWhoseEpisodeIsNotAWholeNumberIsAFailure(String episode) {
+        swapi.stubFor(get(urlPathEqualTo(SWAPI_FILMS + "/1")).atPriority(1)
+                .willReturn(aResponse().withStatus(200).withHeader(HttpHeaders.CONTENT_TYPE, JSON)
+                        .withBody("{\"result\":{\"uid\":\"1\",\"properties\":{\"title\":\"A New Hope\","
+                                + "\"episode_id\":" + episode + "}}}")));
+
+        assertThatThrownBy(() -> source.find(FILMS, new ItemId("1"))).isInstanceOf(BadGatewayException.class);
     }
 
     @Test
