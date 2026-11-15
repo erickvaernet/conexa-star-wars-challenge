@@ -8,6 +8,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
@@ -202,10 +203,10 @@ class SwapiCatalogSourceRetryTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    // The first two close the connection without answering. The last two send bytes that the
-    // HTTP client cannot read as an answer, and close: no answer arrived either, and the client
-    // reports it in the same way as a connection that was cut.
-    @EnumSource(Fault.class)
+    // The first two close the connection without answering. The third sends bytes that are not
+    // an HTTP answer, not even its first line, and closes: no answer arrived either, and the HTTP
+    // client reports it in the same way as a connection that was cut.
+    @EnumSource(value = Fault.class, names = {"CONNECTION_RESET_BY_PEER", "EMPTY_RESPONSE", "RANDOM_DATA_THEN_CLOSE"})
     @DisplayName("A connection that is cut, or that brings something that is not an HTTP answer, is retried")
     void connectionThatIsCutIsRetried(Fault fault) {
         swapiFailsOnce(SWAPI_PEOPLE, aResponse().withFault(fault));
@@ -213,6 +214,29 @@ class SwapiCatalogSourceRetryTest {
         assertThat(source.list(PEOPLE, new PageQuery(1, 10)).toString()).contains("Luke Skywalker");
 
         swapi.verify(2, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    @DisplayName("An answer that begins as a valid one and goes on with a body that is not, is retried or not according to what the HTTP client reports, and never ends in another error")
+    void answerWithAValidStartAndAMalformedBodyEndsInOneOfTwoWays() {
+        // The stub sends a valid first line, then bytes that are not a body, and closes. What
+        // the HTTP client reports changes from one run to the next, with the same version of
+        // Java: most times a connection error, because it fails before it has an answer, and
+        // some times an answer whose body cannot be read. It depends on how much had arrived
+        // when it read. The rule is the same in both cases, and this test checks only what
+        // does not depend on that: the first one is retried and the second one is not.
+        swapiFailsOnce(SWAPI_PEOPLE, aResponse().withFault(Fault.MALFORMED_RESPONSE_CHUNK));
+
+        Throwable failure = catchThrowable(() -> source.list(PEOPLE, new PageQuery(1, 10)));
+
+        if (failure == null) {
+            // It was a connection error: the retry got the recording.
+            swapi.verify(2, anyRequestedFor(anyUrl()));
+        } else {
+            // It was an answer that cannot be read: a failure of the data source, at once.
+            assertThat(failure).isInstanceOf(BadGatewayException.class);
+            swapi.verify(1, anyRequestedFor(anyUrl()));
+        }
     }
 
     @Test
