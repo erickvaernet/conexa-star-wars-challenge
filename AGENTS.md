@@ -32,7 +32,7 @@ Las decisiones técnicas y sus motivos están en [`docs/adr/`](docs/adr/README.m
 
 ## Antes de dar un ticket por terminado
 
-Comprobar la definición de terminado de [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md#tickets-github-issues): el proyecto compila, pasan los tests de aceptación y los unitarios, el código nuevo está documentado y la documentación afectada está al día.
+Comprobar la definición de terminado de [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md#tickets-github-issues): el proyecto compila, pasan los tests de aceptación y los unitarios, pasa la verificación automática del pull request, el código nuevo está documentado y la documentación afectada está al día.
 
 ## Comandos
 
