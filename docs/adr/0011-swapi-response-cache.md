@@ -48,3 +48,13 @@ Las respuestas de SWAPI se guardan en una **caché en memoria con vencimiento**,
 - Un dato que cambie en SWAPI puede tardar hasta una hora en verse. Es aceptable porque los datos de Star Wars casi no cambian.
 - La caché vive en la memoria de la aplicación: se vacía al reiniciar y cada instancia tiene la suya. Con más de una instancia haría falta una caché compartida, como Redis.
 - El primer pedido de cada dato sigue dependiendo de la velocidad de SWAPI.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **14/11/2026.** Al revisar la especificación técnica se precisó qué se guarda: **solo las respuestas correctas de SWAPI**. Un "no existe" (su 404) o un error no se guardan.
+  - Se evaluó guardar también el "no existe", para no gastar pedidos a SWAPI en identificadores inexistentes. Se descartó: casi nadie vuelve a pedir el mismo identificador inexistente, así que el ahorro es mínimo, y a cambio la caché se llenaría de entradas que nadie vuelve a leer y que desplazan datos útiles.
+  - Un error nunca se guarda: si se guardara, una caída breve de SWAPI se seguiría viendo hasta que venza la entrada.
+  - Consecuencia: repetir el pedido de un identificador inexistente vuelve a llamar a SWAPI. La protección contra el abuso es el límite de pedidos por usuario (REQ-31), previsto para el ciclo 3.
+  - Una búsqueda sin resultados sí se guarda, porque SWAPI la responde como correcta, con una lista vacía.

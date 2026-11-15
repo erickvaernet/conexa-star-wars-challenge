@@ -57,3 +57,10 @@ Reglas del contrato:
 - La paginación en memoria trae la lista completa. Con decenas de elementos por entidad no es un problema; si una entidad creciera mucho, habría que revisarlo. La caché evita repetir ese pedido en cada página (ver [ADR-0011](0011-swapi-response-cache.md)).
 - Límite conocido: si SWAPI empezara a respetar el tamaño de página sin informar los totales, la aplicación tomaría una lista parcial como completa. No se puede distinguir desde afuera.
 - El contrato exacto (nombres de parámetros, validaciones y códigos de error) se define en la especificación técnica.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **14/11/2026.** Los motivos del tamaño por defecto y del máximo, y qué pasa cuando se pide un valor fuera de rango, están en el [ADR-0013](0013-parameter-limits-and-invalid-values.md). Los valores no cambian.
+- **14/11/2026.** Al revisar la especificación técnica se confirmó que un ID inexistente responde distinto según cómo se pida: lista vacía en el filtro (`/people?id=9999`) y 404 en el detalle (`/people/9999`). El motivo, que este ADR no explicaba: el filtro es una búsqueda, y una búsqueda sin resultados no es un error, igual que un nombre sin coincidencias; el detalle es la dirección de un elemento, y si ese elemento no existe corresponde 404. Así el listado responde siempre con la misma forma, cualquiera sea el filtro. La alternativa, 404 en los dos casos, haría que el filtro por ID se comporte distinto que el filtro por nombre.

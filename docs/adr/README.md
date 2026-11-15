@@ -1,6 +1,6 @@
 # Decisiones técnicas (ADRs)
 
-Cada archivo registra una decisión: su contexto, lo que se eligió, las alternativas descartadas y las consecuencias. Todas salen del [RFC-001](../rfc/RFC-001-architecture.md), que el autor revisó decisión por decisión.
+Cada archivo registra una decisión: su contexto, lo que se eligió, las alternativas descartadas y las consecuencias. Las once primeras salen del [RFC-001](../rfc/RFC-001-architecture.md), que el autor revisó decisión por decisión. Las siguientes salen de la revisión de la [especificación técnica](../spec/SPEC.md).
 
 | ADR                                             | Decisión                                                                        | Estado   |
 |-------------------------------------------------|---------------------------------------------------------------------------------|----------|
@@ -15,6 +15,8 @@ Cada archivo registra una decisión: su contexto, lo que se eligió, las alterna
 | [ADR-0009](0009-testing-strategy.md)            | Pruebas unitarias, de aceptación y de arquitectura                              | Aceptado |
 | [ADR-0010](0010-local-environment.md)           | Docker Compose; JDK 25 compilando a nivel 21                                    | Aceptado |
 | [ADR-0011](0011-swapi-response-cache.md)        | Caché en memoria de las respuestas de SWAPI, desde el MVP                       | Aceptado |
+| [ADR-0012](0012-response-data-shape.md)         | Forma de los datos: identificadores y valores como texto; relaciones como listas de identificadores, solo hacia entidades que la API expone | Aceptado |
+| [ADR-0013](0013-parameter-limits-and-invalid-values.md) | Tamaño de página de 1 a 100; un valor inválido se rechaza, no se corrige | Aceptado |
 
 ## Reglas
 
