@@ -10,7 +10,7 @@ API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/docume
 - [x] Listados paginados
 - [x] Filtrado por ID y/o nombre
 - [x] Login seguro con autenticación y autorización para acceder a los listados (usuarios en base de datos + seed inicial)
-- [ ] Documentación de la API con Swagger / OpenAPI
+- [x] Documentación de la API con Swagger / OpenAPI
 - [ ] Pruebas unitarias y de integración
 - [x] Entorno local dockerizado
 - [ ] Despliegue en un servidor gratuito
@@ -30,7 +30,24 @@ Levanta la aplicación y su base de datos. Cuando termina de arrancar:
 | Control de estado | <http://localhost:8080/actuator/health> |
 | Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
 
-Por ahora están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI.
+Por ahora están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Todo se puede probar desde la documentación interactiva.
+
+### Probar desde Swagger UI
+
+No hace falta ninguna otra herramienta: alcanza con el navegador.
+
+1. Abrir <http://localhost:8080/swagger-ui.html>. El primer grupo es **Authentication**, con el login.
+2. Desplegar `POST /api/v1/auth/login`, pulsar **Try it out** y después **Execute**. El cuerpo ya trae al usuario de prueba, así que no hay que escribir nada.
+3. Copiar el valor de `accessToken` de la respuesta, sin las comillas.
+4. Pulsar **Authorize**, arriba de la lista de pedidos, pegar el token en `Value`, confirmar con **Authorize** y cerrar el diálogo con **Close**. Va solo el token: la palabra `Bearer` la agrega la página.
+5. Probar cualquier pedido. Por ejemplo, `GET /api/v1/people` con `name` igual a `sky`, o `GET /api/v1/films/{id}` con `id` igual a `1`.
+
+- Los pedidos con candado son los que exigen el token: los cuatro listados y los cuatro detalles. El login no lo lleva.
+- El token vence a los 60 minutos. Desde ese momento los pedidos responden `401`: se repite el login y se carga el token nuevo. El login no envía el token cargado, así que se puede repetir aunque ese token ya no sirva.
+- **Logout**, en el mismo diálogo de **Authorize**, quita el token de la página.
+- Cada pedido muestra sus parámetros, su respuesta y sus errores. La misma documentación, en formato OpenAPI, está en <http://localhost:8080/v3/api-docs>.
+
+Las secciones que siguen muestran los mismos pedidos con `curl`.
 
 ### Iniciar sesión
 
@@ -501,6 +518,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Films, la segunda entidad ([#12](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/12)): listado paginado, filtros por ID y por título, y detalle. Fue el primer uso de los pasos para sumar una entidad: una carpeta en `catalog` con su controlador y sus datos de detalle, y su traducción en `swapi`; el núcleo, la validación, los errores y la caché no se tocaron. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que confirmaron lo previsto: no pagina las películas (devuelve las seis, se le pida la página que se le pida) y las busca por título. La aplicación recorta la página y recorrer las tres páginas es un solo pedido a SWAPI. El episodio es el único valor numérico: si SWAPI no lo envía llega como `null`, y si envía algo que no es un entero la respuesta es `502`, sin convertirlo. |
 | 15/11/2026 | Starships, la tercera entidad ([#13](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/13)): listado paginado, filtros por ID y por nombre, y detalle, con los mismos pasos que Films y sin tocar el núcleo, la validación, los errores ni la caché. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que pagina las naves como los personajes: son 36. Al grabarlas se vio que el orden del listado no es el de los identificadores. Todos los valores de una nave son texto y ninguno se convierte. La nave grabada no tiene pilotos y repite el mismo valor en dos campos, así que la traducción se prueba además con una nave armada en el test, con todos los valores distintos. |
 | 15/11/2026 | Vehicles, la cuarta y última entidad ([#14](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/14)): listado paginado, filtros por ID y por nombre, y detalle, con los mismos pasos que Films y Starships y sin tocar el núcleo, la validación, los errores ni la caché. Los tests de aceptación se escribieron antes que el código, con las respuestas reales de SWAPI, que pagina los vehículos como los personajes y las naves: son 39, y tampoco llegan en el orden de los identificadores. SWAPI entrega el largo del vehículo grabado como `"36.8 "`, con un espacio al final, y la API lo devuelve sin el espacio; el test comprueba primero que la grabación lo sigue trayendo. Ese vehículo no tiene pilotos y repite el mismo valor en dos campos, así que la traducción se prueba además con un vehículo armado en el test. Con esto las cuatro entidades tienen listado, filtros y detalle. |
+| 15/11/2026 | Documentación interactiva ([#15](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/15)): Swagger UI ya tiene el botón "Authorize" para cargar el token, y con eso se prueba todo desde el navegador. La documentación ya listaba los nueve pedidos; faltaban la información general, el esquema de seguridad y casi toda la del login, que no decía qué devuelve ni con qué errores responde. El token se exige por defecto en todos los pedidos y el login se exceptúa, con el mismo criterio que las reglas de acceso: una entidad nueva queda con candado sin declarar nada. El login pasó a ser el primer grupo de la página y su cuerpo trae de ejemplo al usuario de prueba. Los tests de aceptación se escribieron antes que el código; dos ya pasaban y se dejaron igual, porque protegen lo que no tiene que cambiar. |
 
 ## Documentación
 
