@@ -133,6 +133,8 @@ Un ticket está terminado cuando se cumple todo esto:
 - [ ] La documentación afectada está actualizada: README, documentación de la API y especificación técnica.
 - [ ] El pull request fue revisado por una persona.
 
+> **Nota del 15/11/2026.** Desde el ticket #6, el último punto no se cumplió como está escrito: los pull requests los revisó una sesión supervisora de una herramienta de IA, no una persona. La regla no cambia. El detalle está en [`process/AI-USAGE.md`](process/AI-USAGE.md).
+
 Que los tests pasen es necesario, pero no alcanza: no dicen si el código es claro, seguro o está bien diseñado. Eso lo cubre la revisión.
 
 **Hitos: uno por ciclo**
@@ -198,6 +200,7 @@ La estructura de `docs/`, el orden de lectura y los identificadores están en el
 | Especificación técnica | `docs/spec/SPEC.md`                 | —                                      |
 | Arquitectura   | `docs/ARCHITECTURE.md`              | —                                      |
 | Flujo de trabajo | `docs/process/WORKFLOW.md`        | —                                      |
+| Registro de uso de herramientas de IA | `docs/process/AI-USAGE.md` | —                          |
 
 - `<tema>` va en inglés, en minúsculas y con guiones.
 - Los números son correlativos y no se reutilizan.

@@ -2,6 +2,8 @@
 
 Cómo se trabaja en este proyecto, de la consigna al código entregado. Las reglas puntuales (formato de commits, ramas, tickets y pull requests) están en [`CONVENTIONS.md`](../CONVENTIONS.md); este documento explica el recorrido completo y por qué es así.
 
+> **Nota del 15/11/2026.** Este documento describe el flujo como se definió y como se quiere trabajar. En la implementación del ciclo 1 no se cumplió entero: desde el ticket #6, las dos revisiones que el flujo le asigna a una persona (la de los tests de aceptación antes del código y la del pull request antes de fusionar) las hizo una sesión supervisora de una herramienta de IA, por encargo del autor, que no revisó esos pull requests uno por uno. Las reglas no cambian. Qué se delegó, cómo se revisó y con qué límites está en [`AI-USAGE.md`](AI-USAGE.md).
+
 ## Qué es
 
 Es un flujo de **desarrollo guiado por especificaciones**: primero se escribe qué se quiere construir, después cómo, y recién entonces se programa. La especificación es la fuente de verdad y el código se deriva de ella.
@@ -122,7 +124,7 @@ Dos reglas para esta parte:
 - **Los tests son la forma en que la herramienta verifica su propio trabajo:** los ejecuta, lee las fallas y corrige. Por eso se escriben y se revisan antes que el código.
 - **El trabajo de base se hace en secuencia.** Recién cuando hay una primera historia completa y revisada, que sirve de ejemplo, las historias parecidas pueden implementarse en paralelo.
 
-El registro de lo que efectivamente se delegó, cómo se revisó y qué se corrigió a mano se lleva en `process/AI-USAGE.md` durante la implementación (REQ-18).
+La tabla dice cómo se reparte el trabajo. Lo que efectivamente se delegó, cómo se revisó y qué se corrigió está en [`AI-USAGE.md`](AI-USAGE.md) (REQ-18): en el ciclo 1 no coincide del todo con ella.
 
 ## Dónde vive cada regla
 

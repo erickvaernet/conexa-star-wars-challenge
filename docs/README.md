@@ -13,7 +13,7 @@ Cada documento se apoya en el anterior. El proceso completo está explicado en e
 | 3 | **ADRs** | Una decisión técnica por archivo, con su contexto y sus consecuencias | [`adr/README.md`](adr/README.md) | 13 aceptados (14/11/2026) |
 | 4 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación | [`spec/SPEC.md`](spec/SPEC.md) | Aprobada (14/11/2026) |
 | 5 | **Arquitectura** | Cómo se organiza el código: carpetas, capas y dependencias permitidas | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Vigente |
-| 6 | **Registro de uso de IA** | Qué se delegó en herramientas de IA, cómo se revisó y qué se corrigió a mano | `process/AI-USAGE.md` | Pendiente |
+| 6 | **Registro de uso de IA** | Qué se delegó en herramientas de IA, cómo se revisó y qué se corrigió a mano | [`process/AI-USAGE.md`](process/AI-USAGE.md) | Al 15/11/2026 |
 
 Dos documentos acompañan a todos los demás:
 
@@ -41,8 +41,6 @@ docs/
     ├── WORKFLOW.md        flujo de trabajo completo
     └── AI-USAGE.md        registro de uso de herramientas de IA
 ```
-
-El archivo `process/AI-USAGE.md` se crea cuando se escribe su contenido.
 
 ## Identificadores
 
