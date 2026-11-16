@@ -72,9 +72,9 @@ public class AuthController {
                     + "only where the seed is on, as in `docker compose`; where the seed is off, that user "
                     + "does not exist. The seed loads a test administrator too, `admin`, with the password "
                     + "`admin1234`: it is the user that can create users. The failed logins are counted by "
-                    + "source address: after five of them within fifteen minutes, every login from that "
-                    + "address is answered with `429`, also with the right credentials, until those "
-                    + "fifteen minutes end.")
+                    + "source address: after five of them within fifteen minutes, which are the default "
+                    + "settings, every login from that address is answered with `429`, also with the right "
+                    + "credentials, until those fifteen minutes end.")
     // The documentation requires the token in every request unless the request says otherwise.
     // This empty list is how the login says so: it gets no padlock, and Swagger UI sends it no
     // token. That matters, because a public request that brings a rejected token is answered
@@ -99,8 +99,8 @@ public class AuthController {
     @ApiResponse(
             responseCode = "429",
             description = "The source address of the request already made five failed logins within fifteen "
-                    + "minutes. The login is not checked, so the answer is the same with the right "
-                    + "credentials. The tokens that were already given keep working.",
+                    + "minutes, with the default settings. The login is not checked, so the answer is the "
+                    + "same with the right credentials. The tokens that were already given keep working.",
             headers = @Header(
                     name = "Retry-After",
                     description = "The seconds until a login from that address is checked again: a whole "
