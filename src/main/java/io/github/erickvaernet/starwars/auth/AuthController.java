@@ -101,8 +101,8 @@ public class AuthController {
             description = "The source address of the request already made five failed logins within fifteen "
                     + "minutes, with the default settings. The login is not checked, so the answer is the "
                     + "same with the right credentials. The tokens that were already given keep working. "
-                    + "It is also the answer, with `Retry-After: 1`, while that many logins from the "
-                    + "address are being checked at the same time and none of them has failed.",
+                    + "It is also the answer, with `Retry-After: 1`, when what fills the count of the "
+                    + "address is, in part or in whole, logins that are being checked at that moment.",
             headers = @Header(
                     name = "Retry-After",
                     description = "The seconds until a login from that address is checked again: a whole "
