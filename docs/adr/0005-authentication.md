@@ -66,3 +66,8 @@ Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
   - **El `403` sale por el mismo lugar que el `401`.** Las reglas de acceso le pasan el error a quien da formato a los errores de los controladores. La diferencia es la cabecera: el `401` lleva `WWW-Authenticate: Bearer` y el `403` no.
   - **El login no cambió, y el alta se ajustó a él.** El login rechaza una contraseña vacía o de solo espacios. El alta aplica esa misma regla, con la misma anotación, para no crear un usuario que después no pueda entrar ([ADR-0018](0018-user-creation.md), nota de esta fecha).
   - **Dos usuarios de prueba.** La descripción del login en la documentación de la API nombra también a `admin`, que es quien puede probar el alta.
+- **15/11/2026.** Lo que cambió en el login al sumar el límite de intentos (ticket #50, [ADR-0023](0023-login-attempt-limit.md)):
+  - **El login recibe la dirección de origen del pedido,** que es la que informa el propio pedido. Antes de buscar al usuario ocupa un lugar en la cuenta de esa dirección; si no hay lugar, responde `429` sin consultar la base de datos ni comparar la contraseña.
+  - **El `401` no cambió.** Tiene el mismo texto y la misma cabecera, sea el primer fallo o el quinto, y sigue siendo idéntico para un usuario que no existe y para una contraseña equivocada. La comparación con BCrypt se sigue haciendo también cuando el usuario no existe.
+  - **Un fallo es un login que responde `401`.** Un login correcto devuelve su lugar, y también uno que termina en un error inesperado (`500`): ninguno de los dos probó una contraseña equivocada.
+  - **El orden de las comprobaciones** es el de siempre con un paso más: la forma del pedido (`400`, `415`), el límite (`429`) y las credenciales (`401`).
