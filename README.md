@@ -1,6 +1,7 @@
 # Conexa · Back-end Java Challenge — Star Wars API
 
 [![CI](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml?query=branch%3Amain)
+[![Cobertura de líneas](https://img.shields.io/badge/cobertura-99%25-brightgreen)](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml?query=branch%3Amain)
 
 API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/documentation) para listar **People, Films, Starships y Vehicles** de forma paginada, con filtrado por ID y/o nombre y autenticación segura.
 
@@ -58,6 +59,7 @@ Hace falta además un JDK 21 o posterior. Maven no se instala: se usa el *wrappe
 |---|---|---|
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
+| Comprobar la cobertura y su distintivo | `bash scripts/check-coverage.sh` | Haber corrido `./mvnw verify` |
 
 Más detalle, en [Tests](#tests).
 
@@ -678,15 +680,17 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 |---|---|---|
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
+| Comprobar la cobertura y su distintivo | `bash scripts/check-coverage.sh` | Haber corrido `./mvnw verify` |
 
 - Son 1200 tests: 963 corren con `./mvnw test` y 237 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-- Para ver la cobertura, después de `./mvnw verify`, abrir `target/site/jacoco/index.html`.
+- **La cobertura está a la vista.** El distintivo de arriba muestra la cobertura de líneas: qué parte de las líneas de `src/main`, sin excluir ninguna clase, ejecutan todos los tests juntos (unitarios, de arquitectura y de aceptación), redondeada hacia abajo a un número entero. El informe completo, clase por clase, es el adjunto `coverage-report` de cada [ejecución](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml?query=branch%3Amain) de la verificación automática; para bajarlo hay que iniciar sesión en GitHub. En una máquina de desarrollo, después de `./mvnw verify`, el mismo informe queda en `target/site/jacoco/index.html`.
+- **El número del distintivo no puede quedar viejo.** `bash scripts/check-coverage.sh`, después de `./mvnw verify`, imprime el porcentaje medido, con las líneas cubiertas y las totales, y falla si el distintivo dice otro número o si la cobertura baja de 95 %. La verificación automática lo corre en cada ejecución y deja el porcentaje en su resumen.
 - **Cada cambio se verifica solo.** Cada pull request y cada cambio en `main` corren todos los tests sobre un JDK 21 y levantan la aplicación con `docker compose`, en GitHub Actions. El resultado se ve en el pull request, en el distintivo de arriba y en la [lista de ejecuciones](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml). La definición es [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-El porqué de esta estrategia está en el [ADR-0009](docs/adr/0009-testing-strategy.md), y el de la verificación automática, en el [ADR-0014](docs/adr/0014-continuous-verification.md).
+El porqué de esta estrategia está en el [ADR-0009](docs/adr/0009-testing-strategy.md); el de la verificación automática, en el [ADR-0014](docs/adr/0014-continuous-verification.md); y el de la cobertura a la vista, en el [ADR-0021](docs/adr/0021-visible-test-coverage.md).
 
 ## Uso de herramientas de IA
 
