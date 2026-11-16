@@ -222,6 +222,13 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 - **Qué herramientas, además de Postman, ejecutan el guion de la colección que guarda el token no se probó.** El [ADR-0022](../adr/0022-request-collection.md) lo deja para cuando se sume la colección.
 - **Publicar el informe de cobertura en GitHub Pages se evaluó sin probarlo.** Está entre las alternativas del ADR-0021.
 
+**Ticket #48: la cobertura de tests visible (REQ-27).** Una sesión de la herramienta de IA escribió el guion, el paso de la verificación automática y su documentación.
+
+- **No hubo tests que revisar antes del código.** El ticket no tiene tests de aceptación: sus criterios se comprueban por revisión. La sesión del ticket corrió el guion en desarrollo con cada uno de sus mensajes de error y lo probó una vez en GitHub: un commit cambió a propósito el número del distintivo, la ejecución quedó en rojo con el mensaje que dice qué número escribir, y el commit siguiente lo revirtió.
+- **Tomó una decisión que el encargo no traía.** Comprobó con un navegador sin sesión que GitHub muestra el resumen de una ejecución solo a quien inició sesión, y sumó una anotación con el porcentaje, que se ve sin iniciar sesión. Está contada, con las demás precisiones, en el [ADR-0021](../adr/0021-visible-test-coverage.md#notas-posteriores), nota del 15/11/2026.
+- **El número se volvió a medir antes de fusionar.** Este pull request quedó para el final, porque el ticket #50 suma código. Con los otros dos tickets en `main`, la sesión del ticket actualizó la rama y volvió a correr todos los tests y el guion: 665 de 667 líneas, 99,70 %, y el distintivo sigue en 99.
+- **El autor no intervino.** El pull request lo revisó la sesión supervisora, después de que la rama se actualizó y se volvió a medir.
+
 **Ticket #49: la colección de pedidos (REQ-28).** Una sesión de la herramienta de IA escribió los tests, la colección y su documentación.
 
 - **Los tests de aceptación no se revisaron antes de armar la colección.** Por el plazo, la sesión supervisora decidió revisarlos en el pull request y no antes, como en los tickets anteriores. Sí se escribieron primero: se vieron fallar, porque el archivo no existía, y quedaron en un commit anterior al de la colección.

@@ -32,7 +32,7 @@ Las decisiones técnicas y sus motivos están en [`docs/adr/`](docs/adr/README.m
 
 ## Antes de dar un ticket por terminado
 
-Comprobar la definición de terminado de [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md#tickets-github-issues): el proyecto compila, pasan los tests de aceptación y los unitarios, pasa la verificación automática del pull request, el código nuevo está documentado y la documentación afectada está al día.
+Comprobar la definición de terminado de [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md#tickets-github-issues): el proyecto compila, pasan los tests de aceptación y los unitarios, pasa la verificación automática del pull request, el distintivo de cobertura del README dice lo medido, el código nuevo está documentado y la documentación afectada está al día.
 
 ## Comandos
 
@@ -44,6 +44,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura, sin red ni Docker | `./mvnw test` |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` |
 | Ver la cobertura, después de `./mvnw verify` | Abrir `target/site/jacoco/index.html` |
+| Comprobar la cobertura y el distintivo del README, después de `./mvnw verify` | `bash scripts/check-coverage.sh` |
 | Levantar la aplicación y la base de datos | `docker compose up --build` |
 | Probar la aplicación levantada | Abrir <http://localhost:8080/swagger-ui.html>; los usuarios de prueba están en el [README](README.md#inicio-rápido) |
 | Apagar y borrar los datos locales | `docker compose down -v` |

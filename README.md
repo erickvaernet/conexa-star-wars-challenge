@@ -1,6 +1,7 @@
 # Conexa · Back-end Java Challenge — Star Wars API
 
 [![CI](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml?query=branch%3Amain)
+[![Cobertura de líneas](https://img.shields.io/badge/cobertura-99%25-brightgreen)](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml?query=branch%3Amain)
 
 API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/documentation) para listar **People, Films, Starships y Vehicles** de forma paginada, con filtrado por ID y/o nombre y autenticación segura.
 
@@ -60,6 +61,7 @@ Hace falta además un JDK 21 o posterior. Maven no se instala: se usa el *wrappe
 |---|---|---|
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
+| Comprobar la cobertura y su distintivo | `bash scripts/check-coverage.sh` | Haber corrido `./mvnw verify` |
 
 Más detalle, en [Tests](#tests).
 
@@ -735,15 +737,17 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 |---|---|---|
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
+| Comprobar la cobertura y su distintivo | `bash scripts/check-coverage.sh` | Haber corrido `./mvnw verify` |
 
 - Son 1301 tests: 1032 corren con `./mvnw test` y 269 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-- Para ver la cobertura, después de `./mvnw verify`, abrir `target/site/jacoco/index.html`.
+- **La cobertura está a la vista.** El distintivo de arriba muestra la cobertura de líneas: qué parte de las líneas de `src/main`, sin excluir ninguna clase, ejecutan todos los tests juntos (unitarios, de arquitectura y de aceptación), redondeada hacia abajo a un número entero. El informe completo, clase por clase, es el adjunto `coverage-report` de cada [ejecución](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml?query=branch%3Amain) de la verificación automática; para bajarlo hay que iniciar sesión en GitHub. En una máquina de desarrollo, después de `./mvnw verify`, el mismo informe queda en `target/site/jacoco/index.html`.
+- **El número del distintivo no puede quedar viejo.** `bash scripts/check-coverage.sh`, después de `./mvnw verify`, imprime el porcentaje medido, con las líneas cubiertas y las totales, y falla si el distintivo dice otro número o si la cobertura baja de 95 %. La verificación automática lo corre en cada ejecución y deja el porcentaje en la página de esa ejecución: como una anotación, que se ve sin iniciar sesión, y en su resumen, que GitHub muestra solo a quien inició sesión.
 - **Cada cambio se verifica solo.** Cada pull request y cada cambio en `main` corren todos los tests sobre un JDK 21 y levantan la aplicación con `docker compose`, en GitHub Actions. El resultado se ve en el pull request, en el distintivo de arriba y en la [lista de ejecuciones](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/workflows/ci.yml). La definición es [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-El porqué de esta estrategia está en el [ADR-0009](docs/adr/0009-testing-strategy.md), y el de la verificación automática, en el [ADR-0014](docs/adr/0014-continuous-verification.md).
+El porqué de esta estrategia está en el [ADR-0009](docs/adr/0009-testing-strategy.md); el de la verificación automática, en el [ADR-0014](docs/adr/0014-continuous-verification.md); y el de la cobertura a la vista, en el [ADR-0021](docs/adr/0021-visible-test-coverage.md).
 
 ## Uso de herramientas de IA
 
@@ -848,6 +852,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Cierre del ciclo 2: versión `v0.2.0`. Cinco de los seis tickets del hito están cerrados, la revisión final está hecha y sus correcciones están fusionadas, y los 1200 tests pasan. El sexto, el despliegue público ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)), tiene fusionado el archivo que lo describe y le falta crear el servicio, que es un paso del autor en persona: pasó al hito del ciclo 3, como piden las [convenciones](docs/CONVENTIONS.md) para un ticket que queda abierto, y el cambio está anotado en el [PRD](docs/requirements/PRD.md#historial-de-cambios). El `pom.xml` pasó de `0.1.0` a `0.2.0`, que es la versión que muestra la documentación de la API. |
 | 15/11/2026 | Colección de pedidos lista para usar ([#49](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/49)): el repositorio trae un archivo de Postman, [`docs/api/star-wars-api.postman_collection.json`](docs/api/star-wars-api.postman_collection.json), con el recorrido completo de la API en orden. Son 27 pedidos: el login de `demo`, cinco por cada entidad, cuatro errores, el login de `admin` y el alta de un usuario. Cada login guarda su token en una variable de la colección y los demás pedidos la envían, así que no hay que copiar nada. Un test compara la colección con la documentación de la API en los dos sentidos: un pedido que se sume o se renombre obliga a actualizarla. Los tests se escribieron antes que el archivo, que se escribió a mano y no trae ningún identificador de la herramienta. Se ejecutó una vez, completa, contra la aplicación levantada con `docker compose` y la SWAPI real: los 27 pedidos respondieron lo esperado y SWAPI recibió 17. |
 | 15/11/2026 | Límite de intentos de login ([#50](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/50)): los logins fallidos se cuentan por dirección de origen y, al quinto en quince minutos, todo login desde esa dirección responde `429`, con los segundos que faltan en `Retry-After`, también con las credenciales correctas. Se cuenta por dirección y no por usuario porque las credenciales de prueba son públicas: con un bloqueo por usuario, cualquiera dejaría a quien corrige sin poder entrar. Cada intento ocupa su lugar en la cuenta antes de comprobar la contraseña, así que muchos pedidos a la vez tampoco pasan del límite, y un pedido bloqueado no consulta la base de datos ni calcula BCrypt. La cuenta vive en memoria, con la librería de la caché y sin dependencias nuevas, y se ajusta o se apaga con dos variables. Los tests de aceptación se escribieron antes que el código y adelantan un reloj de prueba en vez de esperar; tres de los dieciocho ya pasaban, porque describen lo que el límite no cambia. **Queda sin medir** qué dirección ve la aplicación detrás del intermediario del despliegue público: de eso depende que ahí el límite frene algo, y se prueba cuando exista el servicio. |
+| 15/11/2026 | Cobertura de tests visible ([#48](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/48)): el README muestra la cobertura de líneas en un distintivo, al lado del de la verificación automática, y el número no puede quedar viejo. Un guion, `scripts/check-coverage.sh`, lee el informe de JaCoCo, imprime el porcentaje y falla si el distintivo dice otro número o si la cobertura baja de 95 %; la verificación automática lo corre después de los tests. Medido con los otros dos tickets del ciclo ya fusionados: 665 de 667 líneas, 99,70 %, que el distintivo muestra como 99 % porque redondea hacia abajo. Se probó cada mensaje de error del guion y, una vez, en GitHub: un commit con el número cambiado dejó la ejecución en rojo, y el siguiente lo revirtió. Al implementarlo apareció que GitHub muestra el resumen de una ejecución solo a quien inició sesión, así que el guion deja el porcentaje también como una anotación, que se ve sin iniciar sesión. |
 
 ## Documentación
 

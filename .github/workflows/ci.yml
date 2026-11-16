@@ -35,6 +35,11 @@ jobs:
       - name: Run all the tests
         run: ./mvnw -B -ntp verify
 
+      # Writes the line coverage in the summary of the run, and fails when it is below the
+      # minimum or when the badge of the README shows another number.
+      - name: Check the coverage and its badge
+        run: bash scripts/check-coverage.sh
+
       - name: Keep the coverage report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
