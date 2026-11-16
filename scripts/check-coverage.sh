@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Checks the line coverage that JaCoCo measured against the badge of the README.
 #
-# Usage, after "./mvnw verify":
+# Usage, after "./mvnw clean verify":
 #   bash scripts/check-coverage.sh
 #
-# It prints the measured percentage and fails in three cases, each with a message that says
+# "clean" matters on a development machine: without it, the report can be the one of an older
+# run, and the measurements of the older runs add up with the new one.
+#
+# It prints the measured percentage and fails in these cases, each with a message that says
 # what to correct:
-#   1. the report is missing;
+#   1. the report is missing, or counts no lines;
 #   2. the coverage is below the minimum;
-#   3. the number of the README badge is not the measured one, rounded down.
+#   3. the README does not have exactly one coverage badge, written as its line has to be;
+#   4. the number of that badge is not the measured one, rounded down.
 #
 # On GitHub Actions it also shows the percentage in the page of the run. It needs only bash,
 # awk and grep. The decision is in docs/adr/0021-visible-test-coverage.md.
@@ -21,8 +25,16 @@ MINIMUM=95
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 report="$root/target/site/jacoco/jacoco.csv"
 readme="$root/README.md"
-# The badge is a fixed shields.io image, with the number written in its address.
+# The badge is a fixed shields.io image, with the number written in its address. This is any
+# mention of one, wherever it is: it is what finds a second badge, or one written another way.
 badge='img\.shields\.io/badge/cobertura-[0-9]+%25'
+# And this is the badge as its line has to be written: at the start of one of the first lines
+# of the README, where it is seen without scrolling, with its text, its number and its colour,
+# and nothing between the number and the colour. A badge inside a comment or inside a phrase,
+# one that says something else, or one further down does not match.
+badge_line='^\[!\[Cobertura de líneas\]\(https://img\.shields\.io/badge/cobertura-[0-9]+%25-brightgreen\)'
+# How many lines of the README, from the top, the badge may be in.
+FIRST_LINES=10
 
 # Shows a line in the page of the run, in two places: its summary, which GitHub shows only to
 # those who are signed in, and an annotation, which anyone can read. The first argument is
@@ -49,7 +61,7 @@ fail() {
 
 if [ ! -f "$report" ]; then
     fail "the coverage report is missing: target/site/jacoco/jacoco.csv." \
-        "Run ./mvnw verify first, which writes it, and then this script again."
+        "Run ./mvnw clean verify first, which writes it, and then this script again."
     exit 1
 fi
 
@@ -68,7 +80,7 @@ read -r covered total < <(awk -F, '
 
 if [ "$total" -eq 0 ]; then
     fail "the coverage report counts no lines: target/site/jacoco/jacoco.csv." \
-        "Run ./mvnw verify again, which rewrites it, and then this script."
+        "Run ./mvnw clean verify again, which rewrites it, and then this script."
     exit 1
 fi
 
@@ -90,14 +102,23 @@ if [ "$rounded_down" -lt "$MINIMUM" ]; then
         "Add tests for the lines without coverage: target/site/jacoco/index.html shows them."
 fi
 
-badges="$(grep -oE "$badge" "$readme" || true)"
+# The mentions are counted without telling capital letters apart, so that a second badge
+# written "Cobertura-" is still a second badge.
+badges="$(grep -oiE "$badge" "$readme" || true)"
 count="$(printf '%s' "$badges" | grep -c . || true)"
+# What is inside a block of code is shown as text, not as an image: it is left out.
+line="$(head -n "$FIRST_LINES" "$readme" | awk '/^(```|~~~)/ { code = !code; next } !code' \
+    | grep -oE "$badge_line" || true)"
+lines="$(printf '%s' "$line" | grep -c . || true)"
 if [ "$count" -ne 1 ]; then
     fail "README.md has $count coverage badges, and it must have exactly one." \
         "Leave a single one, with this address: https://img.shields.io/badge/cobertura-$rounded_down%25-brightgreen"
+elif [ "$lines" -ne 1 ]; then
+    fail "the coverage badge of README.md is not written as its line has to be." \
+        "Start one of its first $FIRST_LINES lines with exactly this: [![Cobertura de líneas](https://img.shields.io/badge/cobertura-$rounded_down%25-brightgreen)"
 else
-    written="${badges##*cobertura-}"
-    written="${written%\%25}"
+    written="${line##*cobertura-}"
+    written="${written%%\%25*}"
     if [ "$written" != "$rounded_down" ]; then
         fail "the README badge says $written %, and the measured coverage is $rounded_down % ($percentage %, rounded down)." \
             "Write $rounded_down in the badge of README.md: .../badge/cobertura-$rounded_down%25-..."
