@@ -210,7 +210,37 @@ class LoginAttemptLimiterTest {
     }
 
     @Test
-    @DisplayName("Of the attempts that arrive at the very same moment from one address, exactly five take a place, round after round")
+    @DisplayName("The window starts with the first failure, not with a login that was already in course when it happened")
+    void windowDoesNotStartWithALoginInCourse() {
+        limiter.acquire(ADDRESS);
+        clock.advance(Duration.ofMinutes(14));
+
+        // That login is still in course. Four places are left: these failures take them.
+        fail(ADDRESS, 4);
+        limiter.release(ADDRESS);
+        fail(ADDRESS, 1);
+
+        // Fifteen minutes from the first failure, not one minute from that login.
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(900);
+    }
+
+    @Test
+    @DisplayName("When the window ends, the failures are forgotten and the logins in course still take their places")
+    void loginsInCourseAreKeptWhenTheWindowEnds() {
+        fail(ADDRESS, 1);
+        clock.advance(Duration.ofMinutes(15).minusSeconds(1));
+        for (int login = 1; login <= 4; login++) {
+            limiter.acquire(ADDRESS);
+        }
+        clock.advance(Duration.ofSeconds(2));
+
+        // The failure is over, so one place is free; the four logins in course take the others.
+        assertThatCode(() -> limiter.acquire(ADDRESS)).doesNotThrowAnyException();
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Of the failed logins that arrive at the very same moment from one address, exactly five take a place and all five are counted, round after round")
     void attemptsAtTheSameMomentNeverTakeMoreThanFivePlaces() throws Exception {
         int attempts = 16;
         int rounds = 400;
@@ -226,10 +256,12 @@ class LoginAttemptLimiterTest {
                         allReady.await();
                         try {
                             fresh.acquire(ADDRESS);
-                            return true;
                         } catch (TooManyLoginAttemptsException rejected) {
                             return false;
                         }
+                        // The ones that got a place fail, also at nearly the same moment.
+                        fresh.failed(ADDRESS);
+                        return true;
                     }));
                 }
 
@@ -240,6 +272,12 @@ class LoginAttemptLimiterTest {
                     }
                 }
                 assertThat(placesTaken).as("places taken in round %d", round).isEqualTo(5);
+                // Five failures and no login in course: the wait is the whole window. With a
+                // failure lost on the way it would be one second, or there would be no wait.
+                TooManyLoginAttemptsException blocked =
+                        catchThrowableOfType(TooManyLoginAttemptsException.class, () -> fresh.acquire(ADDRESS));
+                assertThat(blocked).as("the address after round %d", round).isNotNull();
+                assertThat(blocked.retryAfterSeconds()).as("the wait after round %d", round).isEqualTo(900);
             }
         }
     }

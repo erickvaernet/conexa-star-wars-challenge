@@ -239,14 +239,18 @@ class LoginServiceTest {
         List<Future<LoginResponse>> inCourse = new ArrayList<>();
         Throwable sixth;
 
-        try (ExecutorService threads = Executors.newFixedThreadPool(5)) {
+        try (ExecutorService threads = Executors.newFixedThreadPool(6)) {
             try {
                 for (int login = 1; login <= 5; login++) {
                     inCourse.add(threads.submit(() -> service.login("demo", "demo1234", ADDRESS)));
                 }
                 assertThat(fiveComparing.await(30, TimeUnit.SECONDS)).as("five logins in course").isTrue();
 
-                sixth = catchThrowable(() -> service.login("demo", "demo1234", ADDRESS));
+                // The sixth one is answered while the five are still inside. If it were let in,
+                // it would stay inside too: the wait for its answer ends, and the test fails.
+                Future<Throwable> answer = threads.submit(
+                        () -> catchThrowable(() -> service.login("demo", "demo1234", ADDRESS)));
+                sixth = answer.get(10, TimeUnit.SECONDS);
             } finally {
                 goOn.countDown();
             }
