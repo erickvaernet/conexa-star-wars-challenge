@@ -14,7 +14,7 @@ El código se organiza por funcionalidad ([ADR-0002](adr/0002-code-organization.
 
 ```
 src/main/java/io/github/erickvaernet/starwars
-├── auth/          login, emisión del token, reglas de acceso y alta de usuarios
+├── auth/          login y su límite de intentos, emisión del token, reglas de acceso y alta de usuarios
 ├── catalog/       núcleo común: páginas, filtros, detalle y la interfaz hacia la fuente de datos
 │   ├── people/    controlador y datos de detalle de People
 │   ├── films/
@@ -32,7 +32,7 @@ src/test/java/...  misma estructura de carpetas que el código que prueba
 
 | Carpeta     | Qué contiene                                                                                   | Qué no contiene                                    |
 |-------------|------------------------------------------------------------------------------------------------|----------------------------------------------------|
-| `auth`      | El pedido de login, la emisión del token, la tabla de usuarios, las reglas de acceso (también la que reserva un pedido a un rol) y el alta de usuarios | Nada sobre Star Wars |
+| `auth`      | El pedido de login y la cuenta de sus intentos fallidos por dirección de origen, la emisión del token, la tabla de usuarios, las reglas de acceso (también la que reserva un pedido a un rol) y el alta de usuarios | Nada sobre Star Wars |
 | `catalog`   | El modelo de página, los filtros, la validación del identificador, la lógica de paginación y la interfaz de la fuente de datos | Nada con el formato de SWAPI |
 | `catalog/*` | Por entidad: su controlador, su documentación, sus datos de detalle, con los nombres de esta API, y el nombre que la documentación le da a un elemento de su listado | Lógica de paginación o de filtros, ni nombres de campos de SWAPI (salvo el campo de búsqueda que la entidad declara para la fuente) |
 | `swapi`     | Los pedidos HTTP a SWAPI, la traducción de sus respuestas (por entidad, la de su detalle) y la caché | Controladores o reglas de la API propia   |
@@ -156,6 +156,7 @@ Films fue la primera entidad que se sumó con estos pasos (ticket #12), y no hiz
 | Rutas                      | Todas bajo `/api/v1`                                                                    | [ADR-0004](adr/0004-pagination-and-filters.md) |
 | Paginación                 | Páginas desde 1; tamaño por defecto 10 y máximo 100                                     | [ADR-0004](adr/0004-pagination-and-filters.md) |
 | Seguridad                  | Todo cerrado por defecto; solo son públicos el login, la documentación y el control de estado. El alta de usuarios exige además el rol `ADMIN`, que se lee del token. Se comprueba siempre en el mismo orden: la sesión (`401`), el rol (`403`) y recién entonces el contenido (`400`) | [ADR-0005](adr/0005-authentication.md) y [ADR-0017](adr/0017-role-based-access.md) |
+| Límite de intentos de login | Los logins fallidos se cuentan por dirección de origen, en memoria. El login ocupa un lugar en la cuenta de su dirección antes de comprobar nada, y lo devuelve solo si resulta correcto. Una dirección sin lugares recibe `429` sin consultar la base de datos ni calcular BCrypt. La cuenta está en `auth` (`LoginAttemptLimiter`); el `429`, con su `Retry-After`, sale de `shared`, como los demás errores | [ADR-0023](adr/0023-login-attempt-limit.md) |
 | Base de datos              | Solo usuarios. El esquema cambia únicamente con archivos de Flyway. Lo único que la aplicación escribe es el alta de un usuario | [ADR-0006](adr/0006-users-database-and-seed.md) y [ADR-0018](adr/0018-user-creation.md) |
 | Errores                    | En formato Problem Details, sin detalles internos. La excepción es lo que el servidor web rechaza antes de armar el pedido (un carácter prohibido sin codificar, una cabecera demasiado grande), que responde su propio `400`. Un `400` de validación dice además qué campo o parámetro falló, en la lista `errors` | [ADR-0007](adr/0007-error-format.md) y [ADR-0016](adr/0016-validation-error-detail.md) |
 | Documentación de la API    | Se genera desde el código; cada pedido documenta parámetros, respuestas y errores       | [ADR-0008](adr/0008-api-documentation.md)      |

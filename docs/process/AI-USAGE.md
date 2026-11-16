@@ -230,6 +230,15 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 - **La colección se escribió a mano,** sin exportarla de ninguna herramienta, y se ejecutó una vez contra la aplicación levantada y la SWAPI real: los 27 pedidos respondieron lo esperado. El resultado está en el pull request y en las notas del [ADR-0022](../adr/0022-request-collection.md#notas-posteriores).
 - **Qué no se probó.** Importarla en la aplicación de Postman, en Insomnia y en Hoppscotch. En Bruno se probó solo la conversión de la importación, sin ejecutar ningún pedido: que su guion traducido carga el token no se comprobó.
 
+**Ticket #50: el límite de intentos de login (REQ-29).** Una sesión de la herramienta de IA escribió los tests, el código y su documentación.
+
+- **Los tests de aceptación se revisaron antes del código.** La sesión del ticket escribió primero los dieciocho, con una sola pieza de producción, vacía, para que compilaran: quince fallaban y tres ya pasaban, porque describen lo que el límite no cambia. La sesión supervisora los revisó y los aprobó sin cambios.
+- **Las decisiones de diseño las eligió la sesión supervisora,** entre las alternativas que le presentó la sesión del ticket: cómo vacían los tests la cuenta de intentos, qué reloj lee el límite, que los tests exijan los segundos exactos de `Retry-After` y tres comprobaciones que los tests suman a lo que dice cada criterio.
+- **La sesión supervisora sumó dos pedidos propios:** que la dirección se escriba saneada en el registro, porque en el despliegue público la puede elegir el cliente, y que quedara escrito qué pasa con dos logins correctos simultáneos.
+- **La frase de un criterio se corrigió.** La sesión del ticket encontró que CA-29.18 no coincidía con lo que entrega la documentación de la API; la sesión supervisora, que había escrito esa extensión, autorizó corregirla.
+- **El autor no revisó los tests ni el diseño.** Todo está en el [ADR-0023](../adr/0023-login-attempt-limit.md#notas-posteriores), nota del 15/11/2026.
+- **Qué no se probó.** Lo mismo que al decidir: qué dirección ve la aplicación detrás del intermediario del despliegue público. La prueba manual se hizo con `docker compose`, donde todos los pedidos llegan con una misma dirección.
+
 ## Límites
 
 **Qué cubre una revisión hecha por otra sesión de la herramienta de IA.** Lo que se puede comprobar: que la verificación completa pasa cuando la corre otro, que los tests aprobados no se tocaron, que cada criterio tiene su test, que la aplicación levanta y responde contra la SWAPI real, y que la descripción del pull request coincide con el cambio.

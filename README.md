@@ -46,6 +46,8 @@ Cuando termina de arrancar:
 
 Son credenciales de prueba, pensadas para quien corrige: en la base de datos solo está su *hash* BCrypt.
 
+**Cinco logins fallidos en quince minutos bloquean el login,** también con la contraseña correcta, hasta que pasan esos quince minutos. Los fallos se cuentan por dirección de origen, no por usuario, y la respuesta dice cuántos segundos faltan ([Iniciar sesión](#iniciar-sesión)). Si pasa al probar, alcanza con esperar o con reiniciar la aplicación: la cuenta se guarda en memoria.
+
 **3. Probar**
 
 Desde el navegador, con [Swagger UI](#probar-desde-swagger-ui); desde la terminal, con [`curl`](#probar-con-curl); o importando la [colección de pedidos](#colección-de-pedidos) en Postman o en una herramienta parecida, que trae el recorrido completo, en orden y con el token ya cargado. Están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Y el alta de usuarios, que solo puede hacer un administrador. Todo se puede probar desde la documentación interactiva.
@@ -139,6 +141,33 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 - Un cuerpo que no se envía como JSON (otro `Content-Type`) responde `415`: `The content type of the request is not supported.`
 
 El porqué de esta forma está en el [ADR-0016](docs/adr/0016-validation-error-detail.md).
+
+**Límite de intentos.** Los logins fallidos se cuentan por dirección de origen. Al quinto dentro de quince minutos, todo login desde esa dirección responde `429`, también con las credenciales correctas, hasta que pasan quince minutos desde el primer fallo:
+
+```
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/problem+json
+Retry-After: 847
+```
+
+```json
+{
+  "type": "about:blank",
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "Too many failed login attempts. Try again later.",
+  "instance": "/api/v1/auth/login"
+}
+```
+
+- `Retry-After` dice cuántos segundos faltan para que el login vuelva a comprobar las credenciales. Seguir probando no alarga la espera.
+- Cuenta solo un login que responde `401`. Un `400` no cuenta, y un login correcto no suma ni borra los fallos anteriores.
+- Los cinco primeros fallos responden el `401` de siempre, que no dice cuántos intentos quedan.
+- El límite es solo del login: un token que ya se obtuvo sigue sirviendo.
+- La cuenta vive en la memoria de la aplicación y se pierde al reiniciarla.
+- La cantidad de fallos y la ventana se cambian, y el límite se apaga, con dos variables de la [configuración](#configuración).
+
+Qué frena y qué no, y por qué se cuenta por dirección y no por usuario, está en el [ADR-0023](docs/adr/0023-login-attempt-limit.md).
 
 ### Usar el token
 
@@ -670,6 +699,8 @@ No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para
 | `JWT_SECRET` | Clave que firma los tokens, de al menos 32 caracteres | Una clave de desarrollo, pública | Obligatoria: sin ella la aplicación no arranca |
 | `JWT_TTL_MINUTES` | Minutos hasta que vence un token | `60` | `60` |
 | `SEED_ENABLED` | Cargar los usuarios de prueba | `true` | `false` |
+| `LOGIN_MAX_FAILED_ATTEMPTS` | Cuántos logins fallidos desde una dirección de origen bloquean su login, de `0` a `100`. Con `0` el límite se apaga | `5` | `5` |
+| `LOGIN_FAILED_ATTEMPTS_WINDOW` | Cuánto dura la ventana en la que se cuentan esos fallos, y con ella el bloqueo. Mayor que cero y hasta `24h` | `15m` | `15m` |
 | `SWAPI_BASE_URL` | Dirección de SWAPI | `https://www.swapi.tech/api` | `https://www.swapi.tech/api` |
 | `SWAPI_CONNECT_TIMEOUT` | Tiempo máximo para conectarse con SWAPI | `3s` | `3s` |
 | `SWAPI_READ_TIMEOUT` | Tiempo máximo de espera de una respuesta de SWAPI | `10s` | `10s` |
@@ -679,7 +710,7 @@ No hace falta configurar nada: `docker compose` trae valores de desarrollo. Para
 | `SWAPI_CACHE_MAX_SIZE` | Cantidad máxima de respuestas de SWAPI guardadas | `500` | `500` |
 | `APP_PORT` | Puerto de esta máquina donde se publica la aplicación. La usa `docker compose`, no la aplicación | `8080` | No se usa |
 
-Los tiempos se escriben como un número con su unidad: `500ms`, `3s`, `1h`. Un valor inválido en una variable de SWAPI impide arrancar, y el mensaje dice cuál corregir.
+Los tiempos se escriben como un número con su unidad: `500ms`, `3s`, `1h`. Un valor inválido en una variable de SWAPI o del límite de intentos de login impide arrancar, y el mensaje dice cuál corregir.
 
 ## Despliegue público
 
@@ -690,6 +721,8 @@ Los tiempos se escriben como un número con su unidad: `500ms`, `3s`, `1h`. Un v
 - **Cómo está descripto:** en [`render.yaml`](render.yaml), con el motivo de cada variable. No tiene ningún secreto: los tres datos de la base se cargan a mano al crear el servicio, y la clave que firma los tokens la genera Render.
 - **Qué se despliega:** la misma imagen que levanta `docker compose`, sin cambios en el código. El archivo pide que cada cambio de `main` se despliegue solo, después de pasar la [verificación automática](#tests).
 - **Las credenciales de `admin` son públicas, y con ellas cualquiera puede crear usuarios en la instalación pública,** también otros administradores. Esos usuarios quedan hasta que se los borre desde la base de datos: no hay un pedido para listarlos ni para borrarlos. Es un límite aceptado, porque es lo que quien corrige tiene que poder probar, y no hay datos que proteger ([ADR-0015](docs/adr/0015-public-deployment.md) y [ADR-0017](docs/adr/0017-role-based-access.md)).
+- **El límite de intentos de login frena el caso simple, y no es una defensa completa.** Frena a quien prueba contraseñas una tras otra desde una dirección: cinco intentos cada quince minutos, aunque intercale logins correctos o mande muchos pedidos a la vez. No frena un ataque repartido entre muchas direcciones, y quienes comparten una dirección comparten la cuenta. La cuenta se pierde cada vez que la instancia se duerme. Las contraseñas de `demo` y de `admin` son públicas de todos modos: lo que el límite protege son los usuarios que se crean con el alta.
+- **Qué dirección cuenta en el despliegue depende del intermediario de Render, y falta medirlo.** Acá la aplicación lee las cabeceras del intermediario y cuenta por la primera dirección de `X-Forwarded-For`. Si Render descarta lo que manda el cliente y escribe la dirección real, cada cliente tiene su cuenta. Si conserva lo que manda el cliente, quien ataca elige su "dirección" en cada pedido y el límite no lo frena. Se mide cuando exista el servicio ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)), con la prueba que describe el [ADR-0023](docs/adr/0023-login-attempt-limit.md); si hiciera falta, el límite se apaga con `LOGIN_MAX_FAILED_ATTEMPTS=0`.
 - **La primera visita puede tardar entre uno y tres minutos.** El plan gratuito duerme la aplicación tras 15 minutos sin uso, y despertarla es arrancarla de nuevo con una décima de procesador: medido en desarrollo con esos límites, un minuto y medio. Después de esa espera responde con normalidad. No se la mantiene despierta: es el funcionamiento previsto del plan gratuito.
 
 Las alternativas evaluadas y lo medido están en el [ADR-0015](docs/adr/0015-public-deployment.md).
@@ -703,7 +736,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 1214 tests: 963 corren con `./mvnw test` y 251 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Son 1301 tests: 1032 corren con `./mvnw test` y 269 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -814,6 +847,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Revisión final del ciclo 2 y sus correcciones ([pull request #46](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/46)). Con cinco de los seis tickets fusionados, una sesión aparte de una herramienta de IA revisó el ciclo sobre un clon limpio, con la misma consigna que la del MVP: encontrar y demostrar fallas, sin conocer las revisiones anteriores. No encontró nada crítico ni ningún error de comportamiento, y de diecisiete roturas hechas a propósito en el código nuevo los tests detectaron dieciséis. Encontró dos fallas importantes, las dos en la documentación: el resumen de uso de herramientas de IA de este README decía que el autor había decidido el contrato de la API, que en el ciclo 2 se delegó, y el registro de ese uso había quedado a medio actualizar. Se corrigieron junto con cuatro hallazgos menores, con los tests antes que el código: los ejemplos de Swagger UI son ahora respuestas reales de la API, y un test los compara con lo que responde; el `405` tiene un solo texto, que no repite el método recibido; el test de CA-24.2 comparaba un objeto consigo mismo y ahora pide el detalle a su propia grabación; y quedó escrito qué responde un cuerpo que no se puede leer. También se escribió lo que estaba solo en los ADR: que el administrador de prueba puede crear usuarios en la instalación pública, y que el cliente HTTP puede repetir un pedido por su cuenta. Las casillas de los tickets y la versión se dejan para el cierre del ciclo. |
 | 15/11/2026 | Cierre del ciclo 2: versión `v0.2.0`. Cinco de los seis tickets del hito están cerrados, la revisión final está hecha y sus correcciones están fusionadas, y los 1200 tests pasan. El sexto, el despliegue público ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)), tiene fusionado el archivo que lo describe y le falta crear el servicio, que es un paso del autor en persona: pasó al hito del ciclo 3, como piden las [convenciones](docs/CONVENTIONS.md) para un ticket que queda abierto, y el cambio está anotado en el [PRD](docs/requirements/PRD.md#historial-de-cambios). El `pom.xml` pasó de `0.1.0` a `0.2.0`, que es la versión que muestra la documentación de la API. |
 | 15/11/2026 | Colección de pedidos lista para usar ([#49](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/49)): el repositorio trae un archivo de Postman, [`docs/api/star-wars-api.postman_collection.json`](docs/api/star-wars-api.postman_collection.json), con el recorrido completo de la API en orden. Son 27 pedidos: el login de `demo`, cinco por cada entidad, cuatro errores, el login de `admin` y el alta de un usuario. Cada login guarda su token en una variable de la colección y los demás pedidos la envían, así que no hay que copiar nada. Un test compara la colección con la documentación de la API en los dos sentidos: un pedido que se sume o se renombre obliga a actualizarla. Los tests se escribieron antes que el archivo, que se escribió a mano y no trae ningún identificador de la herramienta. Se ejecutó una vez, completa, contra la aplicación levantada con `docker compose` y la SWAPI real: los 27 pedidos respondieron lo esperado y SWAPI recibió 17. |
+| 15/11/2026 | Límite de intentos de login ([#50](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/50)): los logins fallidos se cuentan por dirección de origen y, al quinto en quince minutos, todo login desde esa dirección responde `429`, con los segundos que faltan en `Retry-After`, también con las credenciales correctas. Se cuenta por dirección y no por usuario porque las credenciales de prueba son públicas: con un bloqueo por usuario, cualquiera dejaría a quien corrige sin poder entrar. Cada intento ocupa su lugar en la cuenta antes de comprobar la contraseña, así que muchos pedidos a la vez tampoco pasan del límite, y un pedido bloqueado no consulta la base de datos ni calcula BCrypt. La cuenta vive en memoria, con la librería de la caché y sin dependencias nuevas, y se ajusta o se apaga con dos variables. Los tests de aceptación se escribieron antes que el código y adelantan un reloj de prueba en vez de esperar; tres de los dieciocho ya pasaban, porque describen lo que el límite no cambia. **Queda sin medir** qué dirección ve la aplicación detrás del intermediario del despliegue público: de eso depende que ahí el límite frene algo, y se prueba cuando exista el servicio. |
 
 ## Documentación
 
