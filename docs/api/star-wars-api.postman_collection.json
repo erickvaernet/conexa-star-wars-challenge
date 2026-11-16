@@ -1,0 +1,805 @@
+{
+  "info": {
+    "name": "Star Wars API",
+    "description": "The whole flow of the API, in order: log in, list and filter the four entities, the errors worth seeing, and the creation of a user.\n\nRun the requests from top to bottom. Each login saves its token in the variable `token`, and every other request sends it by itself.\n\nTo use another address, change the variable `baseUrl`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Log in",
+      "item": [
+        {
+          "name": "Log in as demo - 200, saves the token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"token\", pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "description": "The test user with the role USER. The answer brings the token, and the script of this request saves it in the variable `token`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"demo\",\n  \"password\": \"demo1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. People",
+      "item": [
+        {
+          "name": "People - list one page - 200",
+          "request": {
+            "description": "The first five characters, each with its identifier and its name, and the totals of the list.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/people?page=1&size=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "people"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "People - filter by ID - 200",
+          "request": {
+            "description": "A list with one element, Luke Skywalker. An identifier that does not exist answers 200 with an empty list.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/people?id=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "people"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "People - filter by name - 200",
+          "request": {
+            "description": "The characters whose name contains the text, in upper or lower case.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/people?name=sky",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "people"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "sky"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "People - list with the complete data - 200",
+          "request": {
+            "description": "The same page, where each element is the object that the detail answers instead of the summary.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/people?expanded=true&size=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "people"
+              ],
+              "query": [
+                {
+                  "key": "expanded",
+                  "value": "true"
+                },
+                {
+                  "key": "size",
+                  "value": "2"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "People - detail - 200",
+          "request": {
+            "description": "The complete data of Luke Skywalker.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/people/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "people",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Films",
+      "item": [
+        {
+          "name": "Films - list one page - 200",
+          "request": {
+            "description": "The first three films of the six, each with its identifier and its title in `name`.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/films?page=1&size=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "films"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "3"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Films - filter by ID - 200",
+          "request": {
+            "description": "A list with one element, A New Hope.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/films?id=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "films"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Films - filter by name - 200",
+          "request": {
+            "description": "The films whose title contains the text.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/films?name=hope",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "films"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "hope"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Films - list with the complete data - 200",
+          "request": {
+            "description": "The same page, where each element is the object that the detail answers instead of the summary.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/films?expanded=true&size=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "films"
+              ],
+              "query": [
+                {
+                  "key": "expanded",
+                  "value": "true"
+                },
+                {
+                  "key": "size",
+                  "value": "2"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Films - detail - 200",
+          "request": {
+            "description": "The complete data of A New Hope.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/films/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "films",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Starships",
+      "item": [
+        {
+          "name": "Starships - list one page - 200",
+          "request": {
+            "description": "The first five starships, each with its identifier and its name, and the totals of the list.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/starships?page=1&size=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "starships"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Starships - filter by ID - 200",
+          "request": {
+            "description": "A list with one element, the Death Star.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/starships?id=9",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "starships"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "9"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Starships - filter by name - 200",
+          "request": {
+            "description": "The starships whose name contains the text.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/starships?name=wing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "starships"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "wing"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Starships - list with the complete data - 200",
+          "request": {
+            "description": "The same page, where each element is the object that the detail answers instead of the summary.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/starships?expanded=true&size=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "starships"
+              ],
+              "query": [
+                {
+                  "key": "expanded",
+                  "value": "true"
+                },
+                {
+                  "key": "size",
+                  "value": "2"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Starships - detail - 200",
+          "request": {
+            "description": "The complete data of the Death Star.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/starships/9",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "starships",
+                "9"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Vehicles",
+      "item": [
+        {
+          "name": "Vehicles - list one page - 200",
+          "request": {
+            "description": "The first five vehicles, each with its identifier and its name, and the totals of the list.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles?page=1&size=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vehicles - filter by ID - 200",
+          "request": {
+            "description": "A list with one element, the Sand Crawler.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles?id=4",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "4"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vehicles - filter by name - 200",
+          "request": {
+            "description": "The vehicles whose name contains the text.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles?name=speeder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "speeder"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vehicles - list with the complete data - 200",
+          "request": {
+            "description": "The same page, where each element is the object that the detail answers instead of the summary.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles?expanded=true&size=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles"
+              ],
+              "query": [
+                {
+                  "key": "expanded",
+                  "value": "true"
+                },
+                {
+                  "key": "size",
+                  "value": "2"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vehicles - detail - 200",
+          "request": {
+            "description": "The complete data of the Sand Crawler.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/4",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "4"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Errors",
+      "item": [
+        {
+          "name": "No token - 401",
+          "request": {
+            "description": "A list asked for without the token. It is the only request, besides the logins, that does not send it.",
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/people",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "people"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a user as demo - 403",
+          "request": {
+            "description": "Only an administrator can create users. This request goes with the token of demo, a common user, so it has to run before the login of admin.",
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"leia\",\n  \"password\": \"alderaan-1977\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invalid parameter - 400 with errors",
+          "request": {
+            "description": "A size outside its range. The answer says which parameter to correct, in `detail` and in the list `errors`.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/people?size=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "people"
+              ],
+              "query": [
+                {
+                  "key": "size",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Element that does not exist - 404",
+          "request": {
+            "description": "The detail of an identifier that no character has.",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/people/9999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "people",
+                "9999"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Administrator",
+      "item": [
+        {
+          "name": "Log in as admin - 200, saves the token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"token\", pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "description": "The test user with the role ADMIN. From here on, every request goes as the administrator.",
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a user - 201, and 409 from the second time on",
+          "request": {
+            "description": "It always creates the same user: the first time it answers 201, and after that 409, the answer for a username that already exists.",
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"leia\",\n  \"password\": \"alderaan-1977\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

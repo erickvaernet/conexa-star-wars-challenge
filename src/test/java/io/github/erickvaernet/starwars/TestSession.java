@@ -12,6 +12,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
  * <p>It logs in through the real login, like any client of the API. The test has to run with the
  * seed switched on ({@code SEED_ENABLED=true}), because the seed is what loads the test users:
  * {@code demo}, a common user, and {@code admin}, an administrator.
+ *
+ * <p>Every login here is a correct one. A test that makes failed logins on purpose empties their
+ * count before and after, with {@link io.github.erickvaernet.starwars.auth.FailedLogins}: the
+ * application blocks the login of an address that fails five times.
  */
 public final class TestSession {
 

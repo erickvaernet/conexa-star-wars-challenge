@@ -2,10 +2,15 @@ package io.github.erickvaernet.starwars.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import io.github.erickvaernet.starwars.shared.TooManyLoginAttemptsException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -27,6 +32,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
@@ -68,7 +74,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("A successful login answers 200 with the token, its type and its lifetime")
     void successfulLoginReturnsTheToken() {
-        when(loginService.login("demo", "demo1234")).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
+        when(loginService.login(eq("demo"), eq("demo1234"), anyString())).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
 
         login("""
                 {"username": "demo", "password": "demo1234"}
@@ -227,7 +233,7 @@ class AuthControllerTest {
     void longestUserNameAndPasswordAreAccepted() {
         String username = "u".repeat(50);
         String password = "p".repeat(72);
-        when(loginService.login(username, password)).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
+        when(loginService.login(eq(username), eq(password), anyString())).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
 
         loginAs(username, password).expectStatus().isOk();
     }
@@ -235,7 +241,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("A rejected login is answered with 401, and the answer says nothing about the cause")
     void rejectedLoginIsAnsweredWith401() {
-        when(loginService.login(anyString(), anyString()))
+        when(loginService.login(anyString(), anyString(), anyString()))
                 .thenThrow(new BadCredentialsException("internal message"));
 
         login("""
@@ -254,7 +260,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("A rejected login names the way to authenticate, as HTTP requires of every 401")
     void rejectedLoginNamesTheWayToAuthenticate() {
-        when(loginService.login(anyString(), anyString()))
+        when(loginService.login(anyString(), anyString(), anyString()))
                 .thenThrow(new BadCredentialsException("internal message"));
 
         login("""
@@ -265,9 +271,72 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("A login from an address that failed too many times is answered with 429, with its fixed text, with Retry-After and without WWW-Authenticate")
+    void blockedLoginIsAnsweredWith429() {
+        when(loginService.login(anyString(), anyString(), anyString()))
+                .thenThrow(new TooManyLoginAttemptsException(847));
+
+        login("""
+                {"username": "demo", "password": "demo1234"}
+                """)
+                .expectStatus().isEqualTo(429)
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectHeader().valueEquals(HttpHeaders.RETRY_AFTER, "847")
+                .expectHeader().doesNotExist(HttpHeaders.WWW_AUTHENTICATE)
+                .expectBody().json("""
+                        {
+                          "type": "about:blank",
+                          "title": "Too Many Requests",
+                          "status": 429,
+                          "detail": "Too many failed login attempts. Try again later.",
+                          "instance": "/api/v1/auth/login"
+                        }
+                        """, JsonCompareMode.STRICT);
+    }
+
+    @Test
+    @DisplayName("The login rules receive the source address of the request, which the failed logins are counted by")
+    void loginRulesReceiveTheSourceAddressOfTheRequest() throws Exception {
+        when(loginService.login(anyString(), anyString(), anyString()))
+                .thenReturn(new LoginResponse("the-token", "Bearer", 3600));
+
+        mockMvc.perform(post(LOGIN)
+                        .with(request -> {
+                            request.setRemoteAddr("203.0.113.7");
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"demo\", \"password\": \"demo1234\"}"))
+                .andExpect(status().isOk());
+
+        verify(loginService).login("demo", "demo1234", "203.0.113.7");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"X-Forwarded-For", "X-Real-IP", "Forwarded"})
+    @DisplayName("No header is read by hand: the address is the one of the request, whatever a header says")
+    void noHeaderIsReadByHand(String header) throws Exception {
+        when(loginService.login(anyString(), anyString(), anyString()))
+                .thenReturn(new LoginResponse("the-token", "Bearer", 3600));
+        String value = header.equals("Forwarded") ? "for=198.51.100.99" : "198.51.100.99";
+
+        mockMvc.perform(post(LOGIN)
+                        .with(request -> {
+                            request.setRemoteAddr("203.0.113.7");
+                            return request;
+                        })
+                        .header(header, value)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"demo\", \"password\": \"demo1234\"}"))
+                .andExpect(status().isOk());
+
+        verify(loginService).login("demo", "demo1234", "203.0.113.7");
+    }
+
+    @Test
     @DisplayName("An unexpected failure is answered with 500, without internal details")
     void unexpectedFailureIsAnsweredWith500() {
-        when(loginService.login(anyString(), anyString()))
+        when(loginService.login(anyString(), anyString(), anyString()))
                 .thenThrow(new IllegalStateException("connection to 10.0.0.7 refused"));
 
         login("""
@@ -284,7 +353,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("A rejected login says exactly this, whatever the cause: the text is fixed")
     void rejectedLoginHasAFixedText() {
-        when(loginService.login(anyString(), anyString()))
+        when(loginService.login(anyString(), anyString(), anyString()))
                 .thenThrow(new BadCredentialsException("internal message"));
 
         login("""
@@ -298,7 +367,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("An unexpected failure says exactly this, whatever failed: the text is fixed")
     void unexpectedFailureHasAFixedText() {
-        when(loginService.login(anyString(), anyString()))
+        when(loginService.login(anyString(), anyString(), anyString()))
                 .thenThrow(new IllegalStateException("connection to 10.0.0.7 refused"));
 
         login("""
@@ -382,13 +451,13 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("The documentation shows the answer of the login as JSON and its two errors as Problem Details")
+    @DisplayName("The documentation shows the answer of the login as JSON and its three errors as Problem Details")
     void documentationShowsTheAnswerAndTheErrors() {
         String documentation = apiDocumentation();
         Map<String, Map<String, Object>> responses = JsonPath.read(documentation,
                 "$.paths['/api/v1/auth/login'].post.responses");
 
-        assertThat(responses).containsOnlyKeys("200", "400", "401");
+        assertThat(responses).containsOnlyKeys("200", "400", "401", "429");
         for (Map<String, Object> response : responses.values()) {
             assertThat((String) response.get("description")).isNotBlank().isNotEqualTo("OK");
         }
@@ -408,7 +477,7 @@ class AuthControllerTest {
         assertThat(fields.get("tokenType")).containsEntry("example", "Bearer");
         assertThat(fields.get("expiresIn")).containsEntry("type", "integer").containsEntry("example", 3600);
         // The errors are Problem Details.
-        for (String error : List.of("400", "401")) {
+        for (String error : List.of("400", "401", "429")) {
             Map<String, Object> errorContent = JsonPath.read(documentation,
                     "$.paths['/api/v1/auth/login'].post.responses['" + error + "'].content");
             assertThat(errorContent).containsOnlyKeys("application/problem+json");
@@ -453,6 +522,40 @@ class AuthControllerTest {
         Map<String, Object> everyError = JsonPath.read(documentation,
                 "$.components.schemas['ProblemDetail'].properties");
         assertThat(everyError).doesNotContainKey("errors");
+    }
+
+    @Test
+    @DisplayName("The documentation shows the 429 of the login: the common error, the Retry-After header as a whole number, and the answer of the API as its example")
+    void documentationShowsTheBlockedLogin() {
+        String documentation = apiDocumentation();
+        String blocked = "$.paths['/api/v1/auth/login'].post.responses['429']";
+        String description = JsonPath.read(documentation, blocked + ".description");
+        Map<String, Object> header = JsonPath.read(documentation, blocked + ".headers['Retry-After']");
+        Map<String, Object> typeOfTheHeader = JsonPath.read(documentation, blocked + ".headers['Retry-After'].schema");
+        String schema = JsonPath.read(documentation, blocked + ".content['application/problem+json'].schema['$ref']");
+        Map<String, Object> example = JsonPath.read(documentation,
+                blocked + ".content['application/problem+json'].example");
+
+        // It says what is counted, and that the right credentials do not get through either.
+        assertThat(description).contains("source address", "five failed logins", "fifteen", "right credentials");
+        assertThat((String) header.get("description")).contains("seconds");
+        assertThat(typeOfTheHeader).containsEntry("type", "integer");
+        assertThat(schema).isEqualTo("#/components/schemas/ProblemDetail");
+        // The example is the answer, as it is written: without its instance, which the whole
+        // application adds to every example and this test, with the web layer only, does not.
+        assertThat(example).isEqualTo(Map.of(
+                "type", "about:blank",
+                "title", "Too Many Requests",
+                "status", 429,
+                "detail", "Too many failed login attempts. Try again later."));
+    }
+
+    @Test
+    @DisplayName("The description of the login tells about the limit of failed attempts and its 429")
+    void descriptionOfTheLoginTellsAboutTheLimit() {
+        String description = JsonPath.read(apiDocumentation(), "$.paths['/api/v1/auth/login'].post.description");
+
+        assertThat(description).contains("failed logins", "source address", "`429`");
     }
 
     @Test

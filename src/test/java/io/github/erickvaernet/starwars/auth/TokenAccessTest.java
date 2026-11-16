@@ -127,7 +127,7 @@ class TokenAccessTest {
     @Test
     @DisplayName("A public request with a valid token is answered as usual")
     void publicRequestWithAValidTokenIsAnswered() {
-        when(loginService.login(anyString(), anyString())).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
+        when(loginService.login(anyString(), anyString(), anyString())).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
 
         login("Bearer " + issuer.issue("demo", "USER")).expectStatus().isOk();
     }
