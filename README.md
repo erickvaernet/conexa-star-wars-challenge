@@ -48,7 +48,7 @@ Son credenciales de prueba, pensadas para quien corrige: en la base de datos sol
 
 **3. Probar**
 
-Desde el navegador, con [Swagger UI](#probar-desde-swagger-ui), o desde la terminal, con [`curl`](#probar-con-curl). Están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Y el alta de usuarios, que solo puede hacer un administrador. Todo se puede probar desde la documentación interactiva.
+Desde el navegador, con [Swagger UI](#probar-desde-swagger-ui); desde la terminal, con [`curl`](#probar-con-curl); o importando la [colección de pedidos](#colección-de-pedidos) en Postman o en una herramienta parecida, que trae el recorrido completo, en orden y con el token ya cargado. Están el login, la protección del acceso y las cuatro entidades, People, Films, Starships y Vehicles, cada una con su listado paginado, sus filtros por ID y por nombre y su detalle, con la caché de las respuestas de SWAPI. Y el alta de usuarios, que solo puede hacer un administrador. Todo se puede probar desde la documentación interactiva.
 
 **4. Correr los tests**
 
@@ -152,6 +152,30 @@ curl http://localhost:8080/api/v1/people \
 Sin token, o con uno mal formado, con la firma alterada o vencido, la respuesta es `401`, siempre la misma.
 
 Con un token válido cuyo rol no alcanza para el pedido, la respuesta es `403`. Hoy pasa en un solo caso: el [alta de usuarios](#crear-usuarios) con el token de un usuario común.
+
+## Colección de pedidos
+
+El recorrido completo de la API en un archivo, para no armar cada pedido a mano: [`docs/api/star-wars-api.postman_collection.json`](docs/api/star-wars-api.postman_collection.json). Es una colección de Postman, en su formato 2.1, con 27 pedidos en este orden:
+
+1. El login de `demo`.
+2. Por cada entidad: el listado con `page` y `size`, el filtro por ID, el filtro por nombre, el listado con `expanded=true` y el detalle.
+3. Cuatro errores: `401` sin token, `403` del alta con el token de `demo`, `400` con la lista `errors` y `404`.
+4. El login de `admin` y el alta de un usuario.
+
+Cómo se usa:
+
+- **Importarla.** En Postman, con **Import**, eligiendo el archivo. Insomnia, Bruno y Hoppscotch también importan colecciones de Postman.
+- **Recorrerla.** Con la aplicación levantada, se ejecutan los pedidos de arriba hacia abajo, de a uno o todos juntos. El nombre de cada pedido dice qué muestra y qué código responde.
+- **El token se carga solo.** Cada login tiene un guion de una línea que guarda el `accessToken` de la respuesta en la variable `token` de la colección, y los demás pedidos la envían. No hay que copiar nada.
+- **Si la herramienta no ejecuta ese guion,** los pedidos que siguen al login responden `401`. En ese caso se copia a mano el `accessToken` de la respuesta del login en la variable `token` de la colección, y se repite después del login de `admin`.
+- **Para usarla contra otra dirección,** se cambia la variable `baseUrl` de la colección, que vale `http://localhost:8080`. Sirve para otro puerto y para el [despliegue público](#despliegue-público); las credenciales de prueba son las mismas.
+- **El orden importa,** porque hay una sola variable `token`. El pedido que muestra el `403` usa el token de `demo`: va antes del login de `admin`.
+- **El alta crea siempre el mismo usuario, `leia`.** La primera vez responde `201`, y desde la segunda, `409`, que es la respuesta para un nombre que ya existe. Vuelve a responder `201` después de `docker compose down -v`.
+- **Sin interfaz gráfica,** con Node instalado: `npx newman run docs/api/star-wars-api.postman_collection.json`. Para otra dirección se agrega `--env-var baseUrl=...`.
+
+Recorrerla entera son 17 pedidos a SWAPI la primera vez. Después las respuestas salen de la caché, salvo la del `404`: un "no existe" no se guarda.
+
+Un test compara la colección con la documentación de la API en los dos sentidos: cada pedido documentado tiene que estar en la colección, y cada pedido de la colección tiene que existir en la documentación, con parámetros que ese pedido declara. Sumar o renombrar un pedido obliga a actualizarla. El test no ejecuta los pedidos. El porqué está en el [ADR-0022](docs/adr/0022-request-collection.md).
 
 ## La API
 
@@ -679,7 +703,7 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Tests unitarios y de arquitectura | `./mvnw test` | Ni red ni Docker |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` | Docker |
 
-- Son 1200 tests: 963 corren con `./mvnw test` y 237 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
+- Son 1214 tests: 963 corren con `./mvnw test` y 251 son de aceptación, que son las clases terminadas en `AcceptanceTest`.
 - Los de aceptación levantan la aplicación completa, con un PostgreSQL real, y le hacen pedidos por HTTP. Salen de los criterios de aceptación de la [especificación técnica](docs/spec/SPEC.md#6-criterios-de-aceptación) y, los más recientes, de los hallazgos de la revisión final. Se escribieron antes que el código.
 - Ningún test llama a la SWAPI real: usan respuestas reales grabadas, servidas por una SWAPI simulada. Corren aunque SWAPI esté caída.
 - Los de arquitectura comprueban las reglas de dependencia de [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -789,6 +813,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Tolerancia a fallas de SWAPI ([#38](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/38)), el último ticket del ciclo 2: un pedido a SWAPI que falla de una forma que suele arreglarse sola (un `502`, `503` o `504`, o una conexión rechazada o cortada) se repite una vez, 200 milisegundos después, y quien consume no se entera. No se repite un `429`, un `500`, un tiempo máximo vencido ni una respuesta que no se puede leer, y no hay corte automático. Se hizo con lo que trae Spring Framework 7, sin dependencias nuevas, dentro del cliente de SWAPI: la caché y el núcleo no se tocaron. Antes de diseñar se probó esa pieza de Spring y se midió qué informa el cliente HTTP ante cada falla; de ahí salió que cada intento traduce su propia falla, lo que deja garantizado que un tiempo vencido nunca se repite. Los tests de aceptación se escribieron antes que el código, con las fallas armadas sobre la SWAPI simulada; cuatro de los ocho ya pasaban, porque describen lo que no se reintenta. Cada reintento deja una línea en el registro, sin el texto de búsqueda de quien consume. |
 | 15/11/2026 | Revisión final del ciclo 2 y sus correcciones ([pull request #46](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/46)). Con cinco de los seis tickets fusionados, una sesión aparte de una herramienta de IA revisó el ciclo sobre un clon limpio, con la misma consigna que la del MVP: encontrar y demostrar fallas, sin conocer las revisiones anteriores. No encontró nada crítico ni ningún error de comportamiento, y de diecisiete roturas hechas a propósito en el código nuevo los tests detectaron dieciséis. Encontró dos fallas importantes, las dos en la documentación: el resumen de uso de herramientas de IA de este README decía que el autor había decidido el contrato de la API, que en el ciclo 2 se delegó, y el registro de ese uso había quedado a medio actualizar. Se corrigieron junto con cuatro hallazgos menores, con los tests antes que el código: los ejemplos de Swagger UI son ahora respuestas reales de la API, y un test los compara con lo que responde; el `405` tiene un solo texto, que no repite el método recibido; el test de CA-24.2 comparaba un objeto consigo mismo y ahora pide el detalle a su propia grabación; y quedó escrito qué responde un cuerpo que no se puede leer. También se escribió lo que estaba solo en los ADR: que el administrador de prueba puede crear usuarios en la instalación pública, y que el cliente HTTP puede repetir un pedido por su cuenta. Las casillas de los tickets y la versión se dejan para el cierre del ciclo. |
 | 15/11/2026 | Cierre del ciclo 2: versión `v0.2.0`. Cinco de los seis tickets del hito están cerrados, la revisión final está hecha y sus correcciones están fusionadas, y los 1200 tests pasan. El sexto, el despliegue público ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)), tiene fusionado el archivo que lo describe y le falta crear el servicio, que es un paso del autor en persona: pasó al hito del ciclo 3, como piden las [convenciones](docs/CONVENTIONS.md) para un ticket que queda abierto, y el cambio está anotado en el [PRD](docs/requirements/PRD.md#historial-de-cambios). El `pom.xml` pasó de `0.1.0` a `0.2.0`, que es la versión que muestra la documentación de la API. |
+| 15/11/2026 | Colección de pedidos lista para usar ([#49](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/49)): el repositorio trae un archivo de Postman, [`docs/api/star-wars-api.postman_collection.json`](docs/api/star-wars-api.postman_collection.json), con el recorrido completo de la API en orden. Son 27 pedidos: el login de `demo`, cinco por cada entidad, cuatro errores, el login de `admin` y el alta de un usuario. Cada login guarda su token en una variable de la colección y los demás pedidos la envían, así que no hay que copiar nada. Un test compara la colección con la documentación de la API en los dos sentidos: un pedido que se sume o se renombre obliga a actualizarla. Los tests se escribieron antes que el archivo, que se escribió a mano y no trae ningún identificador de la herramienta. Se ejecutó una vez, completa, contra la aplicación levantada con `docker compose` y la SWAPI real: los 27 pedidos respondieron lo esperado y SWAPI recibió 17. |
 
 ## Documentación
 
@@ -802,6 +827,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 - Especificación técnica: [`docs/spec/SPEC.md`](docs/spec/SPEC.md)
 - Tickets del ciclo 1: [hito `v0.1.0`](https://github.com/erickvaernet/conexa-star-wars-challenge/milestone/1)
 - Instrucciones de configuración y uso: en este README, desde el [inicio rápido](#inicio-rápido)
+- Colección de pedidos de la API, para Postman y herramientas parecidas: [`docs/api/star-wars-api.postman_collection.json`](docs/api/star-wars-api.postman_collection.json), explicada en [Colección de pedidos](#colección-de-pedidos)
 - Registro de uso de herramientas de IA: [`docs/process/AI-USAGE.md`](docs/process/AI-USAGE.md)
 
 ## Autor

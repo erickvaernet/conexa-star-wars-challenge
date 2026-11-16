@@ -37,6 +37,9 @@ docs/
 │   └── NNNN-<tema>.md     una decisión por archivo
 ├── spec/
 │   └── SPEC.md            especificación técnica
+├── api/
+│   └── star-wars-api.postman_collection.json
+│                          colección de pedidos, para Postman y herramientas parecidas
 └── process/
     ├── WORKFLOW.md        flujo de trabajo completo
     └── AI-USAGE.md        registro de uso de herramientas de IA
