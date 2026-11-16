@@ -63,7 +63,10 @@ class RequestCollectionAcceptanceTest {
             "GET /api/v1/vehicles");
 
     /** The line of the script of a login that saves the token in the variable of the collection. */
-    private static final String SAVES_THE_TOKEN = "pm.collectionVariables.set(\"token\", pm.response.json().accessToken)";
+    private static final String SAVES_THE_TOKEN = "pm.collectionVariables.set(\"token\", pm.response.json().accessToken);";
+
+    /** How many requests the collection has: the number that the README tells. */
+    private static final int REQUESTS = 27;
 
     /** It rejects whatever is not strict JSON: comments, single quotes, a comma or text left over. */
     private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -180,9 +183,36 @@ class RequestCollectionAcceptanceTest {
                 JSON.readTree("{\"username\": \"demo\", \"password\": \"demo1234\"}"),
                 JSON.readTree("{\"username\": \"admin\", \"password\": \"admin1234\"}"));
 
+        // The script is that line and nothing else. Looking for the line inside the text would
+        // accept it commented out, or followed by another line that empties the variable.
         for (Sent login : logins) {
-            assertThat(login.scriptAfterTheAnswer()).as(login.name()).contains(SAVES_THE_TOKEN);
+            assertThat(login.scriptAfterTheAnswer()).as(login.name()).containsExactly(SAVES_THE_TOKEN);
         }
+    }
+
+    @Test
+    @DisplayName("The only scripts of the collection are the ones of the two logins: nothing else can change the token")
+    void onlyTheLoginsHaveAScript() {
+        assertThat(collection.has("event")).as("a script of the whole collection").isFalse();
+        for (JsonNode folder : folders) {
+            assertThat(folder.has("event")).as("a script of the folder " + folder.path("name").asString()).isFalse();
+        }
+        for (Sent sent : requests) {
+            if (sent.is(LOGIN)) {
+                // One script, the one that runs when the answer arrives.
+                assertThat(sent.element().path("event")).as(sent.name()).hasSize(1);
+                assertThat(sent.element().path("event").path(0).path("listen").asString()).as(sent.name())
+                        .isEqualTo("test");
+            } else {
+                assertThat(sent.element().has("event")).as("a script of " + sent.name()).isFalse();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("The collection has its 27 requests, the number that the README tells")
+    void collectionHasItsTwentySevenRequests() {
+        assertThat(requests).hasSize(REQUESTS);
     }
 
     @Test
@@ -260,6 +290,16 @@ class RequestCollectionAcceptanceTest {
     void partsOfEachAddressSayTheSameAsTheWholeAddress() {
         for (Sent sent : requests) {
             JsonNode url = sent.request().path("url");
+
+            // Only the parts that are compared below. Any other one changes what a tool sends
+            // without changing the whole address: a protocol, a port, a parameter switched off.
+            assertThat(url.propertyNames()).as(sent.name() + ": the parts of its address")
+                    .isSubsetOf("raw", "host", "path", "query")
+                    .contains("raw", "host", "path");
+            for (JsonNode parameter : url.path("query")) {
+                assertThat(parameter.propertyNames()).as(sent.name() + ": the parts of a parameter")
+                        .containsExactlyInAnyOrder("key", "value");
+            }
 
             StringBuilder fromItsParts = new StringBuilder();
             for (JsonNode part : url.path("host")) {
@@ -354,17 +394,17 @@ class RequestCollectionAcceptanceTest {
             return JSON.readTree(request().path("body").path("raw").stringValue());
         }
 
-        /** The text of the script that a tool runs when the answer arrives, or nothing. */
-        String scriptAfterTheAnswer() {
-            StringBuilder script = new StringBuilder();
+        /** The lines of the script that a tool runs when the answer arrives, or none. */
+        List<String> scriptAfterTheAnswer() {
+            List<String> lines = new ArrayList<>();
             for (JsonNode event : element.path("event")) {
                 if (event.path("listen").asString().equals("test")) {
                     for (JsonNode line : event.path("script").path("exec")) {
-                        script.append(line.asString()).append('\n');
+                        lines.add(line.asString());
                     }
                 }
             }
-            return script.toString();
+            return lines;
         }
 
     }
