@@ -10,8 +10,8 @@ Cada documento se apoya en el anterior. El proceso completo está explicado en e
 |---|----------------------------|--------------------------------------------------------------------------|------------------------------------------|-----------------------|
 | 1 | **PRD**                    | Qué se construye y por qué: requisitos, prioridades y ciclos             | [`requirements/PRD.md`](requirements/PRD.md) | Aprobado (14/11/2026) |
 | 2 | **RFC** | Cómo se construye, a nivel macro, con las alternativas evaluadas | [`rfc/RFC-001-architecture.md`](rfc/RFC-001-architecture.md) | Aceptado (14/11/2026) |
-| 3 | **ADRs** | Una decisión técnica por archivo, con su contexto y sus consecuencias | [`adr/README.md`](adr/README.md) | 20 aceptados: 13 del ciclo 1 (14/11/2026) y 7 del ciclo 2 (15/11/2026) |
-| 4 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación | [`spec/SPEC.md`](spec/SPEC.md) | Aprobada (14/11/2026); extendida para el ciclo 2 (15/11/2026) |
+| 3 | **ADRs** | Una decisión técnica por archivo, con su contexto y sus consecuencias | [`adr/README.md`](adr/README.md) | 23 aceptados: 13 del ciclo 1 (14/11/2026), 7 del ciclo 2 y 3 del ciclo 3 (15/11/2026) |
+| 4 | **Especificación técnica** | El detalle ejecutable: contrato de la API, validaciones, casos límite y criterios de aceptación | [`spec/SPEC.md`](spec/SPEC.md) | Aprobada (14/11/2026); extendida para el ciclo 2 y para el ciclo 3 (15/11/2026) |
 | 5 | **Arquitectura** | Cómo se organiza el código: carpetas, capas y dependencias permitidas | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Vigente |
 | 6 | **Registro de uso de IA** | Qué se delegó en herramientas de IA, cómo se revisó y qué se corrigió a mano | [`process/AI-USAGE.md`](process/AI-USAGE.md) | Al 15/11/2026 |
 

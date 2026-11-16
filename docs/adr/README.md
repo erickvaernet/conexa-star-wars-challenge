@@ -1,6 +1,6 @@
 # Decisiones técnicas (ADRs)
 
-Cada archivo registra una decisión: su contexto, lo que se eligió, las alternativas descartadas y las consecuencias. Las once primeras salen del [RFC-001](../rfc/RFC-001-architecture.md), que el autor revisó decisión por decisión. Las dos siguientes salen de la revisión de la [especificación técnica](../spec/SPEC.md). Las del ciclo 2, de la 0014 a la 0020, salen de las decisiones que el RFC dejó postergadas en su sección 4: las tomó la sesión supervisora de una herramienta de IA, por encargo del autor, sobre propuestas con alternativas y una recomendación ([registro de uso de herramientas de IA](../process/AI-USAGE.md#ciclo-2)).
+Cada archivo registra una decisión: su contexto, lo que se eligió, las alternativas descartadas y las consecuencias. Las once primeras salen del [RFC-001](../rfc/RFC-001-architecture.md), que el autor revisó decisión por decisión. Las dos siguientes salen de la revisión de la [especificación técnica](../spec/SPEC.md). Las del ciclo 2, de la 0014 a la 0020, salen de las decisiones que el RFC dejó postergadas en su sección 4: las tomó la sesión supervisora de una herramienta de IA, por encargo del autor, sobre propuestas con alternativas y una recomendación ([registro de uso de herramientas de IA](../process/AI-USAGE.md#ciclo-2)). Las del ciclo 3, de la 0021 a la 0023, corresponden a tres de los requisitos "Podría" del [PRD](../requirements/PRD.md): el autor eligió cuáles entraban y volvió a delegar las decisiones; las tomó la misma sesión supervisora antes de que se redactaran, y otra sesión las redactó y comprobó lo que se podía medir ([registro de uso de herramientas de IA](../process/AI-USAGE.md#ciclo-3)).
 
 | ADR                                             | Decisión                                                                        | Estado   |
 |-------------------------------------------------|---------------------------------------------------------------------------------|----------|
@@ -24,9 +24,12 @@ Cada archivo registra una decisión: su contexto, lo que se eligió, las alterna
 | [ADR-0018](0018-user-creation.md)               | Alta de usuarios por el administrador: `POST /api/v1/users`                     | Aceptado |
 | [ADR-0019](0019-expanded-listings.md)           | Datos completos a pedido en los listados, con `expanded=true`                   | Aceptado |
 | [ADR-0020](0020-swapi-failure-tolerance.md)     | Un reintento acotado ante fallas de SWAPI, sin corte automático                 | Aceptado |
+| [ADR-0021](0021-visible-test-coverage.md)       | Cobertura de tests visible: un distintivo de valor fijo que la verificación automática comprueba | Aceptado |
+| [ADR-0022](0022-request-collection.md)          | Colección de pedidos en un archivo de Postman, comparada con la documentación de la API | Aceptado |
+| [ADR-0023](0023-login-attempt-limit.md)         | Límite de intentos de login: cinco fallos por dirección de origen en quince minutos | Aceptado |
 
 ## Reglas
 
 - Un ADR nuevo parte de la [plantilla](0000-template.md).
 - Un ADR aceptado no se modifica. Si la decisión cambia, se escribe uno nuevo y el anterior pasa a "Reemplazado por ADR-NNNN". Sí admite notas fechadas que no cambian la decisión, en una sección "Notas posteriores" al final.
-- Las decisiones de cada ciclo se registran cuando empieza. Las del ciclo 2 ya están; las del ciclo 3 están listadas en la sección 4 del [RFC-001](../rfc/RFC-001-architecture.md).
+- Las decisiones de cada ciclo se registran cuando empieza. Las de los ciclos 2 y 3 ya están. De las que la sección 4 del [RFC-001](../rfc/RFC-001-architecture.md) dejó para el ciclo 3, quedan sin tomar las de los requisitos que no entraron: el límite general de pedidos (REQ-31) y GraphQL (REQ-30).

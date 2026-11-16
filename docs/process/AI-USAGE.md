@@ -6,14 +6,15 @@ Qué se delegó en herramientas de IA en este proyecto, cómo se revisó y qué 
 
 | Campo | Valor |
 |---|---|
-| Estado | Al 15/11/2026, con el ciclo 1 cerrado (tickets #5 a #16, revisión final y sus correcciones) y el ciclo 2 implementado: los tickets #33, #35, #36, #37 y #38 están fusionados en `main`; del #34 está fusionado el archivo que describe el despliegue, y el servicio público todavía no existe. La revisión final del ciclo 2 está hecha, y este documento incluye sus correcciones. El ciclo 2 está cerrado como versión `v0.2.0`, y el #34 pasó al ciclo 3 |
-| Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30. La sección del ciclo 2 la redactó la sesión que preparó ese ciclo; lo que pasó al implementar se sumó en los pull requests de los tickets, y la sesión de la revisión final del ciclo 2 la completó después de encontrar que había quedado a medio actualizar |
+| Estado | Al 15/11/2026, con el ciclo 1 cerrado (tickets #5 a #16, revisión final y sus correcciones) y el ciclo 2 implementado: los tickets #33, #35, #36, #37 y #38 están fusionados en `main`; del #34 está fusionado el archivo que describe el despliegue, y el servicio público todavía no existe. La revisión final del ciclo 2 está hecha, y este documento incluye sus correcciones. El ciclo 2 está cerrado como versión `v0.2.0`, y el #34 pasó al ciclo 3. El ciclo 3 está preparado: tiene su alcance, sus tres ADRs y la extensión de la especificación técnica, y todavía no tiene código |
+| Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30. La sección del ciclo 2 la redactó la sesión que preparó ese ciclo; lo que pasó al implementar se sumó en los pull requests de los tickets, y la sesión de la revisión final del ciclo 2 la completó después de encontrar que había quedado a medio actualizar. La sección del ciclo 3 la redactó la sesión que preparó ese ciclo |
 
 ## En resumen
 
 - **Las herramientas de IA redactaron los documentos y escribieron el código y los tests.**
 - **En el ciclo 1, qué construir y cómo lo decidió el autor.** Los requisitos, las decisiones técnicas del RFC y las decisiones del contrato de la API se le presentaron una por una, con alternativas y una recomendación, y eligió él. En varias corrigió la recomendación.
 - **En el ciclo 2 delegó también las decisiones,** incluidas las de contrato. Está contado [más abajo](#ciclo-2).
+- **En el ciclo 3 eligió el alcance y volvió a delegar las decisiones.** Está contado en [Ciclo 3](#ciclo-3).
 - **Hasta el ticket #5, el autor aprobó cada paso.** Desde el ticket #6 delegó también la revisión: los tests y los pull requests los revisó otra sesión de la herramienta de IA, y el autor no los revisó uno por uno.
 - **Con todo fusionado, otra sesión de la herramienta hizo una revisión final del conjunto,** con la consigna de encontrar y demostrar fallas. Encontró cuatro importantes, que se corrigieron. Al terminar el ciclo 2 se hizo otra igual, que encontró dos, las dos en la documentación.
 - **Esas revisiones delegadas tienen límites,** y están [al final](#límites).
@@ -36,6 +37,7 @@ Una **sesión** es una conversación separada con la herramienta. No comparte me
 | Preparación del ciclo 2 (15/11) | Una sesión aparte relevó lo que hacía falta decidir y redactó los ADRs y la extensión de la especificación técnica. La sesión supervisora tomó las decisiones | Pidió el ciclo, fijó su alcance y delegó las decisiones. Ver [Ciclo 2](#ciclo-2) |
 | Tickets #33 a #38: el ciclo 2 (15/11) | Igual que en el ciclo 1: una sesión por ticket escribió los tests de aceptación y, después de su revisión, el código, la documentación y el pull request. La sesión supervisora revisó los tests, eligió entre las alternativas de diseño que cada sesión le presentó, revisó cada pull request y lo fusionó | Aprobó los tests de aceptación del ticket #35. En lo demás no intervino |
 | Revisión final del ciclo 2 y sus correcciones (15/11) | Una sesión aparte revisó el ciclo ya fusionado y escribió un informe. La sesión supervisora eligió qué corregir, y la sesión de la revisión lo corrigió, con los tests antes que el código | La pidió antes de cerrar el ciclo |
+| Preparación del ciclo 3 (15/11) | La sesión supervisora le presentó al autor las opciones de alcance y, con su respuesta, tomó las decisiones. Una sesión aparte las redactó como ADRs, extendió la especificación técnica, redactó los tickets y comprobó lo que se podía medir | Eligió el alcance entre esas opciones y volvió a delegar las decisiones. Ver [Ciclo 3](#ciclo-3) |
 
 En GitHub, los commits, los pull requests y las fusiones figuran a nombre del autor: las herramientas trabajaron con su cuenta y no firman.
 
@@ -183,6 +185,42 @@ Cómo se decidió el ciclo 2 antes de empezar a programar, lo que pasó al imple
 - **Quién decidió qué.** La sesión supervisora eligió qué corregir y qué no; el autor no lo revisó antes. La sesión de la revisión escribió las correcciones, con los tests antes que el código. Cambió dos tests ya aprobados, con autorización de la sesión supervisora: el de CA-24.2, y el test unitario que fijaba el texto anterior del `405`.
 
 **El cierre del ciclo 2.** El autor había fijado que lo que no entrara pasaba al ciclo 3. Al cerrar faltaba una sola cosa, crear el servicio del despliegue público, que pide dos cuentas que el autor crea en persona. La sesión supervisora le preguntó si las iba a crear, no tuvo respuesta antes del cierre y aplicó esa regla: movió el ticket #34 al ciclo 3, lo anotó en el [PRD](../requirements/PRD.md#historial-de-cambios) y etiquetó la versión `v0.2.0`. También tildó las tareas de los tickets cerrados del ciclo, después de que la revisión final comprobara sus criterios.
+
+## Ciclo 3
+
+Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implementar cada ticket se suma acá con su pull request.
+
+**Qué pidió el autor.**
+
+- Continuar con el ciclo 3 con el mismo esquema delegado de los dos anteriores.
+- **El alcance lo eligió él,** entre las opciones que le presentó la sesión supervisora: la cobertura de tests visible (REQ-27), la colección de pedidos (REQ-28) y el límite de intentos de login (REQ-29), además del despliegue público (REQ-20), que venía del ciclo 2. Los otros cinco requisitos "Podría" no entran; el motivo está en el historial de cambios del [PRD](../requirements/PRD.md#historial-de-cambios).
+- **Volvió a delegar las decisiones, incluidas las de contrato.**
+
+**Cómo se tomaron.** El orden fue distinto del ciclo 2: allá una sesión propuso y la sesión supervisora eligió; acá la sesión supervisora decidió primero, y otra sesión recibió las decisiones ya tomadas.
+
+| Paso | Quién | Qué hizo |
+|---|---|---|
+| Alcance | La sesión supervisora y el autor | La sesión supervisora presentó las opciones, y el autor eligió |
+| Decisión | La sesión supervisora | Tomó las decisiones de los tres requisitos, con sus alternativas descartadas, antes de que se redactara nada |
+| Redacción y comprobación | Una sesión aparte de la herramienta de IA | Redactó los tres ADRs, la extensión de la especificación técnica y los tickets. Su encargo incluía comprobar que cada decisión se sostiene y, si alguna no, marcarla con la evidencia en vez de cambiarla o de escribirla igual |
+| Lo que queda para el autor | El autor | Lo mismo que en el ciclo 2: crear las cuentas del despliegue público y cargar ahí los datos de la base |
+
+**Qué midió y qué encontró la sesión que las redactó.**
+
+- **La cobertura.** Corrió los tests dos veces, solo los unitarios y todos, y bajó el informe de la última ejecución de `main` en GitHub: 584 de 586 líneas, 99,66 %, el mismo número en los dos lugares. El mínimo de 95 % y el redondeo hacia abajo los propuso ella, con esos números ([ADR-0021](../adr/0021-visible-test-coverage.md)).
+- **La dirección de origen.** Levantó la aplicación con una pieza de prueba que no quedó en el repositorio y midió qué dirección ve con y sin la variable del despliegue público. Con la variable, la aplicación toma el primer valor de la cabecera `X-Forwarded-For`, tal cual llega. En el despliegue público, entonces, lo que frena el límite depende de cómo arma esa cabecera el intermediario del servicio, y eso no se pudo medir porque el servicio no existe. Quedó escrito en el [ADR-0023](../adr/0023-login-attempt-limit.md), con la prueba que hay que hacer cuando exista, y se lo informó a la sesión supervisora como el punto más débil de esa decisión.
+- **Un efecto de la cobertura comprobada en cada cambio:** dos pull requests que pasan por separado pueden dejar `main` en rojo al sumarse. Quedó como consecuencia en el ADR-0021.
+- **Precisiones que el encargo no traía,** y que informó como propias: que los intentos simultáneos no pasen del umbral, que la dirección se recorte a 45 caracteres, que la forma del pedido se compruebe antes que el límite, y que la ventana tenga un tope de un día ([ADR-0023](../adr/0023-login-attempt-limit.md)).
+
+**Dónde quedó.** En tres ADRs, del [ADR-0021](../adr/0021-visible-test-coverage.md) al [ADR-0023](../adr/0023-login-attempt-limit.md); en la [especificación técnica](../spec/SPEC.md), que lleva una nota que lo dice; y en el historial de cambios del [PRD](../requirements/PRD.md#historial-de-cambios), con el alcance.
+
+**Qué hay que saber al leerlo.**
+
+- **Estas decisiones las tomó una herramienta de IA, por encargo del autor.** Una cambia el contrato de la API: el login suma la respuesta `429`. Están escritas con sus alternativas para que se puedan revisar después, una por una.
+- **Quien decidió y quien redactó y comprobó son la misma herramienta,** en dos sesiones. Vale el mismo límite que para las revisiones delegadas: no es una mirada independiente.
+- **Cómo arma el servicio del despliegue la cabecera con la dirección del cliente no se leyó de su documentación oficial:** el único dato es un informe de un usuario, de 2021, encontrado con una búsqueda.
+- **Qué herramientas, además de Postman, ejecutan el guion de la colección que guarda el token no se probó.** El [ADR-0022](../adr/0022-request-collection.md) lo deja para cuando se sume la colección.
+- **Publicar el informe de cobertura en GitHub Pages se evaluó sin probarlo.** Está entre las alternativas del ADR-0021.
 
 ## Límites
 
