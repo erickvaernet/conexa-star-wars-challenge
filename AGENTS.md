@@ -43,8 +43,8 @@ Hace falta un JDK 21 o posterior. Maven no se instala: se usa el *wrapper* (`./m
 | Compilar | `./mvnw compile` |
 | Tests unitarios y de arquitectura, sin red ni Docker | `./mvnw test` |
 | Todos los tests, incluidos los de aceptación | `./mvnw verify` |
-| Ver la cobertura, después de `./mvnw verify` | Abrir `target/site/jacoco/index.html` |
-| Comprobar la cobertura y el distintivo del README, después de `./mvnw verify` | `bash scripts/check-coverage.sh` |
+| Ver la cobertura, después de `./mvnw clean verify` | Abrir `target/site/jacoco/index.html` |
+| Comprobar la cobertura y el distintivo del README, después de `./mvnw clean verify` (sin `clean`, el informe puede ser viejo o sumar corridas anteriores) | `bash scripts/check-coverage.sh` |
 | Levantar la aplicación y la base de datos | `docker compose up --build` |
 | Probar la aplicación levantada | Abrir <http://localhost:8080/swagger-ui.html>; los usuarios de prueba están en el [README](README.md#inicio-rápido) |
 | Apagar y borrar los datos locales | `docker compose down -v` |

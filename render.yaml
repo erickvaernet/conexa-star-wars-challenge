@@ -43,7 +43,7 @@ services:
       - key: SERVER_FORWARD_HEADERS_STRATEGY
         value: framework
 
-      # The free instance has 512 MB and a tenth of a processor: a heap of half the memory, the
+      # The free instance has 512 MB and 0.15 of a processor: a heap of half the memory, the
       # simplest collector, and only the quick compiler, which halves the start-up time.
       - key: JAVA_TOOL_OPTIONS
         value: "-XX:MaxRAMPercentage=50 -XX:+UseSerialGC -Xss512k -XX:TieredStopAtLevel=1"

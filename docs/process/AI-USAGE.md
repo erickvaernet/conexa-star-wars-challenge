@@ -6,8 +6,8 @@ Qué se delegó en herramientas de IA en este proyecto, cómo se revisó y qué 
 
 | Campo | Valor |
 |---|---|
-| Estado | Al 15/11/2026, con el ciclo 1 cerrado (tickets #5 a #16, revisión final y sus correcciones) y el ciclo 2 implementado: los tickets #33, #35, #36, #37 y #38 están fusionados en `main`; del #34 está fusionado el archivo que describe el despliegue, y el servicio público todavía no existe. La revisión final del ciclo 2 está hecha, y este documento incluye sus correcciones. El ciclo 2 está cerrado como versión `v0.2.0`, y el #34 pasó al ciclo 3. El ciclo 3 está preparado: tiene su alcance, sus tres ADRs y la extensión de la especificación técnica, y todavía no tiene código |
-| Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30. La sección del ciclo 2 la redactó la sesión que preparó ese ciclo; lo que pasó al implementar se sumó en los pull requests de los tickets, y la sesión de la revisión final del ciclo 2 la completó después de encontrar que había quedado a medio actualizar. La sección del ciclo 3 la redactó la sesión que preparó ese ciclo |
+| Estado | Al 16/11/2026, con los tres ciclos cerrados. Ciclo 1: tickets #5 a #16, revisión final y sus correcciones; versión `v0.1.0`. Ciclo 2: tickets #33, #35, #36, #37 y #38, revisión final y sus correcciones; versión `v0.2.0`. Ciclo 3: tickets #48, #49 y #50, y el #34, que venía del ciclo 2; el servicio público existe y responde; la revisión final está hecha y este documento incluye sus correcciones; versión `v0.3.0` |
+| Cómo se escribió | Lo redactó una herramienta de IA en el ticket #16, a partir de la bitácora que se llevó durante el trabajo (no está publicada), de los pull requests y de las notas fechadas de los ADRs. Después de la revisión final lo actualizó la misma herramienta, a partir del informe de esa revisión y del pull request #30. La sección del ciclo 2 la redactó la sesión que preparó ese ciclo; lo que pasó al implementar se sumó en los pull requests de los tickets, y la sesión de la revisión final del ciclo 2 la completó después de encontrar que había quedado a medio actualizar. La sección del ciclo 3 la redactó la sesión que preparó ese ciclo; lo que pasó al implementar se sumó en los pull requests de los tickets y del despliegue, y la sesión de la revisión final del ciclo 3 la completó después de encontrar, otra vez, que la fila de estado, las tablas y la sección de límites habían quedado sin actualizar |
 
 ## En resumen
 
@@ -16,7 +16,7 @@ Qué se delegó en herramientas de IA en este proyecto, cómo se revisó y qué 
 - **En el ciclo 2 delegó también las decisiones,** incluidas las de contrato. Está contado [más abajo](#ciclo-2).
 - **En el ciclo 3 eligió el alcance y volvió a delegar las decisiones.** Está contado en [Ciclo 3](#ciclo-3).
 - **Hasta el ticket #5, el autor aprobó cada paso.** Desde el ticket #6 delegó también la revisión: los tests y los pull requests los revisó otra sesión de la herramienta de IA, y el autor no los revisó uno por uno.
-- **Con todo fusionado, otra sesión de la herramienta hizo una revisión final del conjunto,** con la consigna de encontrar y demostrar fallas. Encontró cuatro importantes, que se corrigieron. Al terminar el ciclo 2 se hizo otra igual, que encontró dos, las dos en la documentación.
+- **Con todo fusionado, otra sesión de la herramienta hizo una revisión final del conjunto,** con la consigna de encontrar y demostrar fallas. Encontró cuatro importantes, que se corrigieron. Al terminar el ciclo 2 se hizo otra igual, que encontró dos, las dos en la documentación. Al terminar el ciclo 3, otra: encontró cuatro, una en el código y tres en la documentación. Está contada en [Correcciones de la revisión final del ciclo 3](#correcciones-de-la-revisión-final-del-ciclo-3).
 - **Esas revisiones delegadas tienen límites,** y están [al final](#límites).
 
 Una **sesión** es una conversación separada con la herramienta. No comparte memoria con las otras: lo que comparten es el repositorio, sus documentos y unas instrucciones escritas.
@@ -38,6 +38,9 @@ Una **sesión** es una conversación separada con la herramienta. No comparte me
 | Tickets #33 a #38: el ciclo 2 (15/11) | Igual que en el ciclo 1: una sesión por ticket escribió los tests de aceptación y, después de su revisión, el código, la documentación y el pull request. La sesión supervisora revisó los tests, eligió entre las alternativas de diseño que cada sesión le presentó, revisó cada pull request y lo fusionó | Aprobó los tests de aceptación del ticket #35. En lo demás no intervino |
 | Revisión final del ciclo 2 y sus correcciones (15/11) | Una sesión aparte revisó el ciclo ya fusionado y escribió un informe. La sesión supervisora eligió qué corregir, y la sesión de la revisión lo corrigió, con los tests antes que el código | La pidió antes de cerrar el ciclo |
 | Preparación del ciclo 3 (15/11) | La sesión supervisora le presentó al autor las opciones de alcance y, con su respuesta, tomó las decisiones. Una sesión aparte las redactó como ADRs, extendió la especificación técnica, redactó los tickets y comprobó lo que se podía medir | Eligió el alcance entre esas opciones y volvió a delegar las decisiones. Ver [Ciclo 3](#ciclo-3) |
+| Tickets #48, #49 y #50: el ciclo 3 (15/11) | Una sesión por ticket escribió los tests, donde los hay, y el código o el archivo, la documentación y el pull request. La sesión supervisora revisó los tests del #50 antes del código; los del #49 y el guion del #48 los revisó en el pull request. Eligió entre las alternativas de diseño que cada sesión le presentó, revisó cada pull request y lo fusionó | No intervino |
+| Ticket #34: el servicio del despliegue público (15/11 y 16/11) | La sesión supervisora, manejando el navegador del autor a pedido suyo, creó el proyecto de la base de datos y el servicio, lanzó el despliegue, midió el servicio y escribió la documentación | Creó las cuentas en los dos servicios, cargó la contraseña de la base de datos y autorizó al servicio a leer el repositorio |
+| Revisión final del ciclo 3 y sus correcciones (16/11) | Una sesión aparte revisó el ciclo ya fusionado y el servicio público, y escribió un informe. La sesión supervisora eligió qué corregir, y la sesión de la revisión lo corrigió, con los tests antes que el código | No eligió qué corregir ni lo revisó antes |
 
 En GitHub, los commits, los pull requests y las fusiones figuran a nombre del autor: las herramientas trabajaron con su cuenta y no firman.
 
@@ -57,6 +60,13 @@ En GitHub, los commits, los pull requests y las fusiones figuran a nombre del au
 | Pull requests de los tickets #33 a #38 ([#40](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/40) a [#45](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/45)) | La sesión supervisora | Con la misma lista de control, y desde el ticket #33 con la verificación automática de GitHub a la vista. **El autor no revisó ninguno** |
 | El ciclo 2 completo, con cinco de sus seis tickets fusionados | Una sesión aparte de la herramienta de IA, sin conocer las conclusiones de las revisiones anteriores. Es la misma herramienta: no es una mirada independiente | Con la misma consigna que la del ciclo 1, sobre un clon limpio. Además de lo que hizo aquella, atacó las reglas por rol y el alta de usuarios, y midió los reintentos contra una SWAPI simulada propia. Encontró 0 fallas críticas, 2 importantes y 6 menores, y dejó 6 observaciones. De 17 roturas hechas a propósito, los tests detectaron 16 |
 | Pull request de las correcciones de la revisión final del ciclo 2 ([#46](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/46)) | La sesión supervisora | Leyó el cambio completo y el informe de la sesión que lo escribió, esperó la verificación automática de GitHub, levantó la aplicación desde esa rama con `docker compose` y probó lo nuevo: los textos del `405` y del `400`, y los ejemplos de la documentación contra las respuestas. No repitió en local la verificación completa: tomó la de GitHub. Lo fusionó. **El autor no lo revisó** |
+| ADRs, extensión de la especificación técnica y tickets del ciclo 3 ([#51](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/51)) | La sesión supervisora, que además había tomado esas decisiones | Lo redactó la sesión que preparó el ciclo, y la sesión supervisora lo publicó y lo fusionó. **El autor no los revisó** |
+| Tests de aceptación del ticket #50 | La sesión supervisora | Antes del código, con el mismo criterio que en los ciclos anteriores. Los aprobó sin cambios |
+| Tests de aceptación del ticket #49 y guion del ticket #48 | La sesión supervisora | En el pull request, no antes. El #48 no tiene tests de aceptación: sus criterios se comprueban por revisión |
+| Pull requests de los tickets #48 a #50 ([#52](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/52), [#53](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/53) y [#54](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/54)) | La sesión supervisora | Los revisó, con la verificación automática de GitHub a la vista, y los fusionó. **El autor no revisó ninguno** |
+| Pull request del despliegue público ([#55](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/55)) | Nadie más que quien lo escribió | Lo escribió, lo publicó y lo fusionó la sesión supervisora. Es documentación, y lo comprobó la verificación automática. **El autor no lo revisó** |
+| El ciclo 3 completo, con sus cuatro tickets fusionados y el servicio público andando | Una sesión aparte de la herramienta de IA, sin conocer las conclusiones de las revisiones anteriores. Es la misma herramienta: no es una mirada independiente | Con la misma consigna, sobre un clon limpio. Atacó el límite de intentos de login por HTTP y con roturas hechas a propósito, y probó el servicio público, con un tope de pedidos y sin crear usuarios. La higiene de lo publicado, la documentación contra el código, el guion de cobertura y la colección los revisaron cuatro sesiones auxiliares que ella lanzó; repitió por su cuenta una parte de lo que informaron, y su informe dice cuál. Encontró 0 fallas críticas, 4 importantes y 15 menores, y dejó 11 observaciones. De 14 roturas hechas a propósito en el límite, los tests detectaron 9 siempre y una a veces |
+| Pull request de las correcciones de la revisión final del ciclo 3 y del cierre ([#56](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/56)) | La sesión supervisora | Leyó el informe de la sesión que lo escribió y el cambio del límite de intentos de login, línea por línea; lo demás, por partes. La sesión de la revisión no pudo publicarlo, porque su control de permisos lo rechazó: lo publicó la sesión supervisora, que esperó la verificación automática de GitHub y lo fusionó. No repitió en local la verificación completa. **El autor no lo revisó** |
 
 Lista de control de cada pull request, que armó la propia sesión supervisora:
 
@@ -67,7 +77,7 @@ Lista de control de cada pull request, que armó la propia sesión supervisora:
 5. Comprobar que la descripción del pull request solo afirma cosas ciertas.
 6. Levantar la aplicación con `docker compose` y probar lo nuevo contra la SWAPI real.
 
-Esas revisiones ocurrieron en mensajes entre las sesiones. No quedaron como revisiones ni como comentarios en GitHub: los pull requests muestran el resultado, no el intercambio. Vale también para el ciclo 2: ninguno de sus pull requests tiene una revisión ni un comentario en GitHub, y por eso hay algunos fusionados a segundos o a pocos minutos de abrirse. Desde afuera no se puede comprobar que esas revisiones existieron; lo único que se ve es la verificación automática de cada uno.
+Esas revisiones ocurrieron en mensajes entre las sesiones. No quedaron como revisiones ni como comentarios en GitHub: los pull requests muestran el resultado, no el intercambio. Vale también para los ciclos 2 y 3: ninguno de sus pull requests tiene una revisión ni un comentario en GitHub, y por eso hay algunos fusionados a segundos o a pocos minutos de abrirse. Desde afuera no se puede comprobar que esas revisiones existieron; lo único que se ve es la verificación automática de cada uno.
 
 ## Qué se corrigió
 
@@ -119,6 +129,34 @@ Quién decidió qué:
 - **La sesión de la revisión** propuso cómo corregir cada hallazgo y lo escribió, con los tests antes que el código.
 
 Parte de los hallazgos de documentación de la misma revisión se corrigió aparte, en un pull request solo de documentos.
+
+### Correcciones de la revisión final del ciclo 3
+
+La revisión final del ciclo 3 probó el ciclo ya fusionado y el servicio público. Lo que se corrigió a partir de ella está en el [pull request #56](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/56):
+
+| Qué pasaba | Qué quedó | Dónde |
+|---|---|---|
+| Doce logins correctos enviados a la vez, sin ningún fallo previo, recibieron cinco `200` y siete `429`, con el texto de los intentos fallidos y `Retry-After: 900` | Los fallos y los logins en curso se cuentan aparte. De los simultáneos siguen comprobándose cinco como mucho; el que queda sin lugar por logins en curso recibe `429` con `Retry-After: 1` | [ADR-0023](../adr/0023-login-attempt-limit.md), nota del 16/11/2026 |
+| Este documento abría diciendo que el servicio público no existía y que el ciclo 3 no tenía código, y sus dos tablas no llegaban al ciclo 3 | La fila de estado, las tablas, esta sección y la de límites, al día | Este documento |
+| El README daba por medido el despertar del servicio y el ADR decía que seguía sin medirse | La medición está anotada, con cómo se tomó y que es una sola | [ADR-0015](../adr/0015-public-deployment.md), nota del 16/11/2026 |
+| El criterio CA-20.3 figuraba cumplido, y el recorrido dentro de Swagger UI en el servicio público no lo había hecho nadie | No se corrigió: sigue sin hacerse. El README y el ADR dicen qué está comprobado con pedidos directos y qué queda para el autor | [ADR-0015](../adr/0015-public-deployment.md) |
+| La ventana del límite aceptaba `15`, sin unidad, como 15 milisegundos: el límite quedaba sin efecto, sin aviso | La ventana dura un segundo como mínimo | [ADR-0023](../adr/0023-login-attempt-limit.md) |
+| De 14 roturas hechas a propósito en el límite, cinco no hacían fallar ningún test, o solo a veces. Dos importaban: que el login no avisara el fallo, con lo que la advertencia del bloqueo no se escribía, y quitar lo que hace que los intentos simultáneos se cuenten de a uno | Dos tests nuevos. Las otras tres no cambian lo que hace el límite | [ADR-0023](../adr/0023-login-attempt-limit.md) |
+| El guion de cobertura daba por bueno un distintivo dentro de un comentario, o uno que decía otra cosa | Exige la línea exacta del distintivo, entre las primeras del README | [ADR-0021](../adr/0021-visible-test-coverage.md) |
+| El test de la colección dejaba pasar diez roturas de veintidós, entre ellas el guion del token comentado | Compara el guion línea por línea, admite en cada dirección solo las partes que compara y fija los 27 pedidos. Cinco de las diez siguen pasando: son las que piden ejecutar los pedidos | [ADR-0022](../adr/0022-request-collection.md) |
+| Una dirección IPv6 se escribía en el registro del despliegue con `?` en lugar de sus corchetes; un ADR decía al revés qué se pierde cuando la tabla de direcciones se llena; el PRD, la especificación técnica y el flujo de trabajo decían cosas viejas sobre qué entró en cada ciclo y qué se delegó | Corregido | [ADR-0023](../adr/0023-login-attempt-limit.md), [PRD](../requirements/PRD.md), [`WORKFLOW.md`](WORKFLOW.md) |
+
+Quién decidió qué:
+
+- **La sesión supervisora** eligió qué corregir, entre los hallazgos del informe, y cómo: en el login simultáneo, cambiar el código y no solo documentarlo. **El autor no lo revisó antes.**
+- **La sesión de la revisión** propuso cada corrección y la escribió, con los tests antes que el código. Tomó por su cuenta decisiones de detalle, que están en el pull request: que el distintivo tenga que estar entre las diez primeras líneas del README y fuera de un bloque de código, que la colección no pueda tener otros guiones que los de los dos logins, y que el login avise siempre cómo terminó.
+- **Un test de aceptación ya fusionado cambió,** el de la colección (CA-28.5 y las partes de cada dirección). Lo autorizó la sesión supervisora. Los dieciocho del límite de intentos de login no se tocaron.
+
+Qué quedó como estaba, a sabiendas:
+
+- **En el despliegue público, el cliente elige la dirección por la que se cuentan sus intentos de login.** La revisión lo volvió a medir contra el servicio, con el mismo resultado que la sesión supervisora, y sumó que otra cabecera hace lo mismo. Sigue como la primera mejora pendiente ([ADR-0023](../adr/0023-login-attempt-limit.md) y [ADR-0015](../adr/0015-public-deployment.md)).
+- **El recorrido a mano dentro de Swagger UI en el servicio público,** que queda para el autor.
+- **La colección de pedidos sigue sin comprobaciones propias:** ejecutarla con Newman no falla si la API responde otra cosa. El README lo dice.
 
 ### Decisiones que tomó la sesión supervisora
 
@@ -188,7 +226,7 @@ Cómo se decidió el ciclo 2 antes de empezar a programar, lo que pasó al imple
 
 ## Ciclo 3
 
-Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implementar cada ticket se suma acá con su pull request.
+Cómo se decidió el ciclo 3 antes de empezar a programar y, más abajo, lo que pasó al implementar cada ticket, que se sumó con su pull request.
 
 **Qué pidió el autor.**
 
@@ -208,7 +246,7 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 **Qué midió y qué encontró la sesión que las redactó.**
 
 - **La cobertura.** Corrió los tests dos veces, solo los unitarios y todos, y bajó el informe de la última ejecución de `main` en GitHub: 584 de 586 líneas, 99,66 %, el mismo número en los dos lugares. El mínimo de 95 % y el redondeo hacia abajo los propuso ella, con esos números ([ADR-0021](../adr/0021-visible-test-coverage.md)).
-- **La dirección de origen.** Levantó la aplicación con una pieza de prueba que no quedó en el repositorio y midió qué dirección ve con y sin la variable del despliegue público. Con la variable, la aplicación toma el primer valor de la cabecera `X-Forwarded-For`, tal cual llega. En el despliegue público, entonces, lo que frena el límite depende de cómo arma esa cabecera el intermediario del servicio, y eso no se pudo medir porque el servicio no existe. Quedó escrito en el [ADR-0023](../adr/0023-login-attempt-limit.md), con la prueba que hay que hacer cuando exista, y se lo informó a la sesión supervisora como el punto más débil de esa decisión.
+- **La dirección de origen.** Levantó la aplicación con una pieza de prueba que no quedó en el repositorio y midió qué dirección ve con y sin la variable del despliegue público. Con la variable, la aplicación toma el primer valor de la cabecera `X-Forwarded-For`, tal cual llega. En el despliegue público, entonces, lo que frena el límite depende de cómo arma esa cabecera el intermediario del servicio, y eso no se pudo medir en ese momento, porque el servicio todavía no existía. Quedó escrito en el [ADR-0023](../adr/0023-login-attempt-limit.md), con la prueba que hay que hacer cuando exista, y se lo informó a la sesión supervisora como el punto más débil de esa decisión.
 - **Un efecto de la cobertura comprobada en cada cambio:** dos pull requests que pasan por separado pueden dejar `main` en rojo al sumarse. Quedó como consecuencia en el ADR-0021.
 - **Precisiones que el encargo no traía,** y que informó como propias: que los intentos simultáneos no pasen del umbral, que la dirección se recorte a 45 caracteres, que la forma del pedido se compruebe antes que el límite, y que la ventana tenga un tope de un día ([ADR-0023](../adr/0023-login-attempt-limit.md)).
 
@@ -218,8 +256,8 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 
 - **Estas decisiones las tomó una herramienta de IA, por encargo del autor.** Una cambia el contrato de la API: el login suma la respuesta `429`. Están escritas con sus alternativas para que se puedan revisar después, una por una.
 - **Quien decidió y quien redactó y comprobó son la misma herramienta,** en dos sesiones. Vale el mismo límite que para las revisiones delegadas: no es una mirada independiente.
-- **Cómo arma el servicio del despliegue la cabecera con la dirección del cliente no se leyó de su documentación oficial:** el único dato es un informe de un usuario, de 2021, encontrado con una búsqueda.
-- **Qué herramientas, además de Postman, ejecutan el guion de la colección que guarda el token no se probó.** El [ADR-0022](../adr/0022-request-collection.md) lo deja para cuando se sume la colección.
+- **Cómo arma el servicio del despliegue la cabecera con la dirección del cliente no se leyó de su documentación oficial:** al decidir, el único dato era un informe de un usuario, de 2021, encontrado con una búsqueda. Después se midió contra el servicio: está más abajo, en el ticket #34.
+- **Qué herramientas, además de Postman, ejecutan el guion de la colección que guarda el token no se había probado al decidir.** Lo que se probó al sumar la colección, y lo que no, está más abajo, en el ticket #49.
 - **Publicar el informe de cobertura en GitHub Pages se evaluó sin probarlo.** Está entre las alternativas del ADR-0021.
 
 **Ticket #48: la cobertura de tests visible (REQ-27).** Una sesión de la herramienta de IA escribió el guion, el paso de la verificación automática y su documentación.
@@ -233,7 +271,7 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 
 - **Los tests de aceptación no se revisaron antes de armar la colección.** Por el plazo, la sesión supervisora decidió revisarlos en el pull request y no antes, como en los tickets anteriores. Sí se escribieron primero: se vieron fallar, porque el archivo no existía, y quedaron en un commit anterior al de la colección.
 - **Uno de esos tests estaba mal y se corrigió al armar la colección,** en un commit aparte: buscaba el guion del login dentro del pedido, y el formato lo guarda al lado. Nadie lo había revisado todavía.
-- **Para saber si los tests protegen,** la misma sesión rompió la colección a propósito de doce formas (una variable con valor, un pedido que falta, un parámetro que la API no declara, una carpeta con su propia autenticación, una contraseña cambiada, un cuerpo que no es JSON, el orden cambiado, un login sin guion, una cabecera `Authorization` escrita a mano, un cuerpo sin `Content-Type`, una dirección sin la variable y otro método). Los tests detectaron las doce. Es la misma sesión que los escribió: no es una mirada independiente.
+- **Para saber si los tests protegen,** la misma sesión rompió la colección a propósito de doce formas (una variable con valor, un pedido que falta, un parámetro que la API no declara, una carpeta con su propia autenticación, una contraseña cambiada, un cuerpo que no es JSON, el orden cambiado, un login sin guion, una cabecera `Authorization` escrita a mano, un cuerpo sin `Content-Type`, una dirección sin la variable y otro método). Los tests detectaron las doce. Es la misma sesión que los escribió: no es una mirada independiente. La revisión final del ciclo probó otras veintidós, y diez pasaban: está en [Correcciones de la revisión final del ciclo 3](#correcciones-de-la-revisión-final-del-ciclo-3).
 - **La colección se escribió a mano,** sin exportarla de ninguna herramienta, y se ejecutó una vez contra la aplicación levantada y la SWAPI real: los 27 pedidos respondieron lo esperado. El resultado está en el pull request y en las notas del [ADR-0022](../adr/0022-request-collection.md#notas-posteriores).
 - **Qué no se probó.** Importarla en la aplicación de Postman, en Insomnia y en Hoppscotch. En Bruno se probó solo la conversión de la importación, sin ejecutar ningún pedido: que su guion traducido carga el token no se comprobó.
 
@@ -244,7 +282,7 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 - **La sesión supervisora sumó dos pedidos propios:** que la dirección se escriba saneada en el registro, porque en el despliegue público la puede elegir el cliente, y que quedara escrito qué pasa con dos logins correctos simultáneos.
 - **La frase de un criterio se corrigió.** La sesión del ticket encontró que CA-29.18 no coincidía con lo que entrega la documentación de la API; la sesión supervisora, que había escrito esa extensión, autorizó corregirla.
 - **El autor no revisó los tests ni el diseño.** Todo está en el [ADR-0023](../adr/0023-login-attempt-limit.md#notas-posteriores), nota del 15/11/2026.
-- **Qué no se probó.** Lo mismo que al decidir: qué dirección ve la aplicación detrás del intermediario del despliegue público. La prueba manual se hizo con `docker compose`, donde todos los pedidos llegan con una misma dirección.
+- **Qué no se probó en este ticket.** Lo mismo que al decidir: qué dirección ve la aplicación detrás del intermediario del despliegue público. La prueba manual se hizo con `docker compose`, donde todos los pedidos llegan con una misma dirección. Se midió después, con el servicio creado: está en el ticket #34.
 
 **Ticket #34: el despliegue público (REQ-20).** Venía del ciclo 2 con el archivo del despliegue ya fusionado.
 
@@ -265,7 +303,7 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 - **Las decisiones de la sección anterior no pasaron por el autor** antes de fusionarse. Están escritas para que se puedan revisar después, una por una.
 - **Los tests y el código de cada ticket los escribió la misma sesión.** Si entendió mal un criterio, el test repite el error. Lo que lo acota es que los criterios ya estaban aprobados por el autor y que los tests se revisaron antes del código, pero esa revisión también fue de la herramienta.
 
-**Qué mostró la revisión final sobre los tests.** Que su cantidad no era protección en todos lados: nueve roturas hechas a propósito en el código, varias de seguridad, no hacían fallar ninguno. Ocho ya tienen un test que las detecta. La novena, quitar el tiempo máximo de conexión con SWAPI, sigue sin ninguno. La revisión final del ciclo 2 repitió la prueba sobre el código nuevo, con diecisiete roturas: los tests detectaron dieciséis. La que no, reintentar un `408` de SWAPI, ya tiene su caso.
+**Qué mostró la revisión final sobre los tests.** Que su cantidad no era protección en todos lados: nueve roturas hechas a propósito en el código, varias de seguridad, no hacían fallar ninguno. Ocho ya tienen un test que las detecta. La novena, quitar el tiempo máximo de conexión con SWAPI, sigue sin ninguno. La revisión final del ciclo 2 repitió la prueba sobre el código nuevo, con diecisiete roturas: los tests detectaron dieciséis. La que no, reintentar un `408` de SWAPI, ya tiene su caso. La del ciclo 3 hizo catorce en el límite de intentos de login: los tests detectaron nueve siempre y una a veces, y dos de las que no detectaban tienen ahora su test. En la colección de pedidos hizo veintidós: los tests detectaban doce, y ahora diecisiete.
 
 **Qué no se verificó, entre otras cosas.**
 
@@ -275,4 +313,8 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 - El tiempo máximo de conexión con SWAPI no tiene un test propio. El vencimiento de la caché se prueba adelantando un reloj de prueba, no esperando una hora.
 - El *wrapper* de Maven para Windows (`mvnw.cmd`) no se probó.
 - Hasta el ticket #33, los tests de aceptación y `docker compose` no se habían corrido con Docker Engine, ni los tests sobre un JDK 21. Desde ese ticket corren también así, en el ejecutor de GitHub, en cada pull request y en cada cambio de `main` ([ADR-0014](../adr/0014-continuous-verification.md)). En la primera ejecución pasaron sin cambios.
-- El archivo del despliegue público (`render.yaml`) no se probó contra el servicio, que todavía no existe. Su formato se revisó contra la referencia que el servicio publica en GitHub, porque su sitio de documentación no abrió desde el entorno de trabajo, y la imagen se probó en desarrollo con la memoria y el procesador del plan gratuito. Lo que queda por comprobar con el servicio creado está listado en las notas del [ADR-0015](../adr/0015-public-deployment.md#notas-posteriores).
+- El archivo del despliegue público (`render.yaml`) se probó contra el servicio el 15/11/2026: el servicio lo aceptó como estaba ([ADR-0015](../adr/0015-public-deployment.md#notas-posteriores)). Antes solo se había revisado su formato contra la referencia que el servicio publica en GitHub.
+- En el servicio público, el recorrido a mano dentro de la página de Swagger UI (iniciar sesión, cargar el token y listar) no lo hizo ninguna sesión: quedó para el autor. Lo que hicieron las sesiones fueron pedidos directos.
+- Cuánto tarda el servicio público en despertar se midió una sola vez. Cuánta memoria usa no se pudo ver.
+- La colección de pedidos se ejecutó solo con Newman. Importarla en la aplicación de Postman, en Insomnia, en Bruno y en Hoppscotch no se probó.
+- Que cien búsquedas distintas agotan el cupo de SWAPI del servicio público para todos sale de leer el código y de lo que SWAPI declara: no se probó, a propósito.

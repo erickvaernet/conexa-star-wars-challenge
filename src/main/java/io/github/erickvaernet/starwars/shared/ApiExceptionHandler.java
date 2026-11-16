@@ -86,8 +86,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * A login from an address that already failed too many times. It was not checked, so the
-     * answer is the same whether its credentials were right or wrong.
+     * A login from an address that already failed too many times, or that has that many logins
+     * being checked at this moment. It was not checked, so the answer is the same whether its
+     * credentials were right or wrong.
      *
      * <p>{@code Retry-After} says, in seconds, when a login from that address is checked again.
      * There is no {@code WWW-Authenticate}: the client already knows how to authenticate, and

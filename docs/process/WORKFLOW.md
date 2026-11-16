@@ -2,7 +2,7 @@
 
 Cómo se trabaja en este proyecto, de la consigna al código entregado. Las reglas puntuales (formato de commits, ramas, tickets y pull requests) están en [`CONVENTIONS.md`](../CONVENTIONS.md); este documento explica el recorrido completo y por qué es así.
 
-> **Nota del 15/11/2026.** Este documento describe el flujo como se definió y como se quiere trabajar. En la implementación del ciclo 1 no se cumplió entero: desde el ticket #6, las dos revisiones que el flujo le asigna a una persona (la de los tests de aceptación antes del código y la del pull request antes de fusionar) las hizo una sesión supervisora de una herramienta de IA, por encargo del autor, que no revisó esos pull requests uno por uno. Las reglas no cambian. Qué se delegó, cómo se revisó y con qué límites está en [`AI-USAGE.md`](AI-USAGE.md).
+> **Nota del 15/11/2026.** Este documento describe el flujo como se definió y como se quiere trabajar. En la implementación del ciclo 1 no se cumplió entero: desde el ticket #6, las dos revisiones que el flujo le asigna a una persona (la de los tests de aceptación antes del código y la del pull request antes de fusionar) las hizo una sesión supervisora de una herramienta de IA, por encargo del autor, que no revisó esos pull requests uno por uno. En los ciclos 2 y 3 tampoco se cumplió entero, y se delegó más: además de esas dos revisiones, las decisiones técnicas y de contrato, que este flujo le asigna a una persona, las tomó la sesión supervisora. Las reglas no cambian. Qué se delegó, cómo se revisó y con qué límites está en [`AI-USAGE.md`](AI-USAGE.md).
 
 ## Qué es
 
@@ -126,7 +126,7 @@ Dos reglas para esta parte:
 - **Los tests son la forma en que la herramienta verifica su propio trabajo:** los ejecuta, lee las fallas y corrige. Por eso se escriben y se revisan antes que el código.
 - **El trabajo de base se hace en secuencia.** Recién cuando hay una primera historia completa y revisada, que sirve de ejemplo, las historias parecidas pueden implementarse en paralelo.
 
-La tabla dice cómo se reparte el trabajo. Lo que efectivamente se delegó, cómo se revisó y qué se corrigió está en [`AI-USAGE.md`](AI-USAGE.md) (REQ-18): en el ciclo 1 no coincide del todo con ella.
+La tabla dice cómo se reparte el trabajo. Lo que efectivamente se delegó, cómo se revisó y qué se corrigió está en [`AI-USAGE.md`](AI-USAGE.md) (REQ-18): en ningún ciclo coincide del todo con ella. En el ciclo 1 se delegaron las revisiones desde el ticket #6; en los ciclos 2 y 3, también las decisiones de la fila "RFC y ADRs" y las de contrato.
 
 ## Dónde vive cada regla
 

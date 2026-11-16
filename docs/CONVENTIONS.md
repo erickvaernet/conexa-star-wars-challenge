@@ -130,7 +130,7 @@ Un ticket está terminado cuando se cumple todo esto:
 - [ ] Sus tests de aceptación pasan.
 - [ ] Los tests unitarios del código nuevo pasan, y los que ya existían siguen pasando.
 - [ ] La verificación automática de su pull request pasa: los dos trabajos, el de los tests y el de `docker compose` ([ADR-0014](adr/0014-continuous-verification.md)).
-- [ ] El número del distintivo de cobertura del README coincide con lo medido: después de `./mvnw verify`, `bash scripts/check-coverage.sh` termina bien ([ADR-0021](adr/0021-visible-test-coverage.md)).
+- [ ] El número del distintivo de cobertura del README coincide con lo medido: después de `./mvnw clean verify`, `bash scripts/check-coverage.sh` termina bien. El `clean` hace falta para que el informe sea el de esa corrida ([ADR-0021](adr/0021-visible-test-coverage.md)).
 - [ ] El código nuevo está documentado.
 - [ ] La documentación afectada está actualizada: README, documentación de la API y especificación técnica.
 - [ ] El pull request fue revisado por una persona.

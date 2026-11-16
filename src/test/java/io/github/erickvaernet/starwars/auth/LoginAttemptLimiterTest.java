@@ -7,7 +7,13 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import io.github.erickvaernet.starwars.shared.TooManyLoginAttemptsException;
 import io.github.erickvaernet.starwars.swapi.ManualClock;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +28,8 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
  * and what the count forgets.
  *
  * <p>The time goes by only when a test moves the clock, so every number of seconds is exact.
- * "A failed login" is here a place that was taken and not given back.
+ * "A failed login" is here a place that was taken and then confirmed as a failure; "a login in
+ * course" is a place that was taken and whose outcome is not known yet.
  */
 @ExtendWith(OutputCaptureExtension.class)
 class LoginAttemptLimiterTest {
@@ -131,6 +138,151 @@ class LoginAttemptLimiterTest {
     }
 
     @Test
+    @DisplayName("Five logins in course and no failure: the sixth is rejected with a wait of one second, not of the whole window")
+    void attemptRejectedByLoginsInCourseWaitsOneSecond() {
+        for (int login = 1; login <= 5; login++) {
+            limiter.acquire(ADDRESS);
+        }
+
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Logins in course that turn out to be correct leave nothing behind: the address has its five places, and no window was opened")
+    void loginsInCourseThatAreCorrectLeaveNothingBehind() {
+        for (int login = 1; login <= 5; login++) {
+            limiter.acquire(ADDRESS);
+        }
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(1);
+        for (int login = 1; login <= 5; login++) {
+            limiter.release(ADDRESS);
+        }
+        clock.advance(Duration.ofMinutes(14));
+
+        fail(ADDRESS, 5);
+
+        // Fifteen minutes from these failures, not one minute from those correct logins.
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(900);
+    }
+
+    @Test
+    @DisplayName("Four failures and one login in course: the next one waits one second while that login is checked, and the rest of the window once it fails")
+    void waitDependsOnWhatFillsTheLastPlace() {
+        fail(ADDRESS, 4);
+        clock.advance(Duration.ofMinutes(5));
+        limiter.acquire(ADDRESS);
+
+        // The last place is taken by a login whose outcome is not known yet.
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(1);
+
+        limiter.failed(ADDRESS);
+
+        // Five failures now: the wait is what is left of the window, which started with the first.
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(600);
+    }
+
+    @Test
+    @DisplayName("Four failures and one login in course that turns out to be correct: the place is free again, and the count is still four")
+    void correctLoginInCourseGivesItsPlaceBack() {
+        fail(ADDRESS, 4);
+        limiter.acquire(ADDRESS);
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(1);
+
+        limiter.release(ADDRESS);
+
+        assertThatCode(() -> fail(ADDRESS, 1)).doesNotThrowAnyException();
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(900);
+    }
+
+    @Test
+    @DisplayName("A login that started in one window and fails once that window is over is the first failure of a new one")
+    void failureConfirmedAfterTheWindowEndsOpensANewWindow() {
+        fail(ADDRESS, 4);
+        clock.advance(Duration.ofMinutes(15).minusSeconds(1));
+        limiter.acquire(ADDRESS);
+        clock.advance(Duration.ofSeconds(2));
+
+        limiter.failed(ADDRESS);
+
+        // One failure in a window that started now: four more places.
+        assertThatCode(() -> fail(ADDRESS, 4)).doesNotThrowAnyException();
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(900);
+    }
+
+    @Test
+    @DisplayName("The window starts with the first failure, not with a login that was already in course when it happened")
+    void windowDoesNotStartWithALoginInCourse() {
+        limiter.acquire(ADDRESS);
+        clock.advance(Duration.ofMinutes(14));
+
+        // That login is still in course. Four places are left: these failures take them.
+        fail(ADDRESS, 4);
+        limiter.release(ADDRESS);
+        fail(ADDRESS, 1);
+
+        // Fifteen minutes from the first failure, not one minute from that login.
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(900);
+    }
+
+    @Test
+    @DisplayName("When the window ends, the failures are forgotten and the logins in course still take their places")
+    void loginsInCourseAreKeptWhenTheWindowEnds() {
+        fail(ADDRESS, 1);
+        clock.advance(Duration.ofMinutes(15).minusSeconds(1));
+        for (int login = 1; login <= 4; login++) {
+            limiter.acquire(ADDRESS);
+        }
+        clock.advance(Duration.ofSeconds(2));
+
+        // The failure is over, so one place is free; the four logins in course take the others.
+        assertThatCode(() -> limiter.acquire(ADDRESS)).doesNotThrowAnyException();
+        assertThat(secondsToWait(ADDRESS)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Of the failed logins that arrive at the very same moment from one address, exactly five take a place and all five are counted, round after round")
+    void attemptsAtTheSameMomentNeverTakeMoreThanFivePlaces() throws Exception {
+        int attempts = 16;
+        int rounds = 400;
+
+        try (ExecutorService threads = Executors.newFixedThreadPool(attempts)) {
+            for (int round = 1; round <= rounds; round++) {
+                LoginAttemptLimiter fresh = limiterOf(5, Duration.ofMinutes(15));
+                // No attempt goes on until all of them are waiting at the barrier.
+                CyclicBarrier allReady = new CyclicBarrier(attempts);
+                List<Future<Boolean>> outcomes = new ArrayList<>();
+                for (int attempt = 1; attempt <= attempts; attempt++) {
+                    outcomes.add(threads.submit(() -> {
+                        allReady.await();
+                        try {
+                            fresh.acquire(ADDRESS);
+                        } catch (TooManyLoginAttemptsException rejected) {
+                            return false;
+                        }
+                        // The ones that got a place fail, also at nearly the same moment.
+                        fresh.failed(ADDRESS);
+                        return true;
+                    }));
+                }
+
+                int placesTaken = 0;
+                for (Future<Boolean> outcome : outcomes) {
+                    if (outcome.get()) {
+                        placesTaken++;
+                    }
+                }
+                assertThat(placesTaken).as("places taken in round %d", round).isEqualTo(5);
+                // Five failures and no login in course: the wait is the whole window. With a
+                // failure lost on the way it would be one second, or there would be no wait.
+                TooManyLoginAttemptsException blocked =
+                        catchThrowableOfType(TooManyLoginAttemptsException.class, () -> fresh.acquire(ADDRESS));
+                assertThat(blocked).as("the address after round %d", round).isNotNull();
+                assertThat(blocked.retryAfterSeconds()).as("the wait after round %d", round).isEqualTo(900);
+            }
+        }
+    }
+
+    @Test
     @DisplayName("Each address has its own count: the failures of one do not block another")
     void eachAddressHasItsOwnCount() {
         fail(ADDRESS, 5);
@@ -168,6 +320,7 @@ class LoginAttemptLimiterTest {
         int addresses = 12_000;
         for (int number = 0; number < addresses; number++) {
             strict.acquire("address-" + number);
+            strict.failed("address-" + number);
         }
 
         // Every address was blocked by its only failure. The ones still blocked are the ones kept.
@@ -200,8 +353,10 @@ class LoginAttemptLimiterTest {
     @DisplayName("Other settings are followed: with a limit of 2 and a window of one minute, the third attempt waits up to 60 seconds")
     void otherSettingsAreFollowed() {
         LoginAttemptLimiter other = limiterOf(2, Duration.ofMinutes(1));
-        other.acquire(ADDRESS);
-        other.acquire(ADDRESS);
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            other.acquire(ADDRESS);
+            other.failed(ADDRESS);
+        }
 
         TooManyLoginAttemptsException rejected =
                 catchThrowableOfType(TooManyLoginAttemptsException.class, () -> other.acquire(ADDRESS));
@@ -255,6 +410,8 @@ class LoginAttemptLimiterTest {
         assertThat(LoginAttemptLimiter.forLog("203.0.113.7")).isEqualTo("203.0.113.7");
         assertThat(LoginAttemptLimiter.forLog("2001:db8::ff00:42:8329")).isEqualTo("2001:db8::ff00:42:8329");
         assertThat(LoginAttemptLimiter.forLog("2001:DB8::FF00:42:8329")).isEqualTo("2001:DB8::FF00:42:8329");
+        // Behind a proxy, an IPv6 address arrives between square brackets.
+        assertThat(LoginAttemptLimiter.forLog("[2001:db8::ff00:42:8329]")).isEqualTo("[2001:db8::ff00:42:8329]");
         assertThat(LoginAttemptLimiter.forLog("1".repeat(60))).isEqualTo("1".repeat(45));
     }
 
@@ -272,27 +429,29 @@ class LoginAttemptLimiterTest {
     void textThatIsNotAnAddressIsWrittenWithoutWhatTheClientChose(String text) {
         String written = LoginAttemptLimiter.forLog(text);
 
-        // Only digits, the letters of a hexadecimal number, dots, colons and the replacement.
-        assertThat(written).matches("[0-9a-fA-F.:?]*").contains("?");
+        // Only digits, the letters of a hexadecimal number, dots, colons, square brackets and the
+        // replacement.
+        assertThat(written).matches("[0-9a-fA-F.:\\[\\]?]*").contains("?");
         assertThat(written).hasSize(Math.min(text.length(), 45));
     }
 
     @Test
     @DisplayName("The warning of a blocked address does not let the client write lines in the log")
     void warningDoesNotLetTheClientWriteLinesInTheLog(CapturedOutput output) {
-        String forged = "9.9.9.9\nFORGED-LINE";
+        String forged = "192.0.2.9\nFORGED-LINE";
         fail(forged, 4);
 
         limiter.acquire(forged);
         limiter.failed(forged);
 
-        assertThat(output.getAll()).contains("blocked").contains("9.9.9.9?").doesNotContain("FORGED-LINE");
+        assertThat(output.getAll()).contains("blocked").contains("192.0.2.9?").doesNotContain("FORGED-LINE");
     }
 
-    /** Takes that many places for an address and keeps them, as failed logins do. */
+    /** Makes that many failed logins of an address: each one takes a place and then fails. */
     private void fail(String address, int times) {
         for (int attempt = 1; attempt <= times; attempt++) {
             limiter.acquire(address);
+            limiter.failed(address);
         }
     }
 
