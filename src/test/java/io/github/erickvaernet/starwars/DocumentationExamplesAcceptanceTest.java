@@ -9,6 +9,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
 import com.jayway.jsonpath.JsonPath;
+import io.github.erickvaernet.starwars.auth.FailedLogins;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -64,6 +66,10 @@ class DocumentationExamplesAcceptanceTest {
     /** Every cache of the application, however many there are. */
     @Autowired
     private ObjectProvider<Cache<?, ?>> caches;
+
+    /** The running application, to empty its count of failed logins. */
+    @Autowired
+    private ApplicationContext application;
 
     /** A client without a session. */
     private RestTestClient anonymous;
@@ -194,6 +200,28 @@ class DocumentationExamplesAcceptanceTest {
                 .isEqualTo(exampleOf("post", LOGIN, "400"));
         assertThat(problem(json(anonymous.post().uri(LOGIN), "{\"username\": \"demo\", \"password\": \"not-it\"}"), 401))
                 .isEqualTo(exampleOf("post", LOGIN, "401"));
+    }
+
+    @Test
+    @DisplayName("CA-29.18: after five failed logins, what another login answers is the example of the 429 of the login")
+    void errorExampleOfABlockedLoginIsARealAnswer() {
+        String failedLogin = "{\"username\": \"demo\", \"password\": \"not-it\"}";
+        // This class shares the running application with others that log in, and all of them
+        // come from the same address: the count is emptied before, so that the failed logins of
+        // another test do not add to these five, and after, so that these do not block anybody.
+        FailedLogins.forget(application);
+        try {
+            for (int attempt = 1; attempt <= 5; attempt++) {
+                problem(json(anonymous.post().uri(LOGIN), failedLogin), 401);
+            }
+
+            // The whole body, its instance included: the documentation completes each example
+            // with the address of its request, as it does for every other error.
+            assertThat(problem(json(anonymous.post().uri(LOGIN), failedLogin), 429))
+                    .isEqualTo(exampleOf("post", LOGIN, "429"));
+        } finally {
+            FailedLogins.forget(application);
+        }
     }
 
     @Test
