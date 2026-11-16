@@ -76,3 +76,4 @@ Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
   - **El distintivo del README muestra solo las ejecuciones sobre `main`.** No tiene estado hasta la primera, que es la del commit que fusiona este ticket.
   - **Una ejecución nueva cancela la anterior de la misma rama.** Para ver un resultado hay que esperar a que la ejecución termine antes de subir otro commit; así se hizo con la ejecución en rojo.
   - **El informe de cobertura adjunto** pesa unos 500 KB por ejecución y GitHub lo conserva el tiempo que tenga configurado el repositorio (90 días, si no se cambia).
+- **15/11/2026.** El trabajo `verify` suma un paso después de los tests: comprueba la cobertura de líneas y el número del distintivo del README, y deja el porcentaje en la página de la ejecución. Es el REQ-27, y la decisión está en el [ADR-0021](0021-visible-test-coverage.md). La definición no suma ninguna acción y sigue pidiendo solo permiso de lectura.

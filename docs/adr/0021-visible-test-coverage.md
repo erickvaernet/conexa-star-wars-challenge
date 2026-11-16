@@ -92,3 +92,22 @@ Qué número y cómo se redondea:
 - **El informe completo sigue pidiendo iniciar sesión en GitHub** para bajarlo, y GitHub lo conserva 90 días. El porcentaje no: está en el README y en el resumen de cada ejecución.
 - Un porcentaje alto no dice que los tests comprueben lo que importa. Las dos revisiones finales lo midieron de otra forma, rompiendo el código a propósito ([registro de uso de herramientas de IA](../process/AI-USAGE.md#límites)).
 - Si el proyecto creciera o sumara colaboradores, un servicio de cobertura o el informe publicado en GitHub Pages pasarían a valer lo que cuestan: se registraría en un ADR nuevo.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Lo que apareció al implementar (ticket #48, [pull request #52](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/52)):
+  - **El número medido no cambió:** 584 de 586 líneas, 99,66 %, en una máquina de desarrollo y en GitHub. El distintivo arranca en 99.
+  - **El guion corrió igual en los dos lugares, sin instalar nada.** Usa `bash`, `awk` y `grep`, y hace las cuentas con números enteros, para no depender de cómo escribe los decimales cada sistema. Se revisó una vez con `shellcheck`, que el ejecutor de GitHub ya trae, en un paso temporal que no quedó en la definición: no encontró nada.
+  - **GitHub muestra el resumen de una ejecución solo a quien inició sesión.** Corrige una consecuencia de este ADR, que daba por visible sin iniciar sesión el porcentaje del resumen. Se comprobó abriendo la página de una ejecución con un navegador sin sesión: muestra el estado, los trabajos, las anotaciones y la lista de adjuntos, pero no el resumen ni los registros.
+    - **Qué se hizo.** El guion deja el porcentaje en dos lugares de la página de la ejecución: en el resumen, como pedía la decisión, y en una anotación, que se ve sin iniciar sesión. Cuando una comprobación falla, su mensaje va a los mismos dos lugares. Se comprobó con el mismo navegador sin sesión sobre una [ejecución](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/runs/43785394734): la anotación dice "Line coverage: 99.66 % (584 of 586 lines)".
+    - **Alternativa descartada.** Dejarlo solo en el resumen. El porcentaje de cada ejecución lo habría visto solo quien inició sesión, y el requisito habla de quien corrige, que puede no tener una cuenta.
+    - **Qué cuesta.** Cada ejecución lleva una anotación, que también aparece en la pestaña de comprobaciones del pull request.
+  - **Sin iniciar sesión, entonces, el porcentaje está en dos lugares:** el distintivo del README, como entero, y la anotación de cada ejecución, con dos decimales y las líneas. El informe completo sigue pidiendo iniciar sesión.
+  - **Los mensajes de error son tres, y dos tienen una variante** que la decisión no nombraba. Si el informe existe pero no cuenta ninguna línea, el guion pide volver a correr `./mvnw verify`, igual que cuando falta. Si el README no tiene exactamente un distintivo de cobertura, dice cuántos encontró y con qué dirección tiene que quedar uno solo.
+  - **Una corrida informa todo lo que hay que corregir.** Si la cobertura baja del mínimo y además el distintivo quedó viejo, salen los dos mensajes. La alternativa, cortar en el primero, obligaba a correrlo dos veces.
+  - **El porcentaje con dos decimales se redondea al más cercano, pero nunca sube al entero siguiente:** 94,996 % se imprime como 94,99 %, no como 95,00 %. Así el número impreso no contradice al entero redondeado hacia abajo, que es el que se compara con el mínimo y con el distintivo.
+  - **El guion reconoce el distintivo por su dirección,** `img.shields.io/badge/cobertura-<número>%25`. Cambiar el texto del distintivo o el servicio de imágenes pide cambiar también esa línea del guion.
+  - **CA-27.3 se comprobó una vez en GitHub.** Un commit cambió a propósito el número del distintivo de 99 a 98: su [ejecución](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/runs/43784887290) quedó en rojo, con los 1200 tests en verde y el paso nuevo diciendo qué número escribir. El commit siguiente lo revirtió y la [ejecución](https://github.com/erickvaernet/conexa-star-wars-challenge/actions/runs/43785135760) volvió a pasar. En la ejecución en rojo el trabajo `compose` pasó, como con un test roto ([ADR-0014](0014-continuous-verification.md#notas-posteriores)).
+  - **Si los tests fallan, el guion no corre:** su paso se saltea, como cualquier paso que sigue a uno que falló, y esa ejecución no muestra ningún porcentaje.

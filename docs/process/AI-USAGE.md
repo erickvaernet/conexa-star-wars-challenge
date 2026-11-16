@@ -222,6 +222,10 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 - **Qué herramientas, además de Postman, ejecutan el guion de la colección que guarda el token no se probó.** El [ADR-0022](../adr/0022-request-collection.md) lo deja para cuando se sume la colección.
 - **Publicar el informe de cobertura en GitHub Pages se evaluó sin probarlo.** Está entre las alternativas del ADR-0021.
 
+**Lo que pasó al implementarlo.**
+
+- **Ticket #48, la cobertura de tests visible.** No tiene tests de aceptación: sus criterios se comprueban por revisión, así que no hubo tests que revisar antes del código. La sesión del ticket escribió el guion, lo corrió en desarrollo con cada uno de sus mensajes de error y lo probó una vez en GitHub: un commit cambió a propósito el número del distintivo, la ejecución quedó en rojo con el mensaje que dice qué número escribir, y el commit siguiente lo revirtió. Tomó una decisión que el encargo no traía: comprobó con un navegador sin sesión que GitHub muestra el resumen de una ejecución solo a quien inició sesión, y sumó una anotación con el porcentaje, que se ve sin iniciar sesión. Está contada, con las demás precisiones, en el [ADR-0021](../adr/0021-visible-test-coverage.md#notas-posteriores), nota del 15/11/2026. El autor no intervino. El pull request lo revisa la sesión supervisora.
+
 ## Límites
 
 **Qué cubre una revisión hecha por otra sesión de la herramienta de IA.** Lo que se puede comprobar: que la verificación completa pasa cuando la corre otro, que los tests aprobados no se tocaron, que cada criterio tiene su test, que la aplicación levanta y responde contra la SWAPI real, y que la descripción del pull request coincide con el cambio.
