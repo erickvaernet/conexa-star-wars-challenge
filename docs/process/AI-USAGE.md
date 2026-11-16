@@ -222,6 +222,14 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 - **Qué herramientas, además de Postman, ejecutan el guion de la colección que guarda el token no se probó.** El [ADR-0022](../adr/0022-request-collection.md) lo deja para cuando se sume la colección.
 - **Publicar el informe de cobertura en GitHub Pages se evaluó sin probarlo.** Está entre las alternativas del ADR-0021.
 
+**Ticket #49: la colección de pedidos (REQ-28).** Una sesión de la herramienta de IA escribió los tests, la colección y su documentación.
+
+- **Los tests de aceptación no se revisaron antes de armar la colección.** Por el plazo, la sesión supervisora decidió revisarlos en el pull request y no antes, como en los tickets anteriores. Sí se escribieron primero: se vieron fallar, porque el archivo no existía, y quedaron en un commit anterior al de la colección.
+- **Uno de esos tests estaba mal y se corrigió al armar la colección,** en un commit aparte: buscaba el guion del login dentro del pedido, y el formato lo guarda al lado. Nadie lo había revisado todavía.
+- **Para saber si los tests protegen,** la misma sesión rompió la colección a propósito de doce formas (una variable con valor, un pedido que falta, un parámetro que la API no declara, una carpeta con su propia autenticación, una contraseña cambiada, un cuerpo que no es JSON, el orden cambiado, un login sin guion, una cabecera `Authorization` escrita a mano, un cuerpo sin `Content-Type`, una dirección sin la variable y otro método). Los tests detectaron las doce. Es la misma sesión que los escribió: no es una mirada independiente.
+- **La colección se escribió a mano,** sin exportarla de ninguna herramienta, y se ejecutó una vez contra la aplicación levantada y la SWAPI real: los 27 pedidos respondieron lo esperado. El resultado está en el pull request y en las notas del [ADR-0022](../adr/0022-request-collection.md#notas-posteriores).
+- **Qué no se probó.** Importarla en la aplicación de Postman, en Insomnia y en Hoppscotch. En Bruno se probó solo la conversión de la importación, sin ejecutar ningún pedido: que su guion traducido carga el token no se comprobó.
+
 ## Límites
 
 **Qué cubre una revisión hecha por otra sesión de la herramienta de IA.** Lo que se puede comprobar: que la verificación completa pasa cuando la corre otro, que los tests aprobados no se tocaron, que cada criterio tiene su test, que la aplicación levanta y responde contra la SWAPI real, y que la descripción del pull request coincide con el cambio.

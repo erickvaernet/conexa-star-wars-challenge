@@ -81,3 +81,23 @@ Cómo se evita que quede vieja:
 - Para usarla contra el despliegue público alcanza con cambiar `baseUrl`. Las credenciales de prueba son las mismas ([ADR-0015](0015-public-deployment.md)).
 - `docs/` suma una carpeta, `api/`, con un archivo que no es un documento. Queda ahí porque es material para quien lee la documentación, no código de la aplicación.
 - Si la API creciera mucho, mantener la colección a mano dejaría de valer la pena y convendría generarla y completarla: se registraría en un ADR nuevo.
+
+## Notas posteriores
+
+Aclaraciones agregadas después de aceptar el ADR. No cambian la decisión.
+
+- **15/11/2026.** Al sumar la colección ([#49](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/49)):
+  - **Con qué herramientas se probó.**
+    - **Newman 6.2.3,** el ejecutor de colecciones de Postman para la terminal: ejecutó la colección completa, en orden, contra la aplicación levantada con `docker compose`. **Ejecuta el guion:** los pedidos que siguen a cada login salieron con el token, y el alta, con el de `admin`.
+    - **Bruno 4.3.0:** se pasó el archivo por el conversor con el que la aplicación importa una colección de Postman, sin abrir su interfaz y sin enviar ningún pedido. Conserva las siete carpetas y los 27 pedidos en orden, las dos variables, la autenticación común con `{{token}}` y los tres pedidos sin autenticación, y no informa ningún problema. **Traduce el guion** a su propia forma, como guion posterior a la respuesta: `bru.setCollectionVar("token", res.getBody().accessToken);`. Que ese guion traducido carga el token al ejecutarlo en Bruno no se probó.
+    - **La aplicación de Postman, Insomnia y Hoppscotch no se probaron:** ni la importación ni el guion.
+  - **Lo que respondió.** Los 27 pedidos respondieron lo esperado: `200` los dos logins y los veinte pedidos de las entidades; `401`, `403`, `400` con `errors` y `404` los cuatro errores; y `201` el alta. Un segundo pedido de alta, hecho aparte, respondió `409`.
+  - **SWAPI recibió 17 pedidos, no "unos veinte".** Cuatro por entidad: el listado, el elemento del filtro por ID, la búsqueda por nombre y el listado con `expanded=true`. El detalle pide el mismo elemento que el filtro por ID y sale de la caché. El pedido 17 es el del `404`. El `401`, el `403` y el `400` no llegan a SWAPI. Se contaron con el registro de pedidos del cliente HTTP de Java, encendido solo para esa ejecución con una variable de entorno que no está en el repositorio.
+  - **Recorrerla de nuevo sí le hace un pedido a SWAPI,** y no "ninguno": el del `404`, porque un "no existe" no se guarda ([ADR-0011](0011-swapi-response-cache.md)). Sale de esa regla; la segunda vuelta no se ejecutó.
+  - **El archivo se escribió a mano,** no se exportó de una herramienta: no tiene identificador de colección, de cuenta ni de espacio de trabajo. El formato solo exige el nombre y la declaración del formato.
+  - **Los pedidos van en siete carpetas numeradas,** una por paso del recorrido. Una herramienta ejecuta lo que hay dentro de una carpeta antes de seguir con la siguiente, y así las lee el test. Ninguna carpeta declara autenticación: la alternativa, declarar "sin autenticación" en la carpeta de los logins, deja de valer si se le suma otro pedido.
+  - **La dirección de cada pedido está escrita dos veces,** entera y en partes (servidor, tramos de la ruta y parámetros), que es como la exporta Postman. El formato acepta también la dirección como un solo texto, que es más corto, pero las herramientas que importan se prueban contra archivos exportados. Como a mano las dos formas pueden quedar distintas, un test comprueba que digan lo mismo.
+  - **Los nombres y las descripciones están en inglés,** como la documentación de la API que muestra Swagger UI: es lo que se ve al lado al probar.
+  - **Qué valores usa.** Los mismos de los ejemplos del README: el personaje 1, la película 1, la nave 9 y el vehículo 4; las búsquedas `sky`, `hope`, `wing` y `speeder`. El `400` es `size=0` en el listado de personajes, y el `404`, el detalle del personaje `9999`. El `403` y el alta envían el mismo cuerpo: lo único que cambia es quién pide.
+  - **Tests que no salen de un criterio,** en la misma clase: todo `POST` lleva cuerpo, las dos formas de cada dirección coinciden, y cada pedido y cada carpeta tiene un nombre propio.
+  - **El test de CA-28.5 busca el guion por su texto:** `pm.collectionVariables.set("token", pm.response.json().accessToken)`. Otra forma de guardar el token, aunque funcione, lo hace fallar: es una sola línea y se prefirió que el test diga cuál.
