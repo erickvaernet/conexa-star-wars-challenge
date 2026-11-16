@@ -23,20 +23,26 @@ record LoginAttemptProperties(int maxFailedAttempts, Duration failedAttemptsWind
     /** Above this, the limit would stop nobody: it is almost surely a typing mistake. */
     private static final int MOST_ATTEMPTS = 100;
 
+    /**
+     * A shorter window counts nothing. It is also what catches a number written without its
+     * unit: {@code 15} is read as fifteen milliseconds, not as fifteen minutes.
+     */
+    private static final Duration SHORTEST_WINDOW = Duration.ofSeconds(1);
+
     /** A longer block is not a wait any more, and the count is lost on every restart anyway. */
     private static final Duration LONGEST_WINDOW = Duration.ofHours(24);
 
     private static final String ATTEMPTS_RULE = "LOGIN_MAX_FAILED_ATTEMPTS must be a whole number from 0 to "
             + MOST_ATTEMPTS + "; with 0, the limit of login attempts is switched off.";
 
-    private static final String WINDOW_RULE = "LOGIN_FAILED_ATTEMPTS_WINDOW must be a time greater than zero "
-            + "and of 24h at most, such as 15m or 1h.";
+    private static final String WINDOW_RULE = "LOGIN_FAILED_ATTEMPTS_WINDOW must be a time from 1s to 24h, "
+            + "written with its unit, such as 15m or 1h; a number alone is read as milliseconds.";
 
     LoginAttemptProperties {
         if (maxFailedAttempts < 0 || maxFailedAttempts > MOST_ATTEMPTS) {
             throw new IllegalArgumentException(ATTEMPTS_RULE);
         }
-        if (failedAttemptsWindow == null || failedAttemptsWindow.isZero() || failedAttemptsWindow.isNegative()
+        if (failedAttemptsWindow == null || failedAttemptsWindow.compareTo(SHORTEST_WINDOW) < 0
                 || failedAttemptsWindow.compareTo(LONGEST_WINDOW) > 0) {
             throw new IllegalArgumentException(WINDOW_RULE);
         }
