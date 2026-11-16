@@ -292,17 +292,26 @@ class RequestCollectionAcceptanceTest {
     }
 
     /**
-     * One request of the collection: the name that a tool shows it by, and what it sends.
+     * One request of the collection, as the element that the file has for it: the name that a
+     * tool shows it by, what it sends and, next to that, its scripts.
      */
-    private record Sent(String name, JsonNode request) {
+    private record Sent(JsonNode element) {
+
+        String name() {
+            return element.path("name").asString();
+        }
+
+        JsonNode request() {
+            return element.path("request");
+        }
 
         String method() {
-            return request.path("method").asString();
+            return request().path("method").asString();
         }
 
         /** The address as it is written, with the variable of the server and the parameters. */
         String address() {
-            return request.path("url").path("raw").asString();
+            return request().path("url").path("raw").asString();
         }
 
         /** The address without the variable of the server and without the parameters. */
@@ -337,18 +346,18 @@ class RequestCollectionAcceptanceTest {
 
         /** The headers that the request writes by itself, by name. */
         Map<String, String> headers() {
-            return keysAndValues(request.path("header"));
+            return keysAndValues(request().path("header"));
         }
 
         /** The body, read as JSON. It fails if the request has none or if it is not valid JSON. */
         JsonNode body() {
-            return JSON.readTree(request.path("body").path("raw").stringValue());
+            return JSON.readTree(request().path("body").path("raw").stringValue());
         }
 
         /** The text of the script that a tool runs when the answer arrives, or nothing. */
         String scriptAfterTheAnswer() {
             StringBuilder script = new StringBuilder();
-            for (JsonNode event : request.path("event")) {
+            for (JsonNode event : element.path("event")) {
                 if (event.path("listen").asString().equals("test")) {
                     for (JsonNode line : event.path("script").path("exec")) {
                         script.append(line.asString()).append('\n');
@@ -370,7 +379,7 @@ class RequestCollectionAcceptanceTest {
                 folders.add(item);
                 collect(item.path("item"));
             } else {
-                requests.add(new Sent(item.path("name").asString(), item.path("request")));
+                requests.add(new Sent(item));
             }
         }
     }
