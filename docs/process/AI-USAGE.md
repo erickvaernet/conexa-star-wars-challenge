@@ -226,7 +226,8 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 
 - **No hubo tests que revisar antes del código.** El ticket no tiene tests de aceptación: sus criterios se comprueban por revisión. La sesión del ticket corrió el guion en desarrollo con cada uno de sus mensajes de error y lo probó una vez en GitHub: un commit cambió a propósito el número del distintivo, la ejecución quedó en rojo con el mensaje que dice qué número escribir, y el commit siguiente lo revirtió.
 - **Tomó una decisión que el encargo no traía.** Comprobó con un navegador sin sesión que GitHub muestra el resumen de una ejecución solo a quien inició sesión, y sumó una anotación con el porcentaje, que se ve sin iniciar sesión. Está contada, con las demás precisiones, en el [ADR-0021](../adr/0021-visible-test-coverage.md#notas-posteriores), nota del 15/11/2026.
-- **El autor no intervino.**
+- **El número se volvió a medir antes de fusionar.** Este pull request quedó para el final, porque el ticket #50 suma código. Con los otros dos tickets en `main`, la sesión del ticket actualizó la rama y volvió a correr todos los tests y el guion: 665 de 667 líneas, 99,70 %, y el distintivo sigue en 99.
+- **El autor no intervino.** El pull request lo revisó la sesión supervisora, después de que la rama se actualizó y se volvió a medir.
 
 **Ticket #49: la colección de pedidos (REQ-28).** Una sesión de la herramienta de IA escribió los tests, la colección y su documentación.
 
