@@ -246,6 +246,15 @@ Cómo se decidió el ciclo 3 antes de empezar a programar. Lo que pase al implem
 - **El autor no revisó los tests ni el diseño.** Todo está en el [ADR-0023](../adr/0023-login-attempt-limit.md#notas-posteriores), nota del 15/11/2026.
 - **Qué no se probó.** Lo mismo que al decidir: qué dirección ve la aplicación detrás del intermediario del despliegue público. La prueba manual se hizo con `docker compose`, donde todos los pedidos llegan con una misma dirección.
 
+**Ticket #34: el despliegue público (REQ-20).** Venía del ciclo 2 con el archivo del despliegue ya fusionado.
+
+- **Las cuentas las creó el autor,** en los dos servicios, y él cargó la contraseña de la base de datos y autorizó al servicio a leer el repositorio. Son los pasos que ninguna sesión hace.
+- **Lo demás lo hizo la sesión supervisora, manejando el navegador del autor a pedido suyo:** creó el proyecto de la base de datos, eligió la región y la versión, leyó de ahí la dirección y el usuario sin mostrar la contraseña, los cargó en el servicio y lanzó el despliegue.
+- **El primer despliegue falló.** El registro decía que la base rechazaba la contraseña. El autor la comprobó a la vista y estaba bien; la sesión supervisora comparó el largo del valor cargado con el de la contraseña, sin leer ninguno de los dos, y faltaba un carácter. El autor la cargó de nuevo y el despliegue siguiente arrancó.
+- **La sesión supervisora recorrió la aplicación desde la dirección pública** con pedidos directos y anotó lo medido en el [ADR-0015](../adr/0015-public-deployment.md#notas-posteriores). El recorrido a mano dentro de Swagger UI no lo hizo.
+- **La prueba pendiente del límite de intentos de login** la hizo la sesión supervisora contra el servicio, y mostró que en el despliegue la dirección la elige el cliente. La decisión de no corregirlo en este ciclo y dejarlo escrito la tomó ella; el autor fue informado y no la revisó antes de que quedara escrita ([ADR-0023](../adr/0023-login-attempt-limit.md#notas-posteriores)).
+- **Este pull request lo escribió la sesión supervisora y no lo revisó nadie más** antes de fusionarlo: es documentación, y la comprobó la verificación automática.
+
 ## Límites
 
 **Qué cubre una revisión hecha por otra sesión de la herramienta de IA.** Lo que se puede comprobar: que la verificación completa pasa cuando la corre otro, que los tests aprobados no se tocaron, que cada criterio tiene su test, que la aplicación levanta y responde contra la SWAPI real, y que la descripción del pull request coincide con el cambio.
