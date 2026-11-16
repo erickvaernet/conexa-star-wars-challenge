@@ -10,8 +10,8 @@
 #   2. the coverage is below the minimum;
 #   3. the number of the README badge is not the measured one, rounded down.
 #
-# On GitHub Actions it also writes the percentage in the summary of the run. It needs only
-# bash, awk and grep. The decision is in docs/adr/0021-visible-test-coverage.md.
+# On GitHub Actions it also shows the percentage in the page of the run. It needs only bash,
+# awk and grep. The decision is in docs/adr/0021-visible-test-coverage.md.
 set -euo pipefail
 export LC_ALL=C
 
@@ -24,20 +24,26 @@ readme="$root/README.md"
 # The badge is a fixed shields.io image, with the number written in its address.
 badge='img\.shields\.io/badge/cobertura-[0-9]+%25'
 
-# Writes a line in the summary of the run. Outside GitHub Actions it does nothing.
-summary() {
+# Shows a line in the page of the run, in two places: its summary, which GitHub shows only to
+# those who are signed in, and an annotation, which anyone can read. The first argument is
+# the kind of annotation, "notice" or "error". Outside GitHub Actions it does nothing.
+publish() {
     if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-        echo "$1" >> "$GITHUB_STEP_SUMMARY"
+        echo "$2" >> "$GITHUB_STEP_SUMMARY"
+    fi
+    if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+        # An annotation is a command for the runner, which needs the percent signs escaped.
+        echo "::$1 title=Coverage::${2//%/%25}"
     fi
 }
 
-# Reports a failed check, here and in the summary of the run, and lets the script go on, so
+# Reports a failed check, here and in the page of the run, and lets the script go on, so
 # that one run shows everything there is to correct.
 failed=0
 fail() {
     echo "ERROR: $1" >&2
     echo "       $2" >&2
-    summary "**Failed:** $1 $2"
+    publish error "Failed: $1 $2"
     failed=1
 }
 
@@ -77,7 +83,7 @@ fi
 percentage="$(( hundredths / 100 )).$(printf '%02d' $(( hundredths % 100 )))"
 
 echo "Line coverage: $percentage % ($covered of $total lines)"
-summary "**Line coverage: $percentage %** ($covered of $total lines)"
+publish notice "Line coverage: $percentage % ($covered of $total lines)"
 
 if [ "$rounded_down" -lt "$MINIMUM" ]; then
     fail "the line coverage is $percentage %, below the minimum of $MINIMUM %." \
