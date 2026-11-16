@@ -77,7 +77,7 @@ class AccessRulesTest {
     @Test
     @DisplayName("The login is public")
     void loginIsPublic() {
-        when(loginService.login(anyString(), anyString())).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
+        when(loginService.login(anyString(), anyString(), anyString())).thenReturn(new LoginResponse("the-token", "Bearer", 3600));
 
         client.post().uri("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

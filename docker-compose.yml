@@ -29,6 +29,9 @@ services:
       JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-60}
       # Loads the test users, so there is someone to log in with right away.
       SEED_ENABLED: ${SEED_ENABLED:-true}
+      # How many failed logins from one address block its login, and how long they are counted for.
+      LOGIN_MAX_FAILED_ATTEMPTS: ${LOGIN_MAX_FAILED_ATTEMPTS:-5}
+      LOGIN_FAILED_ATTEMPTS_WINDOW: ${LOGIN_FAILED_ATTEMPTS_WINDOW:-15m}
       # Where the Star Wars data comes from, and the longest the application waits for it.
       SWAPI_BASE_URL: ${SWAPI_BASE_URL:-https://www.swapi.tech/api}
       SWAPI_CONNECT_TIMEOUT: ${SWAPI_CONNECT_TIMEOUT:-3s}

@@ -67,6 +67,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /** The text of every 403: the session is valid, and its role does not allow the request. */
     static final String FORBIDDEN = "You do not have permission to perform this request.";
 
+    /**
+     * The text of the 429 of the login. It says neither how many attempts failed nor how many
+     * are allowed: how long to wait goes in the {@code Retry-After} header.
+     */
+    static final String TOO_MANY_LOGIN_ATTEMPTS = "Too many failed login attempts. Try again later.";
+
     /** The name of the list that says which fields or parameters are invalid. */
     private static final String ERRORS = "errors";
 
@@ -77,6 +83,21 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     ResponseEntity<ProblemDetail> handleBadCredentials(BadCredentialsException error) {
         return unauthorized("Invalid username or password.");
+    }
+
+    /**
+     * A login from an address that already failed too many times. It was not checked, so the
+     * answer is the same whether its credentials were right or wrong.
+     *
+     * <p>{@code Retry-After} says, in seconds, when a login from that address is checked again.
+     * There is no {@code WWW-Authenticate}: the client already knows how to authenticate, and
+     * doing it again changes nothing until then.
+     */
+    @ExceptionHandler(TooManyLoginAttemptsException.class)
+    ResponseEntity<ProblemDetail> handleTooManyLoginAttempts(TooManyLoginAttemptsException error) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(error.retryAfterSeconds()))
+                .body(problem(HttpStatus.TOO_MANY_REQUESTS, TOO_MANY_LOGIN_ATTEMPTS));
     }
 
     /**

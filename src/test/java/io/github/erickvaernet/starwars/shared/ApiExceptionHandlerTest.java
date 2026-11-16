@@ -155,6 +155,27 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("A login from an address with too many failed attempts is answered with 429 and a fixed text, and Retry-After says how many seconds to wait")
+    void tooManyLoginAttemptsAreAnsweredWithTooManyRequests() {
+        client.get().uri("/test/too-many-login-attempts")
+                .exchange()
+                .expectStatus().isEqualTo(429)
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectHeader().valueEquals(HttpHeaders.RETRY_AFTER, "847")
+                // Unlike a 401, it does not say how to authenticate: doing it again changes nothing.
+                .expectHeader().doesNotExist(HttpHeaders.WWW_AUTHENTICATE)
+                .expectBody().json("""
+                        {
+                          "type": "about:blank",
+                          "title": "Too Many Requests",
+                          "status": 429,
+                          "detail": "Too many failed login attempts. Try again later.",
+                          "instance": "/test/too-many-login-attempts"
+                        }
+                        """, JsonCompareMode.STRICT);
+    }
+
+    @Test
     @DisplayName("A method that a route does not have is answered with 405 and a fixed text, and the answer names the ones it has")
     void methodThatARouteDoesNotHaveIsAnsweredWithMethodNotAllowed() {
         client.post().uri("/test/not-found")
@@ -428,6 +449,11 @@ class ApiExceptionHandlerTest {
         @GetMapping("/test/username-taken")
         String usernameTaken() {
             throw new UsernameAlreadyExistsException();
+        }
+
+        @GetMapping("/test/too-many-login-attempts")
+        String tooManyLoginAttempts() {
+            throw new TooManyLoginAttemptsException(847);
         }
 
         @PostMapping("/test/body")
