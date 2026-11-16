@@ -128,6 +128,7 @@ Retry-After: 847
 - El texto es fijo: no dice cuántos fallos hubo ni repite nada de lo enviado. El `429` no lleva la cabecera `WWW-Authenticate`.
 - El `401` del login no cambia: tiene el mismo texto y no dice cuántos intentos quedan.
 - Con el umbral en cero, el límite está apagado: no se cuenta nada y el login nunca responde `429`.
+- En el despliegue público, medido el 15/11/2026, la dirección que informa el intermediario es la que el cliente escribe en la cabecera `X-Forwarded-For`: ahí el límite cuenta por un valor que el cliente controla. La regla de arriba no cambia; lo que frena y lo que no en esa instalación está en el [ADR-0023](../adr/0023-login-attempt-limit.md#notas-posteriores).
 
 ### Token
 
