@@ -56,8 +56,8 @@ class LoginAttemptPropertiesTest {
     }
 
     @ParameterizedTest(name = "LOGIN_MAX_FAILED_ATTEMPTS={0}, LOGIN_FAILED_ATTEMPTS_WINDOW={1}")
-    @CsvSource({"1, 1s", "100, 24h", "100, 1440m"})
-    @DisplayName("The ends of both ranges are accepted: from 1 to 100 failed logins, and a window of up to 24 hours")
+    @CsvSource({"1, 1s", "1, 1000ms", "100, 24h", "100, 1440m"})
+    @DisplayName("The ends of both ranges are accepted: from 1 to 100 failed logins, and a window from one second to 24 hours")
     void endsOfTheRangesAreAccepted(int attempts, String window) {
         application.withPropertyValues(
                         "LOGIN_MAX_FAILED_ATTEMPTS=" + attempts, "LOGIN_FAILED_ATTEMPTS_WINDOW=" + window)
@@ -74,8 +74,8 @@ class LoginAttemptPropertiesTest {
     }
 
     @ParameterizedTest(name = "LOGIN_FAILED_ATTEMPTS_WINDOW=\"{0}\"")
-    @ValueSource(strings = {"", "0s", "-1m", "24h1s", "25h"})
-    @DisplayName("The application does not start with a window that is empty, not positive or longer than 24 hours, and says which variable to fix")
+    @ValueSource(strings = {"", "0s", "-1m", "1ns", "1ms", "999ms", "15", "900", "24h1s", "25h"})
+    @DisplayName("The application does not start with a window that is empty, shorter than one second or longer than 24 hours, and says which variable to fix: a number without its unit is read as milliseconds")
     void applicationDoesNotStartWithAWindowOutOfRange(String window) {
         application.withPropertyValues("LOGIN_FAILED_ATTEMPTS_WINDOW=" + window)
                 .run(context -> assertThat(context).getFailure().rootCause()
@@ -83,7 +83,7 @@ class LoginAttemptPropertiesTest {
     }
 
     @ParameterizedTest(name = "LOGIN_FAILED_ATTEMPTS_WINDOW=\"{0}\"")
-    @ValueSource(strings = {"", "0s", "25h"})
+    @ValueSource(strings = {"", "0s", "500ms", "25h"})
     @DisplayName("The window is checked with the limit switched off too: a wrong value does not wait hidden until the limit is switched on")
     void windowIsCheckedWithTheLimitSwitchedOffToo(String window) {
         application.withPropertyValues("LOGIN_MAX_FAILED_ATTEMPTS=0", "LOGIN_FAILED_ATTEMPTS_WINDOW=" + window)

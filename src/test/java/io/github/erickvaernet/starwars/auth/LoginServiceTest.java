@@ -25,10 +25,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -218,6 +222,73 @@ class LoginServiceTest {
         assertThat(errors).filteredOn(BadCredentialsException.class::isInstance).hasSize(5);
         assertThat(errors).filteredOn(TooManyLoginAttemptsException.class::isInstance).hasSize(35);
         verify(users, times(5)).findByUsername(any());
+    }
+
+    @Test
+    @DisplayName("Six correct logins at once from an address without failures: five get their token, and the one that finds no place is told to retry in one second, not to wait the whole window")
+    void simultaneousCorrectLoginsAreNotToldToWaitTheWholeWindow() throws Exception {
+        // Five logins stay inside the comparison of the password until the test lets them go on:
+        // the sixth one arrives while the five of them are in course. Nothing waits a fixed time.
+        CountDownLatch fiveComparing = new CountDownLatch(5);
+        CountDownLatch goOn = new CountDownLatch(1);
+        doAnswer(comparison -> {
+            fiveComparing.countDown();
+            goOn.await();
+            return comparison.callRealMethod();
+        }).when(passwordEncoder).matches(anyString(), anyString());
+        List<Future<LoginResponse>> inCourse = new ArrayList<>();
+        Throwable sixth;
+
+        try (ExecutorService threads = Executors.newFixedThreadPool(5)) {
+            try {
+                for (int login = 1; login <= 5; login++) {
+                    inCourse.add(threads.submit(() -> service.login("demo", "demo1234", ADDRESS)));
+                }
+                assertThat(fiveComparing.await(30, TimeUnit.SECONDS)).as("five logins in course").isTrue();
+
+                sixth = catchThrowable(() -> service.login("demo", "demo1234", ADDRESS));
+            } finally {
+                goOn.countDown();
+            }
+        }
+
+        assertThat(sixth).isInstanceOf(TooManyLoginAttemptsException.class);
+        assertThat(((TooManyLoginAttemptsException) sixth).retryAfterSeconds()).isEqualTo(1);
+        for (Future<LoginResponse> login : inCourse) {
+            assertThat(login.get().accessToken()).isNotBlank();
+        }
+        // Nothing was counted: the next login is checked, and the address still has its five places.
+        assertThat(service.login("demo", "demo1234", ADDRESS).accessToken()).isNotBlank();
+        failLogin(ADDRESS, 5);
+    }
+
+    @Test
+    @DisplayName("A login rejected because of five failures is told to wait what is left of the window, as before")
+    void loginRejectedByFailuresWaitsTheRestOfTheWindow() {
+        failLogin(ADDRESS, 5);
+
+        Throwable first = catchThrowable(() -> service.login("demo", "demo1234", ADDRESS));
+        Throwable second = catchThrowable(() -> service.login("demo", "demo1234", ADDRESS));
+
+        // The window lasts fifteen minutes and the test takes far less than one: the wait is
+        // nearly all of it. The second rejected login shows that the first one freed no place.
+        assertThat(first).isInstanceOf(TooManyLoginAttemptsException.class);
+        assertThat(((TooManyLoginAttemptsException) first).retryAfterSeconds()).isBetween(840L, 900L);
+        assertThat(second).isInstanceOf(TooManyLoginAttemptsException.class);
+        assertThat(((TooManyLoginAttemptsException) second).retryAfterSeconds()).isBetween(840L, 900L);
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("The fifth failed login of an address leaves the warning of the block in the log, with the address and without the user name or the password; the first four leave nothing")
+    void fifthFailedLoginLeavesTheWarningOfTheBlock(CapturedOutput output) {
+        failLogin(ADDRESS, 4);
+        assertThat(output.getAll()).doesNotContain("blocked");
+
+        failLogin(ADDRESS, 1);
+
+        assertThat(output.getAll()).contains("WARN").contains("Login blocked for the address " + ADDRESS);
+        assertThat(output.getAll()).doesNotContain("not-the-password").doesNotContain("demo");
     }
 
     /** Makes that many failed logins from an address, and checks that each one is rejected as such. */
