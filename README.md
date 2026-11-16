@@ -20,9 +20,21 @@ API REST en **Java 21** que se integra con [SWAPI](https://www.swapi.tech/docume
 
 ## Inicio rápido
 
-**Sin instalar nada:** la aplicación está publicada en <https://star-wars-api-7x3l.onrender.com/swagger-ui.html>, con los mismos usuarios de prueba. Si tarda en abrir, está despertando: ver [Despliegue público](#despliegue-público). Lo que sigue es para levantarla en una máquina propia.
+La aplicación se puede probar de dos formas, con los mismos usuarios de prueba: en el servicio público, sin instalar nada, o levantándola en una máquina propia.
 
-Hace falta tener Docker. No hay que instalar Java ni configurar nada.
+| Qué | En el servicio público | En una máquina propia |
+|---|---|---|
+| Documentación interactiva (Swagger UI) | <https://star-wars-api-7x3l.onrender.com/swagger-ui.html> | <http://localhost:8080/swagger-ui.html> |
+| La misma documentación, en formato OpenAPI | <https://star-wars-api-7x3l.onrender.com/v3/api-docs> | <http://localhost:8080/v3/api-docs> |
+| Control de estado | <https://star-wars-api-7x3l.onrender.com/actuator/health> | <http://localhost:8080/actuator/health> |
+| Variable `baseUrl` de la [colección de pedidos](#colección-de-pedidos) | `https://star-wars-api-7x3l.onrender.com` | `http://localhost:8080`, que es como viene |
+
+**Dos esperas que no son fallas:**
+
+- **En el servicio público, la primera visita puede tardar un minuto y medio.** El plan gratuito de Render apaga la aplicación después de 15 minutos sin pedidos, y despertarla es arrancarla de nuevo con muy poco procesador: unos 70 segundos. La base de datos, en Neon, también se apaga, a los 5 minutos sin consultas, pero según sus páginas despierta en menos de un segundo: la espera es de la aplicación, no de la base. Mientras despierta, el navegador queda cargando; si corta, alcanza con volver a cargar. Después responde con normalidad, hasta que pasen otros 15 minutos sin uso ([Despliegue público](#despliegue-público)).
+- **Cinco logins fallidos en quince minutos bloquean el login,** en los dos lados y también con la contraseña correcta, hasta que pasan quince minutos desde el primer fallo. Los fallos se cuentan por dirección de origen, no por usuario, y la respuesta, un `429`, dice cuántos segundos faltan ([Iniciar sesión](#iniciar-sesión)). Si pasa al probar, alcanza con esperar. En una máquina propia también alcanza con reiniciar la aplicación, porque la cuenta se guarda en memoria.
+
+Lo que sigue es para levantarla en una máquina propia. Hace falta tener Docker andando. No hay que instalar Java ni configurar nada.
 
 **1. Levantar la aplicación y su base de datos**
 
@@ -30,13 +42,7 @@ Hace falta tener Docker. No hay que instalar Java ni configurar nada.
 docker compose up --build
 ```
 
-Cuando termina de arrancar:
-
-| Qué | Dónde |
-|---|---|
-| Documentación interactiva (Swagger UI) | <http://localhost:8080/swagger-ui.html> |
-| La misma documentación, en formato OpenAPI | <http://localhost:8080/v3/api-docs> |
-| Control de estado | <http://localhost:8080/actuator/health> |
+Cuando termina de arrancar, la aplicación responde en las direcciones de la columna "En una máquina propia" de la tabla de arriba.
 
 **2. Iniciar sesión con un usuario de prueba**
 
@@ -47,9 +53,7 @@ Cuando termina de arrancar:
 | `demo` | `demo1234` | `USER` | Usar los listados y los detalles |
 | `admin` | `admin1234` | `ADMIN` | Lo mismo, y además [crear usuarios](#crear-usuarios) |
 
-Son credenciales de prueba, pensadas para quien corrige: en la base de datos solo está su *hash* BCrypt.
-
-**Cinco logins fallidos en quince minutos bloquean el login,** también con la contraseña correcta, hasta que pasan esos quince minutos. Los fallos se cuentan por dirección de origen, no por usuario, y la respuesta dice cuántos segundos faltan ([Iniciar sesión](#iniciar-sesión)). Si pasa al probar, alcanza con esperar o con reiniciar la aplicación: la cuenta se guarda en memoria.
+Son credenciales de prueba, pensadas para quien corrige: en la base de datos solo está su *hash* BCrypt. Con cinco logins fallidos seguidos el login se bloquea por hasta quince minutos, como dice más arriba.
 
 **3. Probar**
 
@@ -77,7 +81,7 @@ docker compose down -v
 
 No hace falta ninguna otra herramienta: alcanza con el navegador.
 
-1. Abrir <http://localhost:8080/swagger-ui.html>. El primer grupo es **Authentication**, con el login.
+1. Abrir Swagger UI: en el servicio público, <https://star-wars-api-7x3l.onrender.com/swagger-ui.html>; en una máquina propia, <http://localhost:8080/swagger-ui.html>. El primer grupo es **Authentication**, con el login.
 2. Desplegar `POST /api/v1/auth/login`, pulsar **Try it out** y después **Execute**. El cuerpo ya trae al usuario de prueba, así que no hay que escribir nada.
 3. Copiar el valor de `accessToken` de la respuesta, sin las comillas.
 4. Pulsar **Authorize**, arriba de la lista de pedidos, pegar el token en `Value`, confirmar con **Authorize** y cerrar el diálogo con **Close**. Va solo el token: la palabra `Bearer` la agrega la página.
@@ -198,14 +202,22 @@ El recorrido completo de la API en un archivo, para no armar cada pedido a mano:
 
 Cómo se usa:
 
-- **Importarla.** En Postman, con **Import**, eligiendo el archivo. Insomnia, Bruno y Hoppscotch también importan colecciones de Postman, según su documentación. Acá se ejecutó solo con Newman, el ejecutor de Postman para la terminal; la importación en esas aplicaciones no se probó.
+- **Importarla.** En Postman, con **Import**, eligiendo el archivo. Es uno solo: no hay entornos que importar aparte. Insomnia, Bruno y Hoppscotch también importan colecciones de Postman, según su documentación. Se ejecutó con Newman, el ejecutor de Postman para la terminal, y el autor la importó y la probó en la aplicación de Postman. La importación en las otras tres no se probó.
 - **Recorrerla.** Con la aplicación levantada, se ejecutan los pedidos de arriba hacia abajo, de a uno o todos juntos. El nombre de cada pedido dice qué muestra y qué código responde.
 - **El token se carga solo.** Cada login tiene un guion de una línea que guarda el `accessToken` de la respuesta en la variable `token` de la colección, y los demás pedidos la envían. No hay que copiar nada.
 - **Si la herramienta no ejecuta ese guion,** los pedidos que siguen al login responden `401`. En ese caso se copia a mano el `accessToken` de la respuesta del login en la variable `token` de la colección, y se repite después del login de `admin`.
-- **Para usarla contra otra dirección,** se cambia la variable `baseUrl` de la colección, que vale `http://localhost:8080`. Sirve para otro puerto y para el [despliegue público](#despliegue-público); las credenciales de prueba son las mismas.
+- **A dónde van los pedidos lo dice la variable `baseUrl` de la colección.** Es lo único que hay que completar, y las credenciales de prueba son las mismas en los dos lados.
+
+  | Para probar | Valor de `baseUrl` |
+  |---|---|
+  | Una máquina propia | `http://localhost:8080`, que es como viene: no hay que tocar nada |
+  | El [servicio público](#despliegue-público) | `https://star-wars-api-7x3l.onrender.com` |
+
+  En Postman se cambia así: clic en la colección **Star Wars API**, pestaña **Variables**, se reemplaza el valor de `baseUrl` y se guarda. Sirve también para otro puerto.
+- **Al cambiar de dirección hay que volver a ejecutar el login.** Un token del servicio público no sirve en una máquina propia, ni al revés: cada instalación firma los suyos con su propia clave.
 - **El orden importa,** porque hay una sola variable `token`. El pedido que muestra el `403` usa el token de `demo`: va antes del login de `admin`.
 - **El alta crea siempre el mismo usuario, `leia`.** La primera vez responde `201`, y desde la segunda, `409`, que es la respuesta para un nombre que ya existe. Vuelve a responder `201` después de `docker compose down -v`. Contra el despliegue público la base no se borra: el alta responde `201` solo la primera vez que alguien la recorre, y `409` a todos los demás.
-- **Sin interfaz gráfica,** con Node instalado: `npx newman run docs/api/star-wars-api.postman_collection.json`. Para otra dirección se agrega `--env-var baseUrl=...`. La colección no tiene comprobaciones: Newman muestra el código de cada respuesta, pero no falla si la API responde otra cosa. El código esperado está en el nombre de cada pedido.
+- **Sin interfaz gráfica,** con Node instalado: `npx newman run docs/api/star-wars-api.postman_collection.json`. Para el servicio público se agrega `--env-var baseUrl=https://star-wars-api-7x3l.onrender.com`. La colección no tiene comprobaciones: Newman muestra el código de cada respuesta, pero no falla si la API responde otra cosa. El código esperado está en el nombre de cada pedido.
 
 Recorrerla entera son 17 pedidos a SWAPI la primera vez. Después las respuestas salen de la caché, salvo la del `404`: un "no existe" no se guarda.
 
@@ -728,9 +740,9 @@ Los tiempos se escriben como un número con su unidad: `500ms`, `3s`, `1h`. Un n
 - **Las credenciales de `admin` son públicas, y con ellas cualquiera puede crear usuarios en la instalación pública,** también otros administradores. Esos usuarios quedan hasta que se los borre desde la base de datos: no hay un pedido para listarlos ni para borrarlos. Es un límite aceptado, porque es lo que quien corrige tiene que poder probar, y no hay datos que proteger ([ADR-0015](docs/adr/0015-public-deployment.md) y [ADR-0017](docs/adr/0017-role-based-access.md)).
 - **El límite de intentos de login frena el caso simple, y no es una defensa completa.** Frena a quien prueba contraseñas una tras otra desde una dirección: cinco intentos cada quince minutos, aunque intercale logins correctos o mande muchos pedidos a la vez. No frena un ataque repartido entre muchas direcciones, y quienes comparten una dirección comparten la cuenta. La cuenta se pierde cada vez que la instancia se duerme. Las contraseñas de `demo` y de `admin` son públicas de todos modos: lo que el límite protege son los usuarios que se crean con el alta.
 - **En el despliegue, el límite de intentos de login se puede esquivar.** Medido el 15/11/2026 contra el servicio: el intermediario de Render conserva lo que el cliente escribe en la cabecera `X-Forwarded-For` (y en `Forwarded`), y la aplicación, que acá lee las cabeceras del intermediario, cuenta por su primer valor. El límite funciona (el sexto intento responde `429`), pero quien prueba contraseñas puede cambiar esa cabecera en cada pedido, y quien conoce la dirección de otro puede bloquearle el login hasta quince minutos. En local no pasa: sin intermediario la cabecera se ignora. No se corrigió en este ciclo; la prueba, el motivo y la corrección pendiente están en el [ADR-0023](docs/adr/0023-login-attempt-limit.md#notas-posteriores).
-- **La primera visita puede tardar un minuto y medio.** El plan gratuito duerme la aplicación tras 15 minutos sin uso, y despertarla es arrancarla de nuevo con muy poco procesador. Medido en el servicio: la aplicación arranca en 70 segundos, y con el servicio dormido la respuesta llegó a los 90 segundos, sumando un pedido que se cortó a los 60 y el siguiente. Es una sola medición. Mientras despierta, el navegador queda esperando; si corta, alcanza con volver a cargar. Después responde con normalidad: el primer login tarda unos 6 segundos y los pedidos siguientes, menos de uno. No se la mantiene despierta: es el funcionamiento previsto del plan gratuito.
+- **La primera visita puede tardar un minuto y medio.** El plan gratuito duerme la aplicación tras 15 minutos sin uso, y despertarla es arrancarla de nuevo con muy poco procesador. La base de datos de Neon también se duerme, a los 5 minutos sin consultas, y según sus páginas despierta en menos de un segundo: la espera que se nota es la de la aplicación. Medido en el servicio: la aplicación arranca en 70 segundos, y con el servicio dormido la respuesta llegó a los 90 segundos, sumando un pedido que se cortó a los 60 y el siguiente. Es una sola medición. Mientras despierta, el navegador queda esperando; si corta, alcanza con volver a cargar. Después responde con normalidad: el primer login tarda unos 6 segundos y los pedidos siguientes, menos de uno. No se la mantiene despierta: es el funcionamiento previsto del plan gratuito.
 - **Con `demo`, que es público, un visitante puede dejar a los demás sin datos nuevos por quince minutos.** Cada búsqueda con un texto distinto es un pedido a SWAPI, que corta a los 100 cada quince minutos: cien búsquedas distintas agotan ese cupo para todos, y hasta que se renueva lo que no está en la caché responde `502`. Es un límite conocido: el límite de pedidos por usuario (REQ-31 del [PRD](docs/requirements/PRD.md)) no entró en ningún ciclo. No se probó contra el servicio, a propósito.
-- **Qué se comprobó en el servicio, y qué no.** Con pedidos directos: el control de estado, los dos logins, los cuatro listados, el `401` sin token, que Swagger UI carga y que la documentación declara `https://`. El recorrido a mano dentro de la página de Swagger UI (iniciar sesión, cargar el token y listar), que es la otra mitad del criterio CA-20.3, quedó para el autor: ninguna sesión de la herramienta de IA lo hizo en el servicio.
+- **Qué se comprobó en el servicio, y qué no.** Con pedidos directos: el control de estado, los dos logins, los cuatro listados, el `401` sin token, que Swagger UI carga y que la documentación declara `https://`. El recorrido a mano dentro de la página de Swagger UI (iniciar sesión, cargar el token y listar), que es la otra mitad del criterio CA-20.3, no lo hizo ninguna sesión de la herramienta de IA: lo hizo el autor el 16/11/2026.
 
 Las alternativas evaluadas y lo medido están en el [ADR-0015](docs/adr/0015-public-deployment.md).
 
@@ -764,6 +776,7 @@ El equipo técnico de Conexa permitió usar herramientas de IA y pidió document
 - **En el ciclo 3** eligió el alcance, que son tres de los requisitos "Podría" y el despliegue público, y volvió a delegar las decisiones, entre ellas una respuesta nueva del login. Las tomó la sesión supervisora antes de que otra sesión las redactara. Está contado en [Ciclo 3](docs/process/AI-USAGE.md#ciclo-3).
 - **Cómo se revisó:** hasta el ticket #5, el autor aprobó cada paso. Desde el ticket #6, los tests y los pull requests los revisó una sesión supervisora de una herramienta de IA, por encargo del autor, que no los revisó uno por uno; la excepción son los tests de aceptación del ticket #35, que aprobó él.
 - **Revisión final de cada ciclo:** con todo fusionado, otra sesión de la herramienta revisó el conjunto con la consigna de encontrar y demostrar fallas. En el ciclo 1 encontró cuatro importantes, que se corrigieron en el [pull request #30](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/30). En el ciclo 2 encontró dos, las dos en la documentación: este resumen y el registro decían menos de lo que se había delegado. Se corrigieron, junto con cuatro hallazgos menores, en el [pull request #46](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/46). En el ciclo 3 encontró cuatro: una en el código, donde logins correctos simultáneos recibían un `429` de bloqueo sin que nadie hubiera fallado, y tres en la documentación, entre ellas el registro de uso de herramientas de IA, que abría con un estado viejo. Qué corregir lo eligió la sesión supervisora, y el autor no lo revisó antes; las correcciones están en el [pull request #56](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/56). Quedó sin corregir, y dicho, que en el despliegue público el cliente elige la dirección por la que se cuentan sus intentos de login.
+- **Revisión del autor antes de entregar:** con los tres ciclos cerrados, el autor revisó él mismo, una por una, las diez decisiones que había delegado en los ciclos 2 y 3. Aceptó nueve y dejó una anotada como límite: en el despliegue público, el cliente elige la dirección por la que se cuentan sus intentos de login. Además recorrió Swagger UI a mano en el servicio público y probó la colección de pedidos en Postman. Por qué su revisión fue al final y sobre el conjunto, qué cuesta hacerlo así y cómo se haría en un proyecto real, con una rama intermedia antes de `main`, está en [Revisión del autor antes de entregar](docs/process/AI-USAGE.md#revisión-del-autor-antes-de-entregar).
 
 El detalle, con las correcciones y los límites de esa revisión, está en [`docs/process/AI-USAGE.md`](docs/process/AI-USAGE.md).
 
@@ -861,6 +874,7 @@ En el ciclo 1 los tres documentos se escriben completos. En los ciclos siguiente
 | 15/11/2026 | Despliegue público ([#34](https://github.com/erickvaernet/conexa-star-wars-challenge/issues/34)): la aplicación quedó publicada en <https://star-wars-api-7x3l.onrender.com>, en Render, con la base de datos en Neon. `render.yaml` se aceptó como estaba, sin cambios en el repositorio. El primer despliegue falló porque la contraseña de la base se había cargado incompleta; con el valor corregido arrancó, y Flyway creó la tabla y cargó los usuarios de prueba. Desde la dirección pública responden el control de estado, los dos logins, los cuatro listados con sus filtros, los detalles y la documentación, que declara `https://`. La aplicación arranca en 70 segundos y despierta en un minuto y medio. Cada cambio fusionado en `main` quedó desplegado solo, después de la verificación automática. Se hizo además la prueba que el límite de intentos de login dejaba pendiente, y salió mal: en el despliegue la dirección que cuenta la puede elegir el cliente con una cabecera. Quedó dicho como límite medido, sin corregir en este ciclo. |
 | 16/11/2026 | Revisión final del ciclo 3 y sus correcciones ([pull request #56](https://github.com/erickvaernet/conexa-star-wars-challenge/pull/56)). Con los cuatro tickets fusionados y el servicio público andando, una sesión aparte de una herramienta de IA revisó el ciclo sobre un clon limpio, con la misma consigna que las dos anteriores: encontrar y demostrar fallas, sin conocer las revisiones previas. No encontró nada crítico. Encontró cuatro fallas importantes. Una en el código: doce logins correctos enviados a la vez, sin ningún fallo previo, recibieron cinco `200` y siete `429` con `Retry-After: 900`, como si la dirección estuviera bloqueada. Tres en la documentación: el registro de uso de herramientas de IA abría diciendo que el servicio público no existía y que el ciclo no tenía código, este README daba por medido un despertar que el ADR decía sin medir, y el recorrido dentro de Swagger UI en el servicio figuraba hecho sin que nadie lo hubiera hecho. De catorce roturas hechas a propósito en el límite de intentos de login, los tests detectaban nueve siempre y una a veces. Se corrigió, con los tests antes que el código: los fallos y los logins en curso se cuentan aparte, y un login que queda sin lugar por logins en curso recibe `Retry-After: 1`; la ventana del límite tiene un mínimo de un segundo, porque un número sin unidad se lee en milisegundos; el guion de cobertura exige la línea exacta del distintivo; el test de la colección compara el guion del token línea por línea y fija los 27 pedidos; y la documentación que había quedado vieja. Comprobó además contra el servicio que el cliente elige su dirección con una cabecera, como ya estaba escrito, y eso sigue sin corregirse. Qué corregir lo eligió la sesión supervisora. |
 | 16/11/2026 | Cierre del ciclo 3: versión `v0.3.0`. Los cuatro tickets del hito están cerrados, la revisión final está hecha y sus correcciones están fusionadas, y los 1321 tests pasan, con una cobertura de líneas de 99,71 %. La aplicación está publicada en <https://star-wars-api-7x3l.onrender.com>. El `pom.xml` pasó de `0.2.0` a `0.3.0`, que es la versión que muestra la documentación de la API. Quedan sin hacer cinco requisitos "Podría" (REQ-30, REQ-31, REQ-33, REQ-34 y REQ-35), y como primera mejora pendiente, que el límite de intentos de login cuente por la dirección que escribe el intermediario del despliegue y no por la que envía el cliente. |
+| 16/11/2026 | Revisión del autor antes de entregar. Con todo fusionado y desplegado, el autor revisó una por una las diez decisiones de los ciclos 2 y 3 que había delegado (ADR-0014 a ADR-0023), con una herramienta de IA que le presentó cada una con su código, sus tests y su punto más discutible. Aceptó nueve y dejó anotado como límite lo que se había medido en el límite de intentos de login. Recorrió Swagger UI a mano en el servicio público, que era lo que faltaba del criterio CA-20.3, y probó la colección de pedidos en Postman. De la revisión salieron cambios solo de documentación: este README dice ahora las direcciones del servicio público y de una máquina propia, por qué tarda la primera visita y qué valor poner en la colección, y el flujo de trabajo deja escrito que en un proyecto real la revisión final va en una rama intermedia, antes de `main`. Está contado en el [registro de uso de herramientas de IA](docs/process/AI-USAGE.md#revisión-del-autor-antes-de-entregar). |
 
 ## Documentación
 
