@@ -30,14 +30,6 @@ jobs:
           java-version: '21'
           cache: maven
 
-      # Temporary, removed by the next commit: lints the coverage script on the runner.
-      - name: Lint the coverage script
-        continue-on-error: true
-        run: |
-          shellcheck --version
-          shellcheck scripts/check-coverage.sh
-          echo "shellcheck found nothing"
-
       # Unit, architecture and acceptance tests. The acceptance tests start PostgreSQL with
       # Testcontainers on the Docker of the runner. None of them calls the real SWAPI.
       - name: Run all the tests
