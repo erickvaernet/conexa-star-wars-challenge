@@ -2,7 +2,7 @@
 
 Cómo se organiza el código y qué reglas sigue. Es la referencia para el día a día: dónde va cada cosa y qué puede depender de qué. El porqué de cada decisión está en los [ADRs](adr/README.md).
 
-> **Estado:** describe la estructura del MVP, que ya está construida. El código nuevo se escribe siguiendo este documento; si la estructura cambia, primero se registra un ADR y después se actualiza acá.
+> **Estado:** describe la estructura de la aplicación, que ya está construida: la del MVP y lo que sumaron los ciclos 2 y 3. El código nuevo se escribe siguiendo este documento; si la estructura cambia, primero se registra un ADR y después se actualiza acá.
 
 ## En una frase
 
@@ -156,7 +156,7 @@ Films fue la primera entidad que se sumó con estos pasos (ticket #12), y no hiz
 | Rutas                      | Todas bajo `/api/v1`                                                                    | [ADR-0004](adr/0004-pagination-and-filters.md) |
 | Paginación                 | Páginas desde 1; tamaño por defecto 10 y máximo 100                                     | [ADR-0004](adr/0004-pagination-and-filters.md) |
 | Seguridad                  | Todo cerrado por defecto; solo son públicos el login, la documentación y el control de estado. El alta de usuarios exige además el rol `ADMIN`, que se lee del token. Se comprueba siempre en el mismo orden: la sesión (`401`), el rol (`403`) y recién entonces el contenido (`400`) | [ADR-0005](adr/0005-authentication.md) y [ADR-0017](adr/0017-role-based-access.md) |
-| Límite de intentos de login | Los logins fallidos se cuentan por dirección de origen, en memoria. El login ocupa un lugar en la cuenta de su dirección antes de comprobar nada, y lo devuelve solo si resulta correcto. Una dirección sin lugares recibe `429` sin consultar la base de datos ni calcular BCrypt. La cuenta está en `auth` (`LoginAttemptLimiter`); el `429`, con su `Retry-After`, sale de `shared`, como los demás errores | [ADR-0023](adr/0023-login-attempt-limit.md) |
+| Límite de intentos de login | Los logins fallidos se cuentan por dirección de origen, en memoria. El login ocupa un lugar en la cuenta de su dirección antes de comprobar nada; si resulta correcto lo devuelve, y si falla el lugar queda contado como fallo. Los fallos y los logins en curso se cuentan aparte. Una dirección sin lugares recibe `429` sin consultar la base de datos ni calcular BCrypt: con lo que falta de la ventana si los ocupan fallos, y con un segundo si alguno es un login en curso. La cuenta está en `auth` (`LoginAttemptLimiter`); el `429`, con su `Retry-After`, sale de `shared`, como los demás errores | [ADR-0023](adr/0023-login-attempt-limit.md) |
 | Base de datos              | Solo usuarios. El esquema cambia únicamente con archivos de Flyway. Lo único que la aplicación escribe es el alta de un usuario | [ADR-0006](adr/0006-users-database-and-seed.md) y [ADR-0018](adr/0018-user-creation.md) |
 | Errores                    | En formato Problem Details, sin detalles internos. La excepción es lo que el servidor web rechaza antes de armar el pedido (un carácter prohibido sin codificar, una cabecera demasiado grande), que responde su propio `400`. Un `400` de validación dice además qué campo o parámetro falló, en la lista `errors` | [ADR-0007](adr/0007-error-format.md) y [ADR-0016](adr/0016-validation-error-detail.md) |
 | Documentación de la API    | Se genera desde el código; cada pedido documenta parámetros, respuestas y errores       | [ADR-0008](adr/0008-api-documentation.md)      |

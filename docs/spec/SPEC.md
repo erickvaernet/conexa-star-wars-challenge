@@ -2,10 +2,10 @@
 
 | Campo   | Valor                                                                                          |
 |---------|------------------------------------------------------------------------------------------------|
-| Estado  | Aprobada el 14/11/2026. Extendida para el ciclo 2 y para el ciclo 3 el 15/11/2026              |
+| Estado  | Aprobada el 14/11/2026. Extendida para el ciclo 2 y para el ciclo 3 el 15/11/2026. Precisada el 16/11/2026, con la revisión final del ciclo 3 |
 | Fecha   | 14/11/2026                                                                                     |
 | Autor   | Erick Adriel Vaernet                                                                           |
-| Alcance | Ciclo 1 (MVP): REQ-01 a REQ-19 y REQ-32. Ciclo 2: REQ-20 a REQ-26. Ciclo 3: REQ-27, REQ-28 y REQ-29 del [PRD](../requirements/PRD.md) |
+| Alcance | Ciclo 1 (MVP): REQ-01 a REQ-19 y REQ-32. Ciclo 2: REQ-21 a REQ-26 y, de REQ-20, el archivo que describe el despliegue. Ciclo 3: REQ-27, REQ-28 y REQ-29, y lo que quedaba de REQ-20, el servicio público. Todos, del [PRD](../requirements/PRD.md) |
 | Se apoya en | [RFC-001](../rfc/RFC-001-architecture.md) y los [ADRs](../adr/README.md); para el ciclo 2, del ADR-0014 al ADR-0020; para el ciclo 3, del ADR-0021 al ADR-0023 |
 
 > **Cómo leer este documento.** Define con exactitud qué hace la aplicación: el contrato de la API, las validaciones, los casos límite y los criterios de aceptación. No explica por qué: eso está en los ADRs, que se enlazan. Los tests de aceptación se escriben a partir de la [sección 6](#6-criterios-de-aceptación), antes que el código.
@@ -101,7 +101,8 @@ Los logins fallidos se cuentan por **dirección de origen** del pedido, no por u
 | Fin del bloqueo      | Cuando vence la ventana: a los quince minutos justos del primer fallo ya venció. La cuenta de esa dirección vuelve a cero |
 | Un login correcto    | No borra los fallos ya contados                                                                                |
 | Orden                | Primero la forma del pedido (`400`, `415`), después el límite (`429`) y recién entonces las credenciales (`401`) |
-| Pedidos simultáneos  | Cada intento se cuenta antes de comprobar la contraseña y se descuenta solo si el login resulta correcto: de los que llegan a la vez desde una dirección, a lo sumo cinco llegan a comprobarla |
+| Pedidos simultáneos  | Cada intento ocupa un lugar antes de comprobar la contraseña; si el login resulta correcto lo devuelve, y si falla queda contado como fallo. De los que llegan a la vez desde una dirección, a lo sumo cinco llegan a comprobarla. Los fallos y los logins en curso suman para ese tope, pero se cuentan aparte: solo los fallos bloquean |
+| Sin lugar por logins en curso | Si los lugares de una dirección están ocupados y no todos son fallos, porque alguno es un login que todavía se está comprobando, el login también responde `429`, con `Retry-After: 1`. No es un bloqueo: dura lo que tarda esa comprobación |
 | Dirección de origen  | La que ve la aplicación: la de la conexión o, en una instalación configurada para leer las cabeceras de un intermediario, como el despliegue público, la que el intermediario informa. Se usa como texto, recortada a 45 caracteres |
 | Alcance              | Solo el login. Un token ya emitido sigue sirviendo, y los demás pedidos no se cuentan ni se bloquean           |
 | Dónde se guarda      | En la memoria de la aplicación, con un tope de 10 000 direcciones. Se pierde al reiniciar                      |
@@ -124,7 +125,7 @@ Retry-After: 847
 }
 ```
 
-- `Retry-After` trae los segundos que faltan para que venza la ventana: un número entero, de 1 a la duración de la ventana (900 con el valor por defecto).
+- `Retry-After` trae los segundos que faltan para que venza la ventana: un número entero, de 1 a la duración de la ventana (900 con el valor por defecto). Cuando lo que deja sin lugar al login no son cinco fallos sino logins en curso, vale `1`.
 - El texto es fijo: no dice cuántos fallos hubo ni repite nada de lo enviado. El `429` no lleva la cabecera `WWW-Authenticate`.
 - El `401` del login no cambia: tiene el mismo texto y no dice cuántos intentos quedan.
 - Con el umbral en cero, el límite está apagado: no se cuenta nada y el login nunca responde `429`.
@@ -586,7 +587,9 @@ El `429` lleva la cabecera `Retry-After`, con los segundos que faltan para poder
 | Vence la ventana de una dirección bloqueada                  | El login vuelve a comprobar las credenciales, y la cuenta empieza de cero   |
 | Una dirección bloqueada usa un token que obtuvo antes        | `200`: el límite es solo del login                                          |
 | Dos clientes detrás de una misma dirección de origen         | Comparten la cuenta: los fallos de uno cuentan para el otro                 |
-| Con cuatro logins fallidos contados, llegan a la vez dos logins correctos desde esa dirección | Uno responde `200` y el otro puede responder `429`: cada intento se cuenta antes de comprobar la contraseña, y el primero ocupa el último lugar mientras la comprueba. Al reintentar, responde `200` |
+| Con cuatro logins fallidos contados, llegan a la vez dos logins correctos desde esa dirección | Uno responde `200` y el otro puede responder `429`, con `Retry-After: 1`: cada intento ocupa su lugar antes de comprobar la contraseña, y el primero ocupa el último mientras la comprueba. Al reintentar, responde `200` |
+| Sin ningún fallo contado, llegan a la vez seis logins correctos desde una dirección | Cinco responden `200` y el sexto puede responder `429`, con `Retry-After: 1`. No queda nada contado: al reintentar responde `200`, y la dirección sigue con sus cinco intentos |
+| Un login ocupa su lugar en una ventana y falla cuando esa ventana ya venció | Es el primer fallo de una ventana nueva                                      |
 | La aplicación se reinicia con direcciones bloqueadas         | Los bloqueos y las cuentas se pierden: viven en memoria                     |
 | El límite está apagado (`LOGIN_MAX_FAILED_ATTEMPTS=0`)       | El login nunca responde `429`                                               |
 | Sin intermediario, un cliente envía `X-Forwarded-For`        | Se ignora: cuenta la dirección de la conexión                               |
@@ -627,7 +630,7 @@ Los pedidos que recibe SWAPI pueden ser más que los intentos que cuenta esta re
 | `SWAPI_MAX_RETRIES`      | Cuántas veces se reintenta un pedido a SWAPI que falló | No. Por defecto, `1`. De `0` a `3`; con `0` no se reintenta |
 | `SWAPI_RETRY_DELAY`      | Espera antes de cada reintento                        | No. Por defecto, `200ms`. Vale `0s`: se reintenta en el momento |
 | `LOGIN_MAX_FAILED_ATTEMPTS` | Cuántos logins fallidos desde una dirección de origen bloquean su login | No. Por defecto, `5`. De `0` a `100`; con `0` el límite se apaga |
-| `LOGIN_FAILED_ATTEMPTS_WINDOW` | Cuánto dura la ventana en la que se cuentan esos fallos, y con ella el bloqueo | No. Por defecto, `15m`. Mayor que cero y hasta `24h` |
+| `LOGIN_FAILED_ATTEMPTS_WINDOW` | Cuánto dura la ventana en la que se cuentan esos fallos, y con ella el bloqueo | No. Por defecto, `15m`. De `1s` a `24h`. Un número sin unidad se lee en milisegundos: `15` no llega al mínimo e impide arrancar |
 
 Un valor de `SWAPI_MAX_RETRIES` o de `SWAPI_RETRY_DELAY` fuera de rango, vacío o negativo impide arrancar, y el mensaje dice qué variable corregir, igual que los demás ajustes de SWAPI.
 
@@ -638,6 +641,8 @@ Lo mismo vale para las dos variables del límite de intentos de login: un valor 
 > **Nota del 15/11/2026.** Precisiones de la revisión final del ciclo 2, que probó la aplicación ya fusionada. Tres dicen algo que la aplicación ya hacía y este documento no: el `400` de un cuerpo que no se puede leer y su texto, lo que pasa con un campo de otro tipo, y los pedidos que el cliente HTTP repite por su cuenta. Una cambia el comportamiento: el `405` de una ruta que no tiene ese método pasó a tener el mismo texto fijo que el de un método apagado, en vez de repetir el método recibido. Las autorizó la sesión supervisora que había escrito la extensión. Ningún criterio de aceptación cambió; el test de CA-24.2 se corrigió, porque comparaba el elemento del listado con el mismo objeto que el listado había dejado guardado.
 
 > **Nota del 15/11/2026.** Precisiones que aparecieron al implementar el límite de intentos de login (ticket #50). Una corrige la redacción de un criterio: CA-29.18 decía que el cuerpo del `429` es igual al ejemplo de la documentación "salvo `instance`, que el ejemplo no trae", pero ese ejemplo sí lo trae, porque la documentación se lo completa a cada error con la dirección de su pedido; ahora dice que el cuerpo es igual al ejemplo, y el test lo compara entero. La otra suma un caso límite: dos logins correctos que llegan a la vez a una dirección con cuatro fallos contados. Las autorizó la sesión supervisora que había escrito la extensión; el detalle está en el [ADR-0023](../adr/0023-login-attempt-limit.md), nota de esta fecha. Ningún otro criterio de aceptación cambió.
+
+> **Nota del 16/11/2026.** Precisiones de la revisión final del ciclo 3, que probó la aplicación ya fusionada. Dos cambian lo que hace el límite de intentos de login. La primera: seis logins correctos que llegaban a la vez desde una dirección sin ningún fallo recibían, el sexto, un `429` con `Retry-After: 900`, como si la dirección estuviera bloqueada; ahora los fallos y los logins en curso se cuentan aparte, y cuando lo que deja sin lugar a un login son logins en curso, `Retry-After` vale `1`. El tope de cinco comprobaciones simultáneas no cambió, ni el texto del `429`. La segunda: `LOGIN_FAILED_ATTEMPTS_WINDOW` tiene ahora un mínimo de un segundo, porque un número sin unidad, como `15`, se lee en milisegundos y dejaba el límite sin efecto sin avisar. También se corrige la fila "Alcance" de la tabla inicial, que no nombraba al despliegue público en el ciclo 3. Las eligió la sesión supervisora, entre los hallazgos de esa revisión; el detalle está en el [ADR-0023](../adr/0023-login-attempt-limit.md), nota de esta fecha. Ningún criterio de aceptación cambió: CA-29.2 sigue pidiendo un `Retry-After` entre 1 y 900.
 
 ## 6. Criterios de aceptación
 
