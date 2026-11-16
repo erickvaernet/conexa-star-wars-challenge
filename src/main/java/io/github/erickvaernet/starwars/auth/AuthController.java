@@ -100,11 +100,14 @@ public class AuthController {
             responseCode = "429",
             description = "The source address of the request already made five failed logins within fifteen "
                     + "minutes, with the default settings. The login is not checked, so the answer is the "
-                    + "same with the right credentials. The tokens that were already given keep working.",
+                    + "same with the right credentials. The tokens that were already given keep working. "
+                    + "It is also the answer, with `Retry-After: 1`, while that many logins from the "
+                    + "address are being checked at the same time and none of them has failed.",
             headers = @Header(
                     name = "Retry-After",
                     description = "The seconds until a login from that address is checked again: a whole "
-                            + "number, of 1 or more.",
+                            + "number, of 1 or more. It is what is left of the fifteen minutes, or 1 "
+                            + "when what fills the count are logins that are being checked.",
                     schema = @Schema(type = "integer", format = "int32", example = "847")),
             content = @Content(
                     mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,

@@ -44,8 +44,10 @@ class LoginService {
      * Logs a user in.
      *
      * <p>The login takes its place in the count of its address before it checks anything, and
-     * keeps it only if the credentials turn out to be wrong. A correct login gives it back, and
-     * so does one that ends in an unexpected error: neither of them tried a wrong password.
+     * that place becomes a failure only if the credentials turn out to be wrong. A correct login
+     * gives it back, and so does one that ends in an unexpected error: neither of them tried a
+     * wrong password. One of the two things always happens, so no place stays taken by a login
+     * that is over.
      *
      * @param address the source address of the request, which the failed logins are counted by
      * @throws TooManyLoginAttemptsException if that address already failed too many times; the
@@ -54,16 +56,18 @@ class LoginService {
      */
     LoginResponse login(String username, String password, String address) {
         attempts.acquire(address);
+        boolean wrongCredentials = false;
         try {
-            LoginResponse response = checkCredentials(username, password);
-            attempts.release(address);
-            return response;
-        } catch (BadCredentialsException wrongCredentials) {
-            attempts.failed(address);
-            throw wrongCredentials;
-        } catch (RuntimeException unexpected) {
-            attempts.release(address);
-            throw unexpected;
+            return checkCredentials(username, password);
+        } catch (BadCredentialsException rejected) {
+            wrongCredentials = true;
+            throw rejected;
+        } finally {
+            if (wrongCredentials) {
+                attempts.failed(address);
+            } else {
+                attempts.release(address);
+            }
         }
     }
 
