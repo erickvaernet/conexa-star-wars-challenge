@@ -2,15 +2,17 @@
 
 | Campo   | Valor                                                                                          |
 |---------|------------------------------------------------------------------------------------------------|
-| Estado  | Aprobada el 14/11/2026. Extendida para el ciclo 2 el 15/11/2026                                |
+| Estado  | Aprobada el 14/11/2026. Extendida para el ciclo 2 y para el ciclo 3 el 15/11/2026              |
 | Fecha   | 14/11/2026                                                                                     |
 | Autor   | Erick Adriel Vaernet                                                                           |
-| Alcance | Ciclo 1 (MVP): REQ-01 a REQ-19 y REQ-32. Ciclo 2: REQ-20 a REQ-26 del [PRD](../requirements/PRD.md) |
-| Se apoya en | [RFC-001](../rfc/RFC-001-architecture.md) y los [ADRs](../adr/README.md); para el ciclo 2, del ADR-0014 al ADR-0020 |
+| Alcance | Ciclo 1 (MVP): REQ-01 a REQ-19 y REQ-32. Ciclo 2: REQ-20 a REQ-26. Ciclo 3: REQ-27, REQ-28 y REQ-29 del [PRD](../requirements/PRD.md) |
+| Se apoya en | [RFC-001](../rfc/RFC-001-architecture.md) y los [ADRs](../adr/README.md); para el ciclo 2, del ADR-0014 al ADR-0020; para el ciclo 3, del ADR-0021 al ADR-0023 |
 
 > **Cómo leer este documento.** Define con exactitud qué hace la aplicación: el contrato de la API, las validaciones, los casos límite y los criterios de aceptación. No explica por qué: eso está en los ADRs, que se enlazan. Los tests de aceptación se escriben a partir de la [sección 6](#6-criterios-de-aceptación), antes que el código.
 
 > **Nota del 15/11/2026.** El autor aprobó este documento el 14/11/2026, con el alcance del ciclo 1. La extensión para el ciclo 2 no la revisó punto por punto: delegó sus decisiones, incluidas las de contrato, en la sesión supervisora de una herramienta de IA, que las tomó sobre propuestas con alternativas y una recomendación. Están en los ADRs, del 0014 al 0020, y el encargo, en el [registro de uso de herramientas de IA](../process/AI-USAGE.md#ciclo-2). En el mismo cambio se escribieron acá reglas que ya estaban decididas en notas de los ADRs del ciclo 1 y que este documento no decía; cada una enlaza a su ADR. Ningún criterio de aceptación del ciclo 1 cambió.
+
+> **Nota del 15/11/2026, ciclo 3.** La extensión para el ciclo 3 suma tres requisitos "Podría": la cobertura de tests visible (REQ-27), la colección de pedidos (REQ-28) y el límite de intentos de login (REQ-29). El autor eligió ese alcance y volvió a delegar las decisiones, incluidas las de contrato, en la sesión supervisora de una herramienta de IA, que las tomó antes de que se redactaran; otra sesión las redactó y comprobó lo que se podía medir. Están en los ADRs, del 0021 al 0023, y el encargo, en el [registro de uso de herramientas de IA](../process/AI-USAGE.md#ciclo-3). El único cambio en el contrato de la API es una respuesta nueva del login, el `429`. El despliegue público (REQ-20) pasó a este ciclo sin cambios: sus criterios son los del ciclo 2. Ningún criterio de aceptación de los ciclos 1 y 2 cambió.
 
 ## 1. Reglas generales
 
@@ -81,8 +83,51 @@ Errores:
 |---------------------------------------------------|--------|
 | Falta `username` o `password`, está vacío o supera su límite: 50 caracteres y ningún carácter de control en `username`, 72 caracteres en `password` ([ADR-0005](../adr/0005-authentication.md), nota del 15/11/2026). La respuesta dice qué campo, en `errors` ([sección 5](#errores)) | `400`  |
 | El usuario no existe o la contraseña no coincide  | `401`  |
+| La dirección de origen del pedido ya acumuló cinco logins fallidos dentro de la ventana de quince minutos ([límite de intentos](#límite-de-intentos-de-login)) | `429`  |
 
 El `401` es idéntico en los dos casos, para no revelar qué usuarios existen. Lleva la cabecera `WWW-Authenticate: Bearer`, como todo `401` de la API.
+
+### Límite de intentos de login
+
+Los logins fallidos se cuentan por **dirección de origen** del pedido, no por usuario ([ADR-0023](../adr/0023-login-attempt-limit.md)).
+
+| Regla                | Valor                                                                                                         |
+|----------------------|---------------------------------------------------------------------------------------------------------------|
+| Qué cuenta           | Un login que responde `401`: el usuario no existe o la contraseña no coincide                                  |
+| Qué no cuenta        | Un login correcto, y un pedido rechazado antes de mirar las credenciales (`400`, `415`)                        |
+| Umbral               | Cinco fallos, por defecto. Los cinco responden `401`, como siempre                                             |
+| Ventana              | Quince minutos, por defecto. Empieza con el primer fallo de esa dirección y no se corre: ni los fallos siguientes ni los pedidos bloqueados la alargan |
+| Bloqueo              | Alcanzado el umbral, todo login desde esa dirección responde `429`, también con las credenciales correctas: no se comprueba la contraseña ni se consulta la base de datos |
+| Fin del bloqueo      | Cuando vence la ventana: a los quince minutos justos del primer fallo ya venció. La cuenta de esa dirección vuelve a cero |
+| Un login correcto    | No borra los fallos ya contados                                                                                |
+| Orden                | Primero la forma del pedido (`400`, `415`), después el límite (`429`) y recién entonces las credenciales (`401`) |
+| Pedidos simultáneos  | Cada intento se cuenta antes de comprobar la contraseña y se descuenta solo si el login resulta correcto: de los que llegan a la vez desde una dirección, a lo sumo cinco llegan a comprobarla |
+| Dirección de origen  | La que ve la aplicación: la de la conexión o, en una instalación configurada para leer las cabeceras de un intermediario, como el despliegue público, la que el intermediario informa. Se usa como texto, recortada a 45 caracteres |
+| Alcance              | Solo el login. Un token ya emitido sigue sirviendo, y los demás pedidos no se cuentan ni se bloquean           |
+| Dónde se guarda      | En la memoria de la aplicación, con un tope de 10 000 direcciones. Se pierde al reiniciar                      |
+
+Respuesta `429`, con la cabecera `Retry-After`:
+
+```
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/problem+json
+Retry-After: 847
+```
+
+```json
+{
+  "type": "about:blank",
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "Too many failed login attempts. Try again later.",
+  "instance": "/api/v1/auth/login"
+}
+```
+
+- `Retry-After` trae los segundos que faltan para que venza la ventana: un número entero, de 1 a la duración de la ventana (900 con el valor por defecto).
+- El texto es fijo: no dice cuántos fallos hubo ni repite nada de lo enviado. El `429` no lleva la cabecera `WWW-Authenticate`.
+- El `401` del login no cambia: tiene el mismo texto y no dice cuántos intentos quedan.
+- Con el umbral en cero, el límite está apagado: no se cuenta nada y el login nunca responde `429`.
 
 ### Token
 
@@ -463,6 +508,7 @@ Códigos:
 | `406`  | El pedido no acepta JSON como respuesta (cabecera `Accept`)                         |
 | `409`  | El alta de un usuario cuyo `username` ya existe                                     |
 | `415`  | El cuerpo del pedido no se envió como JSON (cabecera `Content-Type`)                |
+| `429`  | El login, desde una dirección de origen que acumuló demasiados intentos fallidos    |
 | `500`  | Error inesperado. La respuesta no incluye detalles internos                         |
 | `502`  | SWAPI respondió con un error o con algo que no se puede interpretar                 |
 | `504`  | SWAPI no respondió dentro del tiempo máximo de espera                               |
@@ -481,6 +527,14 @@ Textos de `detail` de los códigos que se suman en el ciclo 2, y de los que el c
 | `415`  | `The content type of the request is not supported.`    |
 
 El `405` tiene ese mismo texto en sus dos casos, un método que la ruta no tiene y uno que el servidor web tiene apagado, y no repite el método recibido ([ADR-0007](../adr/0007-error-format.md), nota del 15/11/2026). Cuando la ruta existe, la respuesta lleva la cabecera `Allow` con los métodos que sí tiene.
+
+El ciclo 3 suma un código, con su texto de `detail`:
+
+| Código | `detail`                                               |
+|--------|--------------------------------------------------------|
+| `429`  | `Too many failed login attempts. Try again later.`     |
+
+El `429` lleva la cabecera `Retry-After`, con los segundos que faltan para poder volver a intentar, y no lleva `WWW-Authenticate` ([ADR-0023](../adr/0023-login-attempt-limit.md)). Solo lo responde el login.
 
 ### Casos límite
 
@@ -523,6 +577,18 @@ El `405` tiene ese mismo texto en sus dos casos, un método que la ruta no tiene
 | SWAPI no responde dentro del tiempo máximo                   | `504`, sin reintentar                                                       |
 | Los reintentos están apagados (`SWAPI_MAX_RETRIES=0`)        | Toda falla de SWAPI responde como en el MVP, con un solo pedido             |
 | SWAPI cierra la conexión sin enviar nada                     | El cliente HTTP repite el pedido por su cuenta, una vez, antes de informar la falla: SWAPI recibe dos pedidos por intento |
+| Cinco logins fallidos desde una dirección, y un sexto con las credenciales correctas | `429`: no se comprueba la contraseña                |
+| Cinco logins fallidos desde una dirección, repartidos entre usuarios distintos, existan o no | Cuentan juntos: el sexto responde `429`     |
+| Un login correcto entre dos fallidos                         | No borra la cuenta: los fallos de antes y de después se suman               |
+| Un login con el cuerpo inválido desde una dirección bloqueada | `400`: la forma del pedido se comprueba antes que el límite, y ese pedido no cuenta |
+| Pedidos de login mientras dura el bloqueo                    | `429` en todos; no alargan el bloqueo, y `Retry-After` baja con el tiempo   |
+| Vence la ventana de una dirección bloqueada                  | El login vuelve a comprobar las credenciales, y la cuenta empieza de cero   |
+| Una dirección bloqueada usa un token que obtuvo antes        | `200`: el límite es solo del login                                          |
+| Dos clientes detrás de una misma dirección de origen         | Comparten la cuenta: los fallos de uno cuentan para el otro                 |
+| La aplicación se reinicia con direcciones bloqueadas         | Los bloqueos y las cuentas se pierden: viven en memoria                     |
+| El límite está apagado (`LOGIN_MAX_FAILED_ATTEMPTS=0`)       | El login nunca responde `429`                                               |
+| Sin intermediario, un cliente envía `X-Forwarded-For`        | Se ignora: cuenta la dirección de la conexión                               |
+| En una instalación que lee las cabeceras de un intermediario, llega `X-Forwarded-For` con varias direcciones | Cuenta la primera de la lista |
 
 ### Tiempos y caché
 
@@ -534,6 +600,8 @@ El `405` tiene ese mismo texto en sus dos casos, un método que la ruta no tiene
 | Cantidad máxima de respuestas en caché  | 500         | Sí           |
 | Reintentos de un pedido a SWAPI         | 1           | Sí           |
 | Espera antes de reintentar              | 200 milisegundos | Sí      |
+| Logins fallidos antes del bloqueo       | 5           | Sí           |
+| Ventana del límite de intentos de login | 15 minutos  | Sí           |
 
 La caché guarda solo las respuestas correctas de SWAPI. Un "no existe" o un error no se guardan ([ADR-0011](../adr/0011-swapi-response-cache.md)). Las respuestas con datos completos (`expanded=true`) se guardan aparte de las de resúmenes, y cada elemento que llega en una de ellas se guarda además como si se hubiera pedido por su identificador ([ADR-0019](../adr/0019-expanded-listings.md)).
 
@@ -556,8 +624,12 @@ Los pedidos que recibe SWAPI pueden ser más que los intentos que cuenta esta re
 | `SWAPI_CACHE_MAX_SIZE`   | Cantidad máxima de respuestas en caché                | No. Por defecto, `500`            |
 | `SWAPI_MAX_RETRIES`      | Cuántas veces se reintenta un pedido a SWAPI que falló | No. Por defecto, `1`. De `0` a `3`; con `0` no se reintenta |
 | `SWAPI_RETRY_DELAY`      | Espera antes de cada reintento                        | No. Por defecto, `200ms`. Vale `0s`: se reintenta en el momento |
+| `LOGIN_MAX_FAILED_ATTEMPTS` | Cuántos logins fallidos desde una dirección de origen bloquean su login | No. Por defecto, `5`. De `0` a `100`; con `0` el límite se apaga |
+| `LOGIN_FAILED_ATTEMPTS_WINDOW` | Cuánto dura la ventana en la que se cuentan esos fallos, y con ella el bloqueo | No. Por defecto, `15m`. Mayor que cero y hasta `24h` |
 
 Un valor de `SWAPI_MAX_RETRIES` o de `SWAPI_RETRY_DELAY` fuera de rango, vacío o negativo impide arrancar, y el mensaje dice qué variable corregir, igual que los demás ajustes de SWAPI.
+
+Lo mismo vale para las dos variables del límite de intentos de login: un valor fuera de rango, vacío o que no se puede leer impide arrancar, y el mensaje dice qué variable corregir. La ventana se valida también con el límite apagado.
 
 > **Nota del 15/11/2026.** Precisión que apareció al implementar los reintentos (ticket #38): el rango de `SWAPI_RETRY_DELAY` no estaba escrito. Vale cualquier tiempo que no sea negativo, incluido `0s`, que reintenta en el momento, y no tiene tope; vacío o negativo impide arrancar. A diferencia de los tiempos máximos, donde cero significaría "esperar para siempre", acá cero tiene un significado razonable. La precisión la autorizó la sesión supervisora que había escrito la extensión; las alternativas están en el [ADR-0020](../adr/0020-swapi-failure-tolerance.md), nota de esta fecha. Ningún criterio de aceptación cambió.
 
@@ -723,6 +795,50 @@ Con los reintentos en su valor por defecto: uno.
 
 Las fallas de estos criterios no se graban: se arman en el test, sobre la SWAPI simulada, como en CA-16.2 y CA-16.3. Que el login no depende de SWAPI ya lo comprueba CA-16.4, y que un `500` responde `502` con un solo pedido, CA-16.2 y CA-32.4, que no cambian.
 
+### Límite de intentos de login (REQ-29)
+
+Sin sesión iniciada. Con el límite en sus valores por defecto, cinco fallos en quince minutos, salvo que se indique otra cosa. Los pedidos de cada criterio salen de una misma dirección de origen, que empieza sin fallos contados. Ningún test espera quince minutos: el límite lee la hora de un reloj de prueba, que solo avanza cuando el test lo indica, como en CA-32.3. "Un login fallido" es uno con el usuario `demo` y una contraseña incorrecta.
+
+| Criterio | Dado                                        | Cuando                                              | Entonces                                                                    |
+|----------|---------------------------------------------|-----------------------------------------------------|-----------------------------------------------------------------------------|
+| CA-29.1  | Una dirección sin fallos contados           | Hace cinco logins fallidos seguidos                 | `401` en los cinco, cada uno idéntico al de CA-09.2                          |
+| CA-29.2  | Una dirección con cinco logins fallidos     | Hace otro login fallido                             | `429`, en Problem Details, con el texto fijo; lleva la cabecera `Retry-After`, con un número entero entre 1 y 900, y no lleva `WWW-Authenticate` |
+| CA-29.3  | Una dirección con cinco logins fallidos     | Hace login como `demo` con su contraseña correcta   | `429`, con el mismo cuerpo que el de CA-29.2: no se entrega ningún token     |
+| CA-29.4  | Una dirección con cuatro logins fallidos    | Hace un login correcto, después uno fallido y después otro correcto | `200`, `401` y `429`, en ese orden: el login correcto no borró la cuenta |
+| CA-29.5  | Una dirección con dos logins fallidos como `demo`, dos como `admin` y uno como "nadie", que no existe | Hace login como `demo` con su contraseña correcta | `429`: los fallos se cuentan por dirección, no por usuario |
+| CA-29.6  | Una dirección sin fallos contados           | Hace seis logins sin `password` y después uno correcto | `400` en los seis y `200` en el último: un `400` no cuenta como fallo      |
+| CA-29.7  | Una dirección con cinco logins fallidos     | Hace un login sin `password`                        | `400`, con `errors`, igual que sin el bloqueo: la forma del pedido se comprueba antes que el límite |
+| CA-29.8  | Una dirección con cinco logins fallidos     | Pasan quince minutos desde el primero y hace un login correcto | `200`                                                             |
+| CA-29.9  | Una dirección que se bloqueó y cuya ventana ya venció | Hace cuatro logins fallidos y después uno correcto | `401` en los cuatro y `200` en el último: la cuenta volvió a cero   |
+| CA-29.10 | Una dirección con un login fallido; diez minutos después, cuatro más | Hace un login en ese momento, y otro correcto cinco minutos después | El primero, `429` con `Retry-After` de 300 o menos; el segundo, `200`: la ventana empezó con el primer fallo |
+| CA-29.11 | Una dirección con cinco logins fallidos, y catorce minutos después un login más, que responde `429` | Pasa un minuto más y hace un login correcto | `200`: un pedido bloqueado no alarga la ventana |
+| CA-29.12 | Una sesión iniciada como `demo`, y después cinco logins fallidos desde la misma dirección | Pide `GET /people` con el token de antes, y el control de estado sin token | `200` en los dos: el límite es solo del login |
+| CA-29.13 | `LOGIN_MAX_FAILED_ATTEMPTS=0`               | Hace diez logins fallidos y después uno correcto    | `401` en los diez y `200` en el último: el límite está apagado               |
+| CA-29.14 | `LOGIN_MAX_FAILED_ATTEMPTS=2` y `LOGIN_FAILED_ATTEMPTS_WINDOW=1m` | Hace tres logins fallidos; pasa un minuto y hace uno correcto | `401`, `401` y `429` con `Retry-After` de 60 o menos; después, `200` |
+| CA-29.15 | La aplicación como se levanta en local, sin leer las cabeceras de un intermediario, y cinco logins fallidos con `X-Forwarded-For: 203.0.113.7` | Hace un login correcto con `X-Forwarded-For: 203.0.113.8` | `429`: la cabecera se ignora, y todos los pedidos cuentan para la dirección de la conexión |
+| CA-29.16 | La aplicación configurada como en el despliegue público, y cinco logins fallidos con `X-Forwarded-For: 203.0.113.7` | Hace un login correcto con `X-Forwarded-For: 203.0.113.8` y otro con `X-Forwarded-For: 203.0.113.7` | `200` el primero y `429` el segundo: cada dirección informada tiene su cuenta |
+| CA-29.17 | La aplicación levantada                     | Se pide `GET /v3/api-docs`                          | El login declara las respuestas `200`, `400`, `401` y `429`. La `429` usa el esquema de error común, declara la cabecera `Retry-After` y trae un ejemplo. La documentación sigue teniendo exactamente diez pedidos |
+| CA-29.18 | Una dirección con cinco logins fallidos     | Hace otro login, y se compara la respuesta con el ejemplo del `429` de `GET /v3/api-docs` | El cuerpo es igual al ejemplo, salvo `instance`, que el ejemplo no trae |
+
+Los criterios CA-09.x, CA-16.4 y CA-21.x no cambian: entre todos sus tests hay menos de cinco logins fallidos por aplicación levantada. Que un pedido bloqueado no consulta la base de datos ni compara la contraseña, que los intentos simultáneos no pasan del umbral, el recorte de la dirección y la validación de las dos variables se comprueban con tests unitarios.
+
+### Colección de pedidos (REQ-28)
+
+Los tests leen el archivo de la colección, `docs/api/star-wars-api.postman_collection.json`, y, donde se indica, la documentación de la aplicación levantada. Ningún test ejecuta los pedidos de la colección: no hace falta SWAPI. Un "pedido de login" es un `POST` a `/api/v1/auth/login`.
+
+| Criterio | Dado                                        | Cuando                                              | Entonces                                                                    |
+|----------|---------------------------------------------|-----------------------------------------------------|-----------------------------------------------------------------------------|
+| CA-28.1  | El archivo de la colección                  | Se lee                                              | Es JSON válido y declara el formato de colección de Postman 2.1. Tiene exactamente dos variables: `baseUrl`, con el valor `http://localhost:8080`, y `token`, vacía |
+| CA-28.2  | La aplicación levantada                     | Se compara `GET /v3/api-docs` con la colección      | Cada pedido documentado, por su método y su ruta, tiene al menos un pedido en la colección: los diez |
+| CA-28.3  | La aplicación levantada                     | Se compara cada pedido de la colección con `GET /v3/api-docs` | Su dirección empieza con `{{baseUrl}}`; su método y su ruta son los de un pedido documentado, donde un tramo como `1` ocupa el lugar de `{id}`; y cada parámetro que envía en la dirección está declarado en ese pedido |
+| CA-28.4  | El archivo de la colección                  | Se lee cómo se autentica cada pedido                | La colección declara, una sola vez, autenticación Bearer con `{{token}}`. Los pedidos de login y un `GET` a un listado, el que muestra el `401`, se declaran sin autenticación. Ningún otro pedido declara la suya, y ninguno escribe la cabecera `Authorization` |
+| CA-28.5  | El archivo de la colección                  | Se leen los pedidos de login                        | Son dos: uno con `demo` y `demo1234` y otro con `admin` y `admin1234`, las credenciales de prueba publicadas. Cada uno tiene un guion que guarda el `accessToken` de la respuesta en la variable `token` |
+| CA-28.6  | El archivo de la colección                  | Se recorren sus pedidos en orden                    | El primero es el login de `demo`. Hay un `POST /api/v1/users` antes del login de `admin`, el que muestra el `403`, y otro después, el alta |
+| CA-28.7  | El archivo de la colección                  | Se buscan los pedidos de cada una de las cuatro entidades | Cada una tiene, al menos, un listado con `page` y `size`, uno con `id`, uno con `name`, uno con `expanded=true` y un detalle |
+| CA-28.8  | El archivo de la colección                  | Se leen los pedidos que llevan cuerpo               | Cada cuerpo es JSON válido y se envía con `Content-Type: application/json`   |
+
+Que la colección, ejecutada, responde lo esperado se verifica por revisión: ver la tabla de más abajo.
+
 ### Despliegue público y verificación automática (REQ-20 y REQ-23)
 
 | Criterio | Dado                                        | Cuando                                              | Entonces                                                                    |
@@ -744,6 +860,8 @@ No tienen test de aceptación: se comprueban al revisar cada pull request y al c
 | REQ-18    | El registro de uso de herramientas de IA está al día                                                          |
 | REQ-20    | **CA-20.2:** existe una URL pública, y el README la muestra en su primera pantalla, con el motivo de la elección del servicio y el aviso de cuánto puede tardar el primer pedido. **CA-20.3:** desde esa URL, sin instalar nada, el control de estado responde `UP`, `demo` y `admin` inician sesión, y desde Swagger UI se puede iniciar sesión, cargar el token y listar las cuatro entidades. **CA-20.4:** el despliegue está descripto en un archivo del repositorio, sin ningún secreto. **CA-20.5:** un cambio fusionado en `main` queda desplegado sin pasos manuales |
 | REQ-23    | **CA-23.1:** cada pull request y cada *push* a `main` ejecutan `./mvnw verify` sobre un JDK 21, y el resultado se ve en el pull request. **CA-23.2:** la misma ejecución levanta `docker compose up --build --wait` y comprueba el control de estado, el login de `demo` y que un listado sin token responde `401`, sin llamar a SWAPI. **CA-23.3:** el README muestra el distintivo con el estado de `main`. **CA-23.4:** una ejecución con un test roto se ve en rojo (se comprueba una vez, en el pull request que suma la verificación) |
+| REQ-27    | **CA-27.1:** el README muestra, en su primera pantalla y junto al distintivo de la verificación automática, un distintivo con la cobertura de líneas como porcentaje entero, y su sección "Tests" dice qué mide ese número y dónde está el informe completo. **CA-27.2:** después de `./mvnw verify`, `bash scripts/check-coverage.sh` imprime el porcentaje medido, con las líneas cubiertas y las totales, y termina bien si el número del README es el medido, redondeado hacia abajo a un entero, y no baja del mínimo de 95 %. **CA-27.3:** con otro número en el README, termina con error, y el mensaje dice el número escrito, el medido y que hay que corregir el README (se comprueba una vez, en el pull request que lo suma: un commit con el número cambiado deja la ejecución en rojo, y el siguiente lo revierte). **CA-27.4:** con la cobertura por debajo del mínimo, termina con error, y el mensaje dice el porcentaje medido y el mínimo (se comprueba una vez, en desarrollo, subiendo el mínimo del guion por encima de lo medido). **CA-27.5:** sin el informe, porque no se corrió `./mvnw verify`, termina con error y dice qué comando correr. **CA-27.6:** cada ejecución de la verificación automática corre el guion después de los tests y deja el porcentaje a la vista en su resumen; la definición sigue pidiendo solo permiso de lectura y no usa ningún secreto |
+| REQ-28    | **CA-28.9:** la colección se ejecuta una vez, completa y en orden, contra la aplicación levantada con `docker compose`: los logins, los listados, los detalles y el alta responden `200` o `201`, y los cuatro pedidos que muestran un error responden `401`, `403`, `400` con `errors` y `404`. El resultado queda escrito en el pull request que la suma. **CA-28.10:** el README tiene una sección, enlazada desde el inicio rápido, que dice cómo importar la colección, cómo apuntarla a otra dirección y qué hacer en una herramienta que no ejecuta el guion que guarda el token |
 
 ## 7. Trazabilidad
 
@@ -769,3 +887,6 @@ No tienen test de aceptación: se comprueban al revisar cada pull request y al c
 | REQ-24               | Secciones 3 y 5                     | CA-24.1 a CA-24.15       |
 | REQ-25               | Secciones 1, 2 y 5                  | CA-25.1 a CA-25.8        |
 | REQ-26               | Secciones 2 y 5                     | CA-26.1 a CA-26.12       |
+| REQ-27               | Sección 6, por revisión             | CA-27.1 a CA-27.6        |
+| REQ-28               | Sección 6                           | CA-28.1 a CA-28.8; CA-28.9 y CA-28.10, por revisión |
+| REQ-29               | Secciones 2 y 5                     | CA-29.1 a CA-29.18       |
